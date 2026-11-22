@@ -5,6 +5,7 @@ import { NotificationsService } from '../../../notifications/notifications.servi
 import { ActiveOperationalContext } from '../../../../common/operational-context/operational-context.types';
 import { CreateShiftHandoverDto, UpdateShiftHandoverDto, HANDOVER_STATUSES, HANDOVER_ITEM_ENTITY_TYPES } from './dto/create-shift-handover.dto';
 import { CreateShiftHandoverItemDto } from './dto/create-shift-handover.dto';
+import { activeNotExpired, effectiveDueCompare } from '../../maintenance/maintenance-schedules/schedule-due-authority';
 
 @Injectable()
 export class ShiftHandoversService {
@@ -55,6 +56,7 @@ export class ShiftHandoversService {
 
   private async calculateSnapshots(ctx: ActiveOperationalContext) {
     const machineScope = { companyId: ctx.companyId, OR: [{ branchId: ctx.branchId }, { branchId: null }] };
+    const now = new Date();
 
     const activeProductionOrders = await this.prisma.productionOrder.count({
       where: {
@@ -81,12 +83,12 @@ export class ShiftHandoversService {
       },
     });
 
+    const activeSchedules = activeNotExpired(now);
     const pendingMaintenance = await this.prisma.maintenanceSchedule.count({
       where: {
+        ...activeSchedules,
+        AND: [...activeSchedules.AND, effectiveDueCompare('lte', now)],
         machine: machineScope,
-        status: 'ACTIVE',
-        startDate: { lte: new Date() },
-        endDate: null,
       },
     });
 

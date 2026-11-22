@@ -41,7 +41,10 @@ describe('MaintenanceSchedulesService', () => {
     prisma = {
       machine: { findUnique: jest.fn() },
       maintenanceRequest: { findUnique: jest.fn(), findFirst: jest.fn(), create: jest.fn() },
-      maintenanceSchedule: { findUnique: jest.fn(), findMany: jest.fn(), count: jest.fn(), create: jest.fn(), update: jest.fn() },
+      maintenanceSchedule: {
+        findUnique: jest.fn(), findMany: jest.fn(), count: jest.fn(), create: jest.fn(),
+        update: jest.fn(), updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+      },
       maintenanceChecklistItem: {
         findMany: jest.fn(), findFirst: jest.fn(), create: jest.fn(),
         createMany: jest.fn(), update: jest.fn(), updateMany: jest.fn(),
@@ -210,34 +213,109 @@ describe('MaintenanceSchedulesService', () => {
       await expect(service.generateRequest('s1', 'u1', ctx)).rejects.toThrow(ConflictException);
     });
 
-    it('generates a request, advances the next due date and audits', async () => {
-      prisma.maintenanceSchedule.findUnique.mockResolvedValue(schedule());
-      prisma.maintenanceRequest.findFirst.mockResolvedValue(null);
-      prisma.maintenanceRequest.create.mockResolvedValue({ id: 'r1', requestNumber: 'REQ-0001', status: 'OPEN' });
+    it('claims the due occurrence, advances the anchored cadence and audits the transition', async () => {
+      jest.useFakeTimers().setSystemTime(new Date('2026-11-23T12:00:00.000Z'));
+      try {
+        const startDate = new Date('2026-08-01T00:00:00.000Z');
+        const intervalDays = 30;
+        prisma.maintenanceSchedule.findUnique.mockResolvedValue(schedule({ startDate, intervalDays }));
+        prisma.maintenanceRequest.findFirst.mockResolvedValue(null);
+        prisma.maintenanceRequest.create.mockResolvedValue({ id: 'r1', requestNumber: 'REQ-0001', status: 'OPEN' });
 
-      const result = await service.generateRequest('s1', 'u1', ctx);
+        const result = await service.generateRequest('s1', 'u1', ctx);
 
-      expect(numbering.generateNumberAtomicWithClient).toHaveBeenCalledWith('MAINTENANCE_REQUEST', prisma);
-      expect(numbering.generateNumberAtomic).not.toHaveBeenCalled();
-      expect(prisma.maintenanceSchedule.update).toHaveBeenCalledWith({
-        where: { id: 's1' },
-        data: expect.objectContaining({ lastGeneratedAt: expect.any(Date), nextDueDate: expect.any(Date) }),
-      });
-      expect(prisma.maintenanceRequest.create).toHaveBeenCalledWith({
-        data: expect.objectContaining({ machineId: 'm1', status: 'OPEN', requestedById: 'u1', title: 'Preventive: Weekly lube' }),
-      });
-      expect(audit.log).toHaveBeenCalledWith('u1', 'GENERATE', 'MaintenanceSchedule', 's1', expect.anything());
-      expect(result.id).toBe('r1');
+        expect(numbering.generateNumberAtomicWithClient).toHaveBeenCalledWith('MAINTENANCE_REQUEST', prisma);
+        expect(numbering.generateNumberAtomic).not.toHaveBeenCalled();
+        expect(prisma.maintenanceSchedule.updateMany).toHaveBeenCalledWith({
+          where: { id: 's1', nextDueDate: null, lastGeneratedAt: null },
+          data: { lastGeneratedAt: expect.any(Date) },
+        });
+        const updateCall = prisma.maintenanceSchedule.update.mock.calls[0][0];
+        const intervalMs = intervalDays * 86400000;
+        const intervals = Math.floor((Date.now() - startDate.getTime()) / intervalMs) + 1;
+        expect(updateCall.data.nextDueDate).toEqual(new Date(startDate.getTime() + intervals * intervalMs));
+        expect(updateCall.data.startDate).toBeUndefined();
+        expect(prisma.maintenanceRequest.create).toHaveBeenCalledWith({
+          data: expect.objectContaining({ machineId: 'm1', status: 'OPEN', requestedById: 'u1', title: 'Preventive: Weekly lube' }),
+        });
+        const auditCall = audit.log.mock.calls.find((call: any[]) => call[1] === 'GENERATE');
+        expect(auditCall).toBeDefined();
+        expect(auditCall![4]).toEqual(expect.objectContaining({
+          requestId: 'r1',
+          previousEffectiveDueDate: startDate,
+          previousNextDueDate: null,
+          nextDueDate: updateCall.data.nextDueDate,
+          lastGeneratedAt: expect.any(Date),
+        }));
+        expect(result.id).toBe('r1');
+      } finally {
+        jest.useRealTimers();
+      }
     });
 
-    it('advances the next due date by the interval in days', async () => {
-      prisma.maintenanceSchedule.findUnique.mockResolvedValue(schedule({ intervalDays: 30 }));
+    it('rejects generation when nextDueDate has already advanced beyond now', async () => {
+      jest.useFakeTimers().setSystemTime(new Date('2026-11-23T12:00:00.000Z'));
+      try {
+        prisma.maintenanceSchedule.findUnique.mockResolvedValue(schedule({
+          startDate: new Date('2026-08-01T00:00:00.000Z'),
+          nextDueDate: new Date('2026-12-01T00:00:00.000Z'),
+        }));
+        await expect(service.generateRequest('s1', 'u1', ctx)).rejects.toBeInstanceOf(ConflictException);
+        expect(prisma.maintenanceSchedule.updateMany).not.toHaveBeenCalled();
+        expect(prisma.maintenanceSchedule.update).not.toHaveBeenCalled();
+        expect(numbering.generateNumberAtomicWithClient).not.toHaveBeenCalled();
+        expect(audit.log).not.toHaveBeenCalled();
+      } finally {
+        jest.useRealTimers();
+      }
+    });
+
+    it('does not create a request when the optimistic occurrence claim is lost', async () => {
+      prisma.maintenanceSchedule.findUnique.mockResolvedValue(schedule({ nextDueDate: new Date('2026-08-01T00:00:00.000Z') }));
       prisma.maintenanceRequest.findFirst.mockResolvedValue(null);
-      prisma.maintenanceRequest.create.mockResolvedValue({ id: 'r2', requestNumber: 'REQ-0002' });
-      await service.generateRequest('s1', 'u1', ctx);
-      const updateCall = prisma.maintenanceSchedule.update.mock.calls[0][0];
-      const nextDue = (updateCall.data.nextDueDate as Date).getTime();
-      expect(Math.abs(nextDue - Date.now() - 30 * 86400000)).toBeLessThan(5000);
+      prisma.maintenanceSchedule.updateMany.mockResolvedValue({ count: 0 });
+
+      await expect(service.generateRequest('s1', 'u1', ctx)).rejects.toBeInstanceOf(ConflictException);
+
+      expect(numbering.generateNumberAtomicWithClient).not.toHaveBeenCalled();
+      expect(prisma.maintenanceSchedule.update).not.toHaveBeenCalled();
+      expect(prisma.maintenanceRequest.create).not.toHaveBeenCalled();
+      expect(audit.log).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('Phase 9 — effective due authority in list queries', () => {
+    it('derives effectiveDueDate from nextDueDate and never from a stale startDate alone', async () => {
+      const nextDueDate = new Date('2099-01-01T00:00:00.000Z');
+      prisma.maintenanceSchedule.findMany.mockResolvedValue([schedule({
+        startDate: new Date('2026-08-01T00:00:00.000Z'), nextDueDate,
+      })]);
+      prisma.maintenanceSchedule.count.mockResolvedValue(1);
+
+      const result = await service.findAll({}, ctx);
+
+      expect(result.data[0].effectiveDueDate).toEqual(nextDueDate);
+      expect(result.data[0].dueStatus).toBe('notDue');
+      expect(result.data[0].startDate).toEqual(new Date('2026-08-01T00:00:00.000Z'));
+    });
+
+    it('pushes dueStatus filtering into the database using the same effective-due predicate', async () => {
+      prisma.maintenanceSchedule.findMany.mockResolvedValue([]);
+      prisma.maintenanceSchedule.count.mockResolvedValue(0);
+
+      await service.findAll({ dueStatus: 'overdue' }, ctx);
+
+      const where = prisma.maintenanceSchedule.findMany.mock.calls[0][0].where;
+      const duePredicate = where.AND[0];
+      expect(duePredicate).toEqual(expect.objectContaining({ status: 'ACTIVE' }));
+      expect(duePredicate.AND).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          OR: [
+            { nextDueDate: { lt: expect.any(Date) } },
+            { nextDueDate: null, startDate: { lt: expect.any(Date) } },
+          ],
+        }),
+      ]));
     });
   });
 

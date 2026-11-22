@@ -1,0 +1,247 @@
+{
+  "generatedAt": "2026-11-22T21:46:03.827Z",
+  "database": "ATsoftERP_PERSONNEL_P78_20261122",
+  "productionMigrationApplied": false,
+  "productionWriteOccurred": false,
+  "authMode": "ENV_DERIVED_JWT",
+  "secrets": "REDACTED",
+  "proofWindowStart": "2026-11-22T21:46:02.402Z",
+  "fixtures": {
+    "A": {
+      "id": "cmwsd97ik001ghk95kfbq8qib",
+      "machineId": "cmwsd97hi0007s095bqj6g471",
+      "title": "P9-PROOF-1795383961717-A"
+    },
+    "B": {
+      "id": "cmwsd97jt001ihk95rzb02a34",
+      "machineId": "cmwsd97iw0008s0957kjti527",
+      "title": "P9-PROOF-1795383961717-B"
+    },
+    "C": {
+      "id": "cmwsd97l4001khk95l2af8m7w",
+      "machineId": "cmwsd97k40009s095a6elyh8z",
+      "title": "P9-PROOF-1795383961717-C"
+    },
+    "D": {
+      "id": "cmwsd97mc001mhk9550kwumsz",
+      "machineId": "cmwsd97le000as0951nhnb8t8",
+      "title": "P9-PROOF-1795383961717-D"
+    },
+    "E": {
+      "id": "cmwsd97nm001ohk95vz0nw75p",
+      "machineId": "cmwsd97mo000bs0954anj64gb",
+      "title": "P9-PROOF-1795383961717-E"
+    },
+    "F": {
+      "id": "cmwsd97ot001qhk95hf07rlm9",
+      "machineId": "cmwsd97nx000cs0952gq9f7on",
+      "title": "P9-PROOF-1795383961717-F"
+    }
+  },
+  "expectedStates": {
+    "A": "overdue",
+    "B": "notDue",
+    "C": "dueSoon",
+    "D": "overdue",
+    "E": "inactive",
+    "F": "expired"
+  },
+  "counts": {
+    "overdueDelta": 2,
+    "upcomingDelta": 2,
+    "dashboardDelta": 2,
+    "reportCards": [
+      {
+        "label": "totalSchedules",
+        "value": 31
+      },
+      {
+        "label": "overdueSchedules",
+        "value": 7
+      },
+      {
+        "label": "dueSoonSchedules",
+        "value": 12
+      },
+      {
+        "label": "notDue",
+        "value": 4
+      },
+      {
+        "label": "inactive",
+        "value": 4
+      }
+    ]
+  },
+  "generation": {
+    "requestId": "cmwsd986o001shk957ll0coor",
+    "nextDueDate": "2026-11-27T21:46:01.717Z",
+    "duplicateStatus": 409,
+    "batchProofMachineRequests": 2,
+    "expectedProofMachineRequests": 2,
+    "auditAction": "GENERATE"
+  },
+  "crossTenant": {
+    "foreignList": 0,
+    "foreignReport": 0,
+    "foreignCalendar": 0,
+    "foreignDetail": 404,
+    "foreignPatch": 404,
+    "foreignReference": 404
+  },
+  "tokens": {
+    "SCHEDULE_ROWS_LOST": 0,
+    "DUPLICATE_GENERATED_REQUESTS": 0,
+    "INVALID_NEXT_DUE_DATES": 0,
+    "CROSS_TENANT_RESULTS": 0,
+    "UNINTENDED_START_DATE_MUTATIONS": 0,
+    "DUPLICATE_AUDIT_EVENTS": 0
+  },
+  "checks": [
+    {
+      "name": "contexts_resolve_for_proof_users",
+      "result": "PASS",
+      "detail": {
+        "mainContexts": 1,
+        "foreignContexts": 1
+      }
+    },
+    {
+      "name": "controlled_fixtures_created_through_api",
+      "result": "PASS",
+      "detail": {
+        "scheduleIds": {
+          "A": "cmwsd97ik001ghk95kfbq8qib",
+          "B": "cmwsd97jt001ihk95rzb02a34",
+          "C": "cmwsd97l4001khk95l2af8m7w",
+          "D": "cmwsd97mc001mhk9550kwumsz",
+          "E": "cmwsd97nm001ohk95vz0nw75p",
+          "F": "cmwsd97ot001qhk95hf07rlm9"
+        }
+      }
+    },
+    {
+      "name": "schedules_expose_effective_due_and_status",
+      "result": "PASS",
+      "detail": {
+        "expected": {
+          "A": "overdue",
+          "B": "notDue",
+          "C": "dueSoon",
+          "D": "overdue",
+          "E": "inactive",
+          "F": "expired"
+        }
+      }
+    },
+    {
+      "name": "db_level_due_status_filters_match_ui_states",
+      "result": "PASS",
+      "detail": {
+        "overdue": 2,
+        "dueSoon": 1,
+        "notDue": 1,
+        "inactive": 1,
+        "expired": 1
+      }
+    },
+    {
+      "name": "preventive_upcoming_overdue_and_calendar_use_effective_due",
+      "result": "PASS",
+      "detail": {
+        "upcoming": 2,
+        "overdue": 2,
+        "calendars": 2
+      }
+    },
+    {
+      "name": "dashboard_and_report_due_counts_match_effective_due",
+      "result": "PASS",
+      "detail": {
+        "overdueDelta": 2,
+        "upcomingDelta": 2,
+        "dashboardDelta": 2,
+        "reportCards": [
+          {
+            "label": "totalSchedules",
+            "value": 31
+          },
+          {
+            "label": "overdueSchedules",
+            "value": 7
+          },
+          {
+            "label": "dueSoonSchedules",
+            "value": 12
+          },
+          {
+            "label": "notDue",
+            "value": 4
+          },
+          {
+            "label": "inactive",
+            "value": 4
+          }
+        ]
+      }
+    },
+    {
+      "name": "generation_advances_anchored_due_and_audits",
+      "result": "PASS",
+      "detail": {
+        "requestId": "cmwsd986o001shk957ll0coor",
+        "nextDueDate": "2026-11-27T21:46:01.717Z",
+        "auditAction": "GENERATE"
+      }
+    },
+    {
+      "name": "duplicate_generation_is_rejected_without_second_write",
+      "result": "PASS",
+      "detail": {
+        "status": 409,
+        "duplicates": 0
+      }
+    },
+    {
+      "name": "batch_generation_advances_only_remaining_due_occurrence",
+      "result": "PASS",
+      "detail": {
+        "batchCreated": 1,
+        "controlledGenerated": [
+          {
+            "id": "cmwsd98ak001uhk95xhhe8isl",
+            "machineId": "cmwsd97le000as0951nhnb8t8"
+          }
+        ],
+        "proofMachineRequests": 2,
+        "advancedANotRegenerated": true
+      }
+    },
+    {
+      "name": "tenant_and_branch_isolation_enforced",
+      "result": "PASS",
+      "detail": {
+        "foreignList": 0,
+        "foreignReport": 0,
+        "foreignCalendar": 0,
+        "foreignDetail": 404,
+        "foreignPatch": 404,
+        "foreignReference": 404,
+        "unauthorizedBranchStatus": 403,
+        "bodyTenantSpoofStatus": 403
+      }
+    },
+    {
+      "name": "rbac_allow_deny_enforced",
+      "result": "PASS",
+      "detail": {
+        "deniedListStatus": 403,
+        "limitedReadStatus": 200,
+        "limitedGenerateStatus": 403,
+        "deniedReportStatus": 403
+      }
+    }
+  ],
+  "requestCount": 41,
+  "status": "PASS"
+}

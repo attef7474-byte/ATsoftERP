@@ -22,7 +22,7 @@ jest.mock('../src/lib/api', () => ({ api: { get: jest.fn() } }));
 
 
 const Page=require('../src/app/admin/reports/upcoming-preventive/page').default,api=require('../src/lib/api').api;
-const fixture=():PreventivePrintData=>({rows:[{id:'private-schedule',title:'Motor inspection',machine:{name:'Machine A'},type:'PREVENTIVE',frequency:'MONTHLY',startDate:'2026-11-01',endDate:'2026-11-20',status:'ACTIVE'}],total:1,page:1,pageSize:20,totalPages:1,cards:[{label:'dueWithinWeek',value:10},{label:'totalActiveSchedules',value:1}]});
+const fixture=():PreventivePrintData=>({rows:[{id:'private-schedule',title:'Motor inspection',machine:{name:'Machine A'},type:'PREVENTIVE',frequency:'MONTHLY',effectiveDueDate:'2026-11-01',endDate:'2026-11-20',status:'ACTIVE'}],total:1,page:1,pageSize:20,totalPages:1,cards:[{label:'dueWithinWeek',value:10},{label:'totalActiveSchedules',value:1}]});
 describe('upcoming preventive print',()=>{
   it.each(['ar','en'] as const)('renders %s the 30-day window and canonical count, without misleading week/all-active aggregates',locale=>{
     mockLocale=locale;const model=maintenanceUpcomingPrintModel({data:fixture(),params:{},labels:{},scopeKey:'scope'},mockT,locale);

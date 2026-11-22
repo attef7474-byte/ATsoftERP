@@ -3,6 +3,7 @@ import { PrismaService } from '../../../../common/prisma/prisma.service';
 import { AuditService } from '../../../../common/audit/audit.service';
 import { NumberingService } from '../../../../modules/numbering/numbering.service';
 import { ActiveOperationalContext } from '../../../../common/operational-context/operational-context.types';
+import { activeNotExpired, calculateNextDueDate, effectiveDueBetween, effectiveDueCompare, generationClaimWhere, getEffectiveDueDate, overdueWhere, upcomingWhere, withDueAuthority } from '../maintenance-schedules/schedule-due-authority';
 
 @Injectable()
 export class PreventiveMaintenanceService {
@@ -31,12 +32,12 @@ export class PreventiveMaintenanceService {
     const page = query.page || 1;
     const limit = query.limit || 10;
     const now = new Date();
-    const thirtyDaysFromNow = new Date(now.getTime() + 30 * 86400000);
-    const where = { ...this.scheduleScope(ctx), status: 'ACTIVE', startDate: { gte: now, lte: thirtyDaysFromNow } };
+    const where = { ...this.scheduleScope(ctx), ...upcomingWhere(now, 30) };
 
     const [data, total] = await Promise.all([
       this.prisma.maintenanceSchedule.findMany({
-        where, skip: (page - 1) * limit, take: limit, orderBy: { startDate: 'asc' },
+        where, skip: (page - 1) * limit, take: limit,
+        orderBy: [{ nextDueDate: 'asc' }, { startDate: 'asc' }],
         include: {
           machine: { select: { id: true, code: true, name: true, status: true } },
           request: { select: { id: true, requestNumber: true, title: true } },
@@ -44,18 +45,21 @@ export class PreventiveMaintenanceService {
       }),
       this.prisma.maintenanceSchedule.count({ where }),
     ]);
-    return { data, meta: { page, limit, total, totalPages: Math.ceil(total / limit) } };
+    const enriched = data.map((item: any) => withDueAuthority(item, now))
+      .sort((a: any, b: any) => a.effectiveDueDate.getTime() - b.effectiveDueDate.getTime());
+    return { data: enriched, meta: { page, limit, total, totalPages: Math.ceil(total / limit) } };
   }
 
   async getOverdue(query: { page?: number; limit?: number }, ctx: ActiveOperationalContext) {
     const page = query.page || 1;
     const limit = query.limit || 10;
     const now = new Date();
-    const where = { ...this.scheduleScope(ctx), status: 'ACTIVE', startDate: { lt: now } };
+    const where = { ...this.scheduleScope(ctx), ...overdueWhere(now) };
 
     const [data, total] = await Promise.all([
       this.prisma.maintenanceSchedule.findMany({
-        where, skip: (page - 1) * limit, take: limit, orderBy: { startDate: 'asc' },
+        where, skip: (page - 1) * limit, take: limit,
+        orderBy: [{ nextDueDate: 'asc' }, { startDate: 'asc' }],
         include: {
           machine: { select: { id: true, code: true, name: true, status: true } },
           request: { select: { id: true, requestNumber: true, title: true } },
@@ -63,7 +67,9 @@ export class PreventiveMaintenanceService {
       }),
       this.prisma.maintenanceSchedule.count({ where }),
     ]);
-    return { data, meta: { page, limit, total, totalPages: Math.ceil(total / limit) } };
+    const enriched = data.map((item: any) => withDueAuthority(item, now))
+      .sort((a: any, b: any) => a.effectiveDueDate.getTime() - b.effectiveDueDate.getTime());
+    return { data: enriched, meta: { page, limit, total, totalPages: Math.ceil(total / limit) } };
   }
 
   async getCalendar(query: { year?: number; month?: number }, ctx: ActiveOperationalContext) {
@@ -73,26 +79,30 @@ export class PreventiveMaintenanceService {
     const startOfMonth = new Date(year, month - 1, 1);
     const startOfNextMonth = new Date(year, month, 1);
 
+    const range = effectiveDueBetween(startOfMonth, new Date(startOfNextMonth.getTime() - 1));
+    const active = activeNotExpired(now);
     const schedules = await this.prisma.maintenanceSchedule.findMany({
       where: {
         ...this.scheduleScope(ctx),
-        status: 'ACTIVE',
-        startDate: { gte: startOfMonth, lt: startOfNextMonth },
+        ...active,
+        AND: [...active.AND, ...range.AND],
       },
       include: {
         machine: { select: { id: true, code: true, name: true } },
       },
-      orderBy: { startDate: 'asc' },
+      orderBy: [{ nextDueDate: 'asc' }, { startDate: 'asc' }],
     });
 
+    const enriched = schedules.map((s: any) => withDueAuthority(s, now))
+      .sort((a: any, b: any) => a.effectiveDueDate.getTime() - b.effectiveDueDate.getTime());
     const calendar: Record<string, any[]> = {};
-    for (const s of schedules) {
-      const dateKey = s.startDate.toISOString().split('T')[0];
+    for (const s of enriched) {
+      const dateKey = s.effectiveDueDate.toISOString().split('T')[0];
       if (!calendar[dateKey]) calendar[dateKey] = [];
       calendar[dateKey].push(s);
     }
 
-    return { year, month, total: schedules.length, calendar };
+    return { year, month, total: enriched.length, calendar };
   }
 
   async getExecutionHistory(query: { page?: number; limit?: number; scheduleId?: string }, ctx: ActiveOperationalContext) {
@@ -127,14 +137,13 @@ export class PreventiveMaintenanceService {
 
   async generateDueTasks(userId: string, ctx: ActiveOperationalContext) {
     const now = new Date();
+    const active = activeNotExpired(now);
+    const due = effectiveDueCompare('lte', now);
     const dueSchedules = await this.prisma.maintenanceSchedule.findMany({
       where: {
         ...this.scheduleScope(ctx),
-        status: 'ACTIVE',
-        OR: [
-          { startDate: { lte: now } },
-          { nextDueDate: { not: null, lte: now } },
-        ],
+        ...active,
+        AND: [...active.AND, due],
       },
       include: { machine: true },
     });
@@ -152,14 +161,23 @@ export class PreventiveMaintenanceService {
 
       if (existingRequest) continue;
 
+      const effectiveDueDate = getEffectiveDueDate(schedule);
+      const generatedAt = new Date();
+      let advancedNextDue: Date | null = null;
       const request = await this.prisma.$transaction(async (tx) => {
-        const requestNumber = await this.numberingService.generateNumberAtomicWithClient('MAINTENANCE_REQUEST', tx);
+        const claim = await tx.maintenanceSchedule.updateMany({
+          where: generationClaimWhere(schedule),
+          data: { lastGeneratedAt: generatedAt },
+        });
+        if (claim.count !== 1) return null;
 
-        const nextDue = this.calculateNextDueDate(schedule, now);
+        const requestNumber = await this.numberingService.generateNumberAtomicWithClient('MAINTENANCE_REQUEST', tx);
+        const nextDue = calculateNextDueDate(schedule, generatedAt);
+        advancedNextDue = nextDue;
 
         await tx.maintenanceSchedule.update({
           where: { id: schedule.id },
-          data: { lastGeneratedAt: now, nextDueDate: nextDue, requestId: null },
+          data: { lastGeneratedAt: generatedAt, nextDueDate: nextDue, requestId: null },
         });
 
         return tx.maintenanceRequest.create({
@@ -176,27 +194,19 @@ export class PreventiveMaintenanceService {
         });
       });
 
-      await this.audit.log(userId, 'GENERATE', 'MaintenanceRequest', request.id,
-        { scheduleId: schedule.id, machineId: schedule.machineId });
+      if (!request) continue;
+      await this.audit.log(userId, 'GENERATE', 'MaintenanceRequest', request.id, {
+        scheduleId: schedule.id,
+        machineId: schedule.machineId,
+        previousEffectiveDueDate: effectiveDueDate,
+        previousNextDueDate: schedule.nextDueDate ?? null,
+        nextDueDate: advancedNextDue,
+        lastGeneratedAt: generatedAt,
+      });
       created.push(request);
     }
 
     return { created: created.length, requests: created };
   }
 
-  private calculateNextDueDate(schedule: { startDate: Date; intervalDays?: number | null; frequency: string; endDate?: Date | null }, from: Date): Date | null {
-    const base = from;
-    if (schedule.endDate && new Date(schedule.endDate) < base) return null;
-    if (schedule.intervalDays && schedule.intervalDays > 0) {
-      return new Date(base.getTime() + schedule.intervalDays * 86400000);
-    }
-    switch (schedule.frequency) {
-      case 'DAILY': return new Date(base.getTime() + 86400000);
-      case 'WEEKLY': return new Date(base.getTime() + 7 * 86400000);
-      case 'MONTHLY': return new Date(base.getFullYear(), base.getMonth() + 1, base.getDate());
-      case 'QUARTERLY': return new Date(base.getFullYear(), base.getMonth() + 3, base.getDate());
-      case 'YEARLY': return new Date(base.getFullYear() + 1, base.getMonth(), base.getDate());
-      default: return schedule.intervalDays ? new Date(base.getTime() + schedule.intervalDays * 86400000) : null;
-    }
-  }
 }

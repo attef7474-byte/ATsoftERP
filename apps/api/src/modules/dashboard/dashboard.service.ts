@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { ActiveOperationalContext } from '../../common/operational-context/operational-context.types';
+import { overdueWhere } from '../factory/maintenance/maintenance-schedules/schedule-due-authority';
 
 @Injectable()
 export class DashboardService {
@@ -126,10 +127,7 @@ export class DashboardService {
         _count: true,
       }),
       this.prisma.maintenanceSchedule.count({
-        where: {
-          status: 'ACTIVE',
-          machine: machineWhere,
-        },
+        where: { ...overdueWhere(), machine: machineWhere },
       }),
       this.prisma.downtimeLog.count({
         where: {
@@ -185,10 +183,7 @@ export class DashboardService {
         include: { machine: { select: { name: true } } },
       }),
       this.prisma.maintenanceSchedule.count({
-        where: {
-          status: 'ACTIVE',
-          machine: machineWhere,
-        },
+        where: { ...overdueWhere(), machine: machineWhere },
       }),
       this.prisma.downtimeLog.count({
         where: {

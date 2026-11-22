@@ -8,7 +8,8 @@ import {
   ENTRY_ROLE_PRIMARY_COST,
   ENTRY_ROLE_REVERSAL,
 } from '../../factory/production-cost/production-cost.constants';
-import { buildDateFilter, nowPlusDays, paginate } from './report-query-utils';
+import { buildDateFilter, paginate } from './report-query-utils';
+import { activeNotExpired, dueStatusWhere, effectiveDueBetween, overdueWhere, upcomingWhere, withDueAuthority } from '../../factory/maintenance/maintenance-schedules/schedule-due-authority';
 
 @Injectable()
 export class MaintenanceReportsService {
@@ -215,7 +216,6 @@ export class MaintenanceReportsService {
   async getPreventiveSchedulesReport(filters: MaintenanceReportFilterDto, ctx: ActiveOperationalContext) {
     const where: any = {};
     const now = new Date();
-    const soon = nowPlusDays(7);
 
     if (filters.machineId) {
       await this.assertMachineAccess(filters.machineId, ctx);
@@ -229,25 +229,32 @@ export class MaintenanceReportsService {
     if (filters.costCenterId) where.machine = { ...(where.machine || {}), defaultCostCenterId: filters.costCenterId };
     where.machine = { ...(where.machine || {}), ...this.machineScope(ctx) };
     if (filters.maintenanceType) where.type = filters.maintenanceType;
-    if (filters.dueStatus === 'overdue') where.endDate = { lte: now };
-    else if (filters.dueStatus === 'dueSoon') where.endDate = { gte: now, lte: soon };
-    else if (filters.dueStatus === 'notDue') where.OR = [{ endDate: { gt: now } }, { endDate: null }];
+    if (filters.dueStatus) {
+      const predicate = dueStatusWhere(filters.dueStatus, now);
+      if (Object.keys(predicate).length > 0) {
+        where.AND = [...(where.AND || []), predicate];
+      }
+    }
     if (filters.search) where.title = { contains: filters.search };
+
+    const withPredicate = (predicate: any) => ({ ...where, AND: [...(where.AND || []), predicate] });
 
     const [total, rows, activeCount, inactiveCount, overdueCount, dueSoonCount, notDueCount] = await Promise.all([
       this.prisma.maintenanceSchedule.count({ where }),
       this.prisma.maintenanceSchedule.findMany({
         where, ...paginate(filters.page, filters.pageSize),
-        orderBy: { startDate: 'desc' },
+        orderBy: [{ nextDueDate: 'desc' }, { startDate: 'desc' }],
         include: { machine: { select: { id: true, code: true, name: true } } },
       }),
       this.prisma.maintenanceSchedule.count({ where: { ...where, status: 'ACTIVE' } }),
       this.prisma.maintenanceSchedule.count({ where: { ...where, status: 'INACTIVE' } }),
-      this.prisma.maintenanceSchedule.count({ where: { ...where, status: 'ACTIVE', endDate: { lte: now } } }),
-      this.prisma.maintenanceSchedule.count({ where: { ...where, status: 'ACTIVE', endDate: { gte: now, lte: soon } } }),
-      this.prisma.maintenanceSchedule.count({ where: { ...where, status: 'ACTIVE', OR: [{ endDate: { gt: now } }, { endDate: null }] } }),
+      this.prisma.maintenanceSchedule.count({ where: withPredicate(dueStatusWhere('overdue', now)) }),
+      this.prisma.maintenanceSchedule.count({ where: withPredicate(dueStatusWhere('dueSoon', now)) }),
+      this.prisma.maintenanceSchedule.count({ where: withPredicate(dueStatusWhere('notDue', now)) }),
     ]);
 
+    const enrichedRows = rows.map((row: any) => withDueAuthority(row, now))
+      .sort((a: any, b: any) => b.effectiveDueDate.getTime() - a.effectiveDueDate.getTime());
     const totalPages = Math.ceil(total / (filters.pageSize || 20));
     return {
       cards: [
@@ -257,7 +264,7 @@ export class MaintenanceReportsService {
         { label: 'notDue', value: notDueCount },
         { label: 'inactive', value: inactiveCount },
       ],
-      rows, total, page: filters.page || 1, pageSize: filters.pageSize || 20, totalPages,
+      rows: enrichedRows, total, page: filters.page || 1, pageSize: filters.pageSize || 20, totalPages,
     };
   }
 
@@ -342,8 +349,7 @@ export class MaintenanceReportsService {
 
   async getUpcomingPreventiveReport(filters: any, ctx: ActiveOperationalContext) {
     const now = new Date();
-    const soon = nowPlusDays(30);
-    const where: any = { status: 'ACTIVE', endDate: { gte: now, lte: soon } };
+    const where: any = upcomingWhere(now, 30);
     if (filters.machineId) {
       await this.assertMachineAccess(filters.machineId, ctx);
       where.machineId = filters.machineId;
@@ -357,17 +363,21 @@ export class MaintenanceReportsService {
     where.machine = { ...(where.machine || {}), ...this.machineScope(ctx) };
     if (filters.search) where.title = { contains: filters.search };
 
+    const withDueStatus = (status: string) => ({ ...where, AND: [...(where.AND || []), dueStatusWhere(status, now)] });
+
     const [total, rows, dueSoonCount, totalActive] = await Promise.all([
       this.prisma.maintenanceSchedule.count({ where }),
       this.prisma.maintenanceSchedule.findMany({
         where, ...paginate(filters.page, filters.pageSize),
-        orderBy: { endDate: 'asc' },
+        orderBy: [{ nextDueDate: 'asc' }, { startDate: 'asc' }],
         include: { machine: { select: { id: true, code: true, name: true } } },
       }),
-      this.prisma.maintenanceSchedule.count({ where: { ...where, endDate: { lte: nowPlusDays(7) } } }),
+      this.prisma.maintenanceSchedule.count({ where: withDueStatus('dueSoon') }),
       this.prisma.maintenanceSchedule.count({ where: { ...where, status: 'ACTIVE' } }),
     ]);
 
+    const enrichedRows = rows.map((row: any) => withDueAuthority(row, now))
+      .sort((a: any, b: any) => a.effectiveDueDate.getTime() - b.effectiveDueDate.getTime());
     const totalPages = Math.ceil(total / (filters.pageSize || 20));
     return {
       cards: [
@@ -375,13 +385,13 @@ export class MaintenanceReportsService {
         { label: 'dueWithinWeek', value: dueSoonCount },
         { label: 'totalActiveSchedules', value: totalActive },
       ],
-      rows, total, page: filters.page || 1, pageSize: filters.pageSize || 20, totalPages,
+      rows: enrichedRows, total, page: filters.page || 1, pageSize: filters.pageSize || 20, totalPages,
     };
   }
 
   async getOverduePreventiveReport(filters: any, ctx: ActiveOperationalContext) {
     const now = new Date();
-    const where: any = { status: 'ACTIVE', endDate: { lt: now } };
+    const where: any = overdueWhere(now);
     if (filters.machineId) {
       await this.assertMachineAccess(filters.machineId, ctx);
       where.machineId = filters.machineId;
@@ -399,13 +409,15 @@ export class MaintenanceReportsService {
       this.prisma.maintenanceSchedule.count({ where }),
       this.prisma.maintenanceSchedule.findMany({
         where, ...paginate(filters.page, filters.pageSize),
-        orderBy: { endDate: 'asc' },
+        orderBy: [{ nextDueDate: 'asc' }, { startDate: 'asc' }],
         include: { machine: { select: { id: true, code: true, name: true } } },
       }),
       this.prisma.maintenanceSchedule.count({ where: { ...where, status: 'ACTIVE' } }),
-      this.prisma.maintenanceSchedule.count({ where: { ...where, status: 'ACTIVE' } }),
+      this.prisma.maintenanceSchedule.count({ where: { ...activeNotExpired(now), machine: where.machine } }),
     ]);
 
+    const enrichedRows = rows.map((row: any) => withDueAuthority(row, now))
+      .sort((a: any, b: any) => a.effectiveDueDate.getTime() - b.effectiveDueDate.getTime());
     const totalPages = Math.ceil(total / (filters.pageSize || 20));
     return {
       cards: [
@@ -414,7 +426,7 @@ export class MaintenanceReportsService {
         { label: 'totalActiveSchedules', value: totalActive },
         { label: 'complianceRate', value: totalActive > 0 ? Math.round(((totalActive - overdueCount) / totalActive) * 100) : 100, unit: '%' },
       ],
-      rows, total, page: filters.page || 1, pageSize: filters.pageSize || 20, totalPages,
+      rows: enrichedRows, total, page: filters.page || 1, pageSize: filters.pageSize || 20, totalPages,
     };
   }
 
@@ -709,6 +721,14 @@ export class MaintenanceReportsService {
     if (filters.operationTypeId) scheduleWhere.machine = { ...(scheduleWhere.machine || {}), operationTypeId: filters.operationTypeId };
     if (filters.costCenterId) scheduleWhere.machine = { ...(scheduleWhere.machine || {}), defaultCostCenterId: filters.costCenterId };
 
+    const withPredicate = (base: any, predicate: any) => ({ ...base, AND: [...(base.AND || []), predicate] });
+    const dueWindow = filters.dateFrom || filters.dateTo
+      ? effectiveDueBetween(
+          filters.dateFrom ? new Date(filters.dateFrom) : new Date(0),
+          filters.dateTo ? new Date(filters.dateTo) : new Date(8640000000000000),
+        )
+      : null;
+
     const requestWhere: any = { type: 'PREVENTIVE', machine: this.machineScope(ctx) };
     if (filters.machineId) requestWhere.machineId = filters.machineId;
     if (filters.productionLineId) requestWhere.productionLineId = filters.productionLineId;
@@ -718,9 +738,9 @@ export class MaintenanceReportsService {
     const [totalSchedules, activeSchedules, overdueSchedules, completedPreventive, totalPreventiveDue] = await Promise.all([
       this.prisma.maintenanceSchedule.count({ where: scheduleWhere }),
       this.prisma.maintenanceSchedule.count({ where: { ...scheduleWhere, status: 'ACTIVE' } }),
-      this.prisma.maintenanceSchedule.count({ where: { ...scheduleWhere, status: 'ACTIVE', endDate: { lt: now } } }),
+      this.prisma.maintenanceSchedule.count({ where: withPredicate(scheduleWhere, overdueWhere(now)) }),
       this.prisma.maintenanceRequest.count({ where: { ...requestWhere, ...dateFilter, status: 'COMPLETED' } }),
-      this.prisma.maintenanceSchedule.count({ where: { ...scheduleWhere, ...dateFilter, status: 'ACTIVE' } }),
+      this.prisma.maintenanceSchedule.count({ where: dueWindow ? withPredicate(scheduleWhere, dueWindow) : { ...scheduleWhere, status: 'ACTIVE' } }),
     ]);
 
     const complianceRate = totalPreventiveDue > 0
@@ -784,7 +804,7 @@ export class MaintenanceReportsService {
       this.prisma.downtimeLog.count({ where: { ...downtimeDateFilter, cancelledAt: null, ...(Object.keys(requestWhere).length > 0 ? { machine: requestWhere.machine } : {}) } }),
       this.prisma.downtimeLog.aggregate({ where: { ...downtimeDateFilter, cancelledAt: null, machine: this.machineScope(ctx) }, _sum: { durationMinutes: true } }),
       this.prisma.downtimeLog.count({ where: { endTime: null, cancelledAt: null, machine: this.machineScope(ctx) } }),
-      this.prisma.maintenanceSchedule.count({ where: { ...(filters.machineId ? { machineId: filters.machineId } : {}), status: 'ACTIVE', endDate: { lt: now }, machine: this.machineScope(ctx) } }),
+      this.prisma.maintenanceSchedule.count({ where: { ...(filters.machineId ? { machineId: filters.machineId } : {}), ...overdueWhere(now), machine: this.machineScope(ctx) } }),
       this.prisma.maintenanceRequest.count({ where: { ...requestWhere, status: { in: ['OPEN', 'IN_PROGRESS'] } } }),
       this.prisma.maintenanceRequest.count({ where: { ...requestWhere, slaStatus: 'OVERDUE' } }),
       this.prisma.maintenanceRequest.count({ where: { ...requestWhere, slaStatus: { not: null } } }),

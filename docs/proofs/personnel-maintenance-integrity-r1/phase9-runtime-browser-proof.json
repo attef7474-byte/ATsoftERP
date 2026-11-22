@@ -1,0 +1,1071 @@
+{
+  "generatedAt": "2026-11-22T22:08:09.882Z",
+  "database": "ATsoftERP_PERSONNEL_P78_20261122",
+  "productionMigrationApplied": false,
+  "productionWriteOccurred": false,
+  "secrets": "REDACTED",
+  "authMode": "ENV_DERIVED_JWT",
+  "apiProof": ".tmp/phase9/api-proof.json",
+  "fixtures": {
+    "A": {
+      "id": "cmwsd97ik001ghk95kfbq8qib",
+      "machineId": "cmwsd97hi0007s095bqj6g471",
+      "title": "P9-PROOF-1795383961717-A"
+    },
+    "B": {
+      "id": "cmwsd97jt001ihk95rzb02a34",
+      "machineId": "cmwsd97iw0008s0957kjti527",
+      "title": "P9-PROOF-1795383961717-B"
+    },
+    "C": {
+      "id": "cmwsd97l4001khk95l2af8m7w",
+      "machineId": "cmwsd97k40009s095a6elyh8z",
+      "title": "P9-PROOF-1795383961717-C"
+    },
+    "D": {
+      "id": "cmwsd97mc001mhk9550kwumsz",
+      "machineId": "cmwsd97le000as0951nhnb8t8",
+      "title": "P9-PROOF-1795383961717-D"
+    },
+    "E": {
+      "id": "cmwsd97nm001ohk95vz0nw75p",
+      "machineId": "cmwsd97mo000bs0954anj64gb",
+      "title": "P9-PROOF-1795383961717-E"
+    },
+    "F": {
+      "id": "cmwsd97ot001qhk95hf07rlm9",
+      "machineId": "cmwsd97nx000cs0952gq9f7on",
+      "title": "P9-PROOF-1795383961717-F"
+    },
+    "G": {
+      "id": "cmwse15y3002shk95d673bwra",
+      "machineId": "cmwse15vi0000ks957p58l890",
+      "title": "P9-PROOF-1795385266113-G"
+    },
+    "H": {
+      "id": "cmwse160l002uhk95riyt8bpd",
+      "machineId": "cmwse15zf0001ks959a58fphd",
+      "title": "P9-PROOF-1795385266113-H"
+    }
+  },
+  "languages": [
+    {
+      "locale": "en",
+      "direction": "ltr",
+      "routes": 9
+    },
+    {
+      "locale": "ar",
+      "direction": "rtl",
+      "routes": 9
+    }
+  ],
+  "generation": {
+    "requestId": "cmwse1eqh002whk95nn2ym2f5",
+    "previousDue": "2026-11-22T21:07:46.679Z",
+    "nextDue": "2026-11-29T21:07:46.679Z",
+    "auditAction": "GENERATE",
+    "reloadVerified": true
+  },
+  "reconciliation": {
+    "SCHEDULE_ROWS_LOST": 0,
+    "DUPLICATE_GENERATED_REQUESTS": 0,
+    "INVALID_NEXT_DUE_DATES": 0,
+    "CROSS_TENANT_RESULTS": 0,
+    "UNINTENDED_START_DATE_MUTATIONS": 0
+  },
+  "checks": [
+    {
+      "name": "temporary_app_shell_permissions_granted",
+      "result": "PASS",
+      "detail": {
+        "keys": [
+          "notifications:read",
+          "settings.appearance.view"
+        ],
+        "roles": 1,
+        "addedRolePermissions": 2
+      }
+    },
+    {
+      "name": "stale_noncanonical_phase9_fixtures_removed",
+      "result": "PASS",
+      "detail": {
+        "staleMachines": 2,
+        "staleSchedules": 2,
+        "staleRequests": 1,
+        "canonicalSchedules": 6
+      }
+    },
+    {
+      "name": "controlled_fixture_g_created_after_batch_generation",
+      "result": "PASS",
+      "detail": {
+        "id": "cmwse15y3002shk95d673bwra",
+        "machineId": "cmwse15vi0000ks957p58l890",
+        "title": "P9-PROOF-1795385266113-G"
+      }
+    },
+    {
+      "name": "controlled_fixture_h_created_after_batch_generation",
+      "result": "PASS",
+      "detail": {
+        "id": "cmwse160l002uhk95riyt8bpd",
+        "machineId": "cmwse15zf0001ks959a58fphd",
+        "title": "P9-PROOF-1795385266113-H"
+      }
+    },
+    {
+      "name": "en_schedules_list_uses_effective_due_authority",
+      "result": "PASS"
+    },
+    {
+      "name": "en_schedule_detail_uses_effective_due",
+      "result": "PASS"
+    },
+    {
+      "name": "en_upcoming_uses_effective_due",
+      "result": "PASS"
+    },
+    {
+      "name": "en_overdue_uses_effective_due",
+      "result": "PASS"
+    },
+    {
+      "name": "en_calendar_uses_effective_due",
+      "result": "PASS"
+    },
+    {
+      "name": "en_dashboard_overdue_consistent",
+      "result": "PASS"
+    },
+    {
+      "name": "en_dashboard_upcoming_consistent",
+      "result": "PASS"
+    },
+    {
+      "name": "en_schedules_report_uses_effective_due",
+      "result": "PASS"
+    },
+    {
+      "name": "en_browser_generation_reload_advances_due",
+      "result": "PASS",
+      "detail": {
+        "status": 201
+      }
+    },
+    {
+      "name": "ar_schedules_list_uses_effective_due_authority",
+      "result": "PASS"
+    },
+    {
+      "name": "ar_schedule_detail_uses_effective_due",
+      "result": "PASS"
+    },
+    {
+      "name": "ar_upcoming_uses_effective_due",
+      "result": "PASS"
+    },
+    {
+      "name": "ar_overdue_uses_effective_due",
+      "result": "PASS"
+    },
+    {
+      "name": "ar_calendar_uses_effective_due",
+      "result": "PASS"
+    },
+    {
+      "name": "ar_dashboard_overdue_consistent",
+      "result": "PASS"
+    },
+    {
+      "name": "ar_dashboard_upcoming_consistent",
+      "result": "PASS"
+    },
+    {
+      "name": "ar_schedules_report_uses_effective_due",
+      "result": "PASS"
+    },
+    {
+      "name": "browser_generation_database_audit_and_no_start_date_mutation",
+      "result": "PASS",
+      "detail": {
+        "requestId": "cmwse1eqh002whk95nn2ym2f5",
+        "previousDue": "2026-11-22T21:07:46.679Z",
+        "nextDue": "2026-11-29T21:07:46.679Z",
+        "auditAction": "GENERATE"
+      }
+    },
+    {
+      "name": "unchanged_overdue_fixture_h_remains_due_without_request",
+      "result": "PASS"
+    },
+    {
+      "name": "phase9_final_reconciliation_tokens",
+      "result": "PASS",
+      "detail": {
+        "SCHEDULE_ROWS_LOST": 0,
+        "DUPLICATE_GENERATED_REQUESTS": 0,
+        "INVALID_NEXT_DUE_DATES": 0,
+        "CROSS_TENANT_RESULTS": 0,
+        "UNINTENDED_START_DATE_MUTATIONS": 0
+      }
+    },
+    {
+      "name": "zero_browser_console_page_and_http_errors",
+      "result": "PASS"
+    },
+    {
+      "name": "temporary_app_shell_permissions_revoked",
+      "result": "PASS",
+      "detail": {
+        "revokedRolePermissions": 2,
+        "revokedPermissions": 0
+      }
+    }
+  ],
+  "screenshots": [
+    ".tmp/phase9/screenshots/en-schedules.png",
+    ".tmp/phase9/screenshots/en-schedule-detail.png",
+    ".tmp/phase9/screenshots/en-upcoming.png",
+    ".tmp/phase9/screenshots/en-overdue.png",
+    ".tmp/phase9/screenshots/en-calendar-current.png",
+    ".tmp/phase9/screenshots/en-calendar-future.png",
+    ".tmp/phase9/screenshots/en-dashboard-overdue.png",
+    ".tmp/phase9/screenshots/en-dashboard-upcoming.png",
+    ".tmp/phase9/screenshots/en-schedules-report.png",
+    ".tmp/phase9/screenshots/en-generation-before.png",
+    ".tmp/phase9/screenshots/en-generation-after.png",
+    ".tmp/phase9/screenshots/ar-schedules.png",
+    ".tmp/phase9/screenshots/ar-schedule-detail.png",
+    ".tmp/phase9/screenshots/ar-upcoming.png",
+    ".tmp/phase9/screenshots/ar-overdue.png",
+    ".tmp/phase9/screenshots/ar-calendar-current.png",
+    ".tmp/phase9/screenshots/ar-calendar-future.png",
+    ".tmp/phase9/screenshots/ar-dashboard-overdue.png",
+    ".tmp/phase9/screenshots/ar-dashboard-upcoming.png",
+    ".tmp/phase9/screenshots/ar-schedules-report.png",
+    ".tmp/phase9/screenshots/ar-generation-after-ar.png"
+  ],
+  "network": [
+    {
+      "lang": "en",
+      "method": "GET",
+      "path": "/api/v1/auth/permissions",
+      "status": 200
+    },
+    {
+      "lang": "en",
+      "method": "GET",
+      "path": "/api/v1/auth/me",
+      "status": 200
+    },
+    {
+      "lang": "en",
+      "method": "GET",
+      "path": "/api/v1/auth/contexts",
+      "status": 200
+    },
+    {
+      "lang": "en",
+      "method": "POST",
+      "path": "/api/v1/auth/context/validate",
+      "status": 201
+    },
+    {
+      "lang": "en",
+      "method": "GET",
+      "path": "/api/v1/settings/appearance",
+      "status": 200
+    },
+    {
+      "lang": "en",
+      "method": "GET",
+      "path": "/api/v1/notifications/unread-count",
+      "status": 200
+    },
+    {
+      "lang": "en",
+      "method": "GET",
+      "path": "/api/v1/maintenance/schedules",
+      "status": 200
+    },
+    {
+      "lang": "en",
+      "method": "GET",
+      "path": "/api/v1/auth/permissions",
+      "status": 200
+    },
+    {
+      "lang": "en",
+      "method": "GET",
+      "path": "/api/v1/auth/me",
+      "status": 200
+    },
+    {
+      "lang": "en",
+      "method": "GET",
+      "path": "/api/v1/auth/contexts",
+      "status": 200
+    },
+    {
+      "lang": "en",
+      "method": "POST",
+      "path": "/api/v1/auth/context/validate",
+      "status": 201
+    },
+    {
+      "lang": "en",
+      "method": "GET",
+      "path": "/api/v1/settings/appearance",
+      "status": 200
+    },
+    {
+      "lang": "en",
+      "method": "GET",
+      "path": "/api/v1/notifications/unread-count",
+      "status": 200
+    },
+    {
+      "lang": "en",
+      "method": "GET",
+      "path": "/api/v1/maintenance/schedules/cmwsd97jt001ihk95rzb02a34",
+      "status": 200
+    },
+    {
+      "lang": "en",
+      "method": "GET",
+      "path": "/api/v1/auth/permissions",
+      "status": 200
+    },
+    {
+      "lang": "en",
+      "method": "GET",
+      "path": "/api/v1/auth/me",
+      "status": 200
+    },
+    {
+      "lang": "en",
+      "method": "GET",
+      "path": "/api/v1/auth/contexts",
+      "status": 200
+    },
+    {
+      "lang": "en",
+      "method": "POST",
+      "path": "/api/v1/auth/context/validate",
+      "status": 201
+    },
+    {
+      "lang": "en",
+      "method": "GET",
+      "path": "/api/v1/settings/appearance",
+      "status": 200
+    },
+    {
+      "lang": "en",
+      "method": "GET",
+      "path": "/api/v1/notifications/unread-count",
+      "status": 200
+    },
+    {
+      "lang": "en",
+      "method": "GET",
+      "path": "/api/v1/maintenance/preventive/upcoming",
+      "status": 200
+    },
+    {
+      "lang": "en",
+      "method": "GET",
+      "path": "/api/v1/auth/permissions",
+      "status": 200
+    },
+    {
+      "lang": "en",
+      "method": "GET",
+      "path": "/api/v1/auth/me",
+      "status": 200
+    },
+    {
+      "lang": "en",
+      "method": "GET",
+      "path": "/api/v1/auth/contexts",
+      "status": 200
+    },
+    {
+      "lang": "en",
+      "method": "POST",
+      "path": "/api/v1/auth/context/validate",
+      "status": 201
+    },
+    {
+      "lang": "en",
+      "method": "GET",
+      "path": "/api/v1/settings/appearance",
+      "status": 200
+    },
+    {
+      "lang": "en",
+      "method": "GET",
+      "path": "/api/v1/notifications/unread-count",
+      "status": 200
+    },
+    {
+      "lang": "en",
+      "method": "GET",
+      "path": "/api/v1/maintenance/preventive/overdue",
+      "status": 200
+    },
+    {
+      "lang": "en",
+      "method": "GET",
+      "path": "/api/v1/auth/permissions",
+      "status": 200
+    },
+    {
+      "lang": "en",
+      "method": "GET",
+      "path": "/api/v1/auth/me",
+      "status": 200
+    },
+    {
+      "lang": "en",
+      "method": "GET",
+      "path": "/api/v1/auth/contexts",
+      "status": 200
+    },
+    {
+      "lang": "en",
+      "method": "POST",
+      "path": "/api/v1/auth/context/validate",
+      "status": 201
+    },
+    {
+      "lang": "en",
+      "method": "GET",
+      "path": "/api/v1/settings/appearance",
+      "status": 200
+    },
+    {
+      "lang": "en",
+      "method": "GET",
+      "path": "/api/v1/notifications/unread-count",
+      "status": 200
+    },
+    {
+      "lang": "en",
+      "method": "GET",
+      "path": "/api/v1/maintenance/preventive/calendar",
+      "status": 200
+    },
+    {
+      "lang": "en",
+      "method": "GET",
+      "path": "/api/v1/maintenance/preventive/calendar",
+      "status": 200
+    },
+    {
+      "lang": "en",
+      "method": "GET",
+      "path": "/api/v1/auth/permissions",
+      "status": 200
+    },
+    {
+      "lang": "en",
+      "method": "GET",
+      "path": "/api/v1/auth/me",
+      "status": 200
+    },
+    {
+      "lang": "en",
+      "method": "GET",
+      "path": "/api/v1/auth/contexts",
+      "status": 200
+    },
+    {
+      "lang": "en",
+      "method": "POST",
+      "path": "/api/v1/auth/context/validate",
+      "status": 201
+    },
+    {
+      "lang": "en",
+      "method": "GET",
+      "path": "/api/v1/settings/appearance",
+      "status": 200
+    },
+    {
+      "lang": "en",
+      "method": "GET",
+      "path": "/api/v1/notifications/unread-count",
+      "status": 200
+    },
+    {
+      "lang": "en",
+      "method": "GET",
+      "path": "/api/v1/maintenance/dashboard/overdue",
+      "status": 200
+    },
+    {
+      "lang": "en",
+      "method": "GET",
+      "path": "/api/v1/auth/permissions",
+      "status": 200
+    },
+    {
+      "lang": "en",
+      "method": "GET",
+      "path": "/api/v1/auth/me",
+      "status": 200
+    },
+    {
+      "lang": "en",
+      "method": "GET",
+      "path": "/api/v1/auth/contexts",
+      "status": 200
+    },
+    {
+      "lang": "en",
+      "method": "POST",
+      "path": "/api/v1/auth/context/validate",
+      "status": 201
+    },
+    {
+      "lang": "en",
+      "method": "GET",
+      "path": "/api/v1/settings/appearance",
+      "status": 200
+    },
+    {
+      "lang": "en",
+      "method": "GET",
+      "path": "/api/v1/notifications/unread-count",
+      "status": 200
+    },
+    {
+      "lang": "en",
+      "method": "GET",
+      "path": "/api/v1/maintenance/dashboard/upcoming-preventive",
+      "status": 200
+    },
+    {
+      "lang": "en",
+      "method": "GET",
+      "path": "/api/v1/auth/permissions",
+      "status": 200
+    },
+    {
+      "lang": "en",
+      "method": "GET",
+      "path": "/api/v1/auth/me",
+      "status": 200
+    },
+    {
+      "lang": "en",
+      "method": "GET",
+      "path": "/api/v1/auth/contexts",
+      "status": 200
+    },
+    {
+      "lang": "en",
+      "method": "POST",
+      "path": "/api/v1/auth/context/validate",
+      "status": 201
+    },
+    {
+      "lang": "en",
+      "method": "GET",
+      "path": "/api/v1/settings/appearance",
+      "status": 200
+    },
+    {
+      "lang": "en",
+      "method": "GET",
+      "path": "/api/v1/notifications/unread-count",
+      "status": 200
+    },
+    {
+      "lang": "en",
+      "method": "GET",
+      "path": "/api/v1/reports/maintenance/schedules",
+      "status": 200
+    },
+    {
+      "lang": "en",
+      "method": "GET",
+      "path": "/api/v1/auth/permissions",
+      "status": 200
+    },
+    {
+      "lang": "en",
+      "method": "GET",
+      "path": "/api/v1/auth/me",
+      "status": 200
+    },
+    {
+      "lang": "en",
+      "method": "GET",
+      "path": "/api/v1/auth/contexts",
+      "status": 200
+    },
+    {
+      "lang": "en",
+      "method": "POST",
+      "path": "/api/v1/auth/context/validate",
+      "status": 201
+    },
+    {
+      "lang": "en",
+      "method": "GET",
+      "path": "/api/v1/settings/appearance",
+      "status": 200
+    },
+    {
+      "lang": "en",
+      "method": "GET",
+      "path": "/api/v1/notifications/unread-count",
+      "status": 200
+    },
+    {
+      "lang": "en",
+      "method": "GET",
+      "path": "/api/v1/maintenance/schedules/cmwse15y3002shk95d673bwra",
+      "status": 200
+    },
+    {
+      "lang": "en",
+      "method": "POST",
+      "path": "/api/v1/maintenance/schedules/cmwse15y3002shk95d673bwra/generate-request",
+      "status": 201
+    },
+    {
+      "lang": "en",
+      "method": "GET",
+      "path": "/api/v1/auth/permissions",
+      "status": 200
+    },
+    {
+      "lang": "en",
+      "method": "GET",
+      "path": "/api/v1/auth/me",
+      "status": 200
+    },
+    {
+      "lang": "en",
+      "method": "GET",
+      "path": "/api/v1/auth/contexts",
+      "status": 200
+    },
+    {
+      "lang": "en",
+      "method": "POST",
+      "path": "/api/v1/auth/context/validate",
+      "status": 201
+    },
+    {
+      "lang": "en",
+      "method": "GET",
+      "path": "/api/v1/settings/appearance",
+      "status": 200
+    },
+    {
+      "lang": "en",
+      "method": "GET",
+      "path": "/api/v1/notifications/unread-count",
+      "status": 200
+    },
+    {
+      "lang": "en",
+      "method": "GET",
+      "path": "/api/v1/maintenance/schedules/cmwse15y3002shk95d673bwra",
+      "status": 200
+    },
+    {
+      "lang": "ar",
+      "method": "GET",
+      "path": "/api/v1/auth/permissions",
+      "status": 200
+    },
+    {
+      "lang": "ar",
+      "method": "GET",
+      "path": "/api/v1/auth/me",
+      "status": 200
+    },
+    {
+      "lang": "ar",
+      "method": "GET",
+      "path": "/api/v1/auth/contexts",
+      "status": 200
+    },
+    {
+      "lang": "ar",
+      "method": "POST",
+      "path": "/api/v1/auth/context/validate",
+      "status": 201
+    },
+    {
+      "lang": "ar",
+      "method": "GET",
+      "path": "/api/v1/settings/appearance",
+      "status": 200
+    },
+    {
+      "lang": "ar",
+      "method": "GET",
+      "path": "/api/v1/notifications/unread-count",
+      "status": 200
+    },
+    {
+      "lang": "ar",
+      "method": "GET",
+      "path": "/api/v1/maintenance/schedules",
+      "status": 200
+    },
+    {
+      "lang": "ar",
+      "method": "GET",
+      "path": "/api/v1/auth/permissions",
+      "status": 200
+    },
+    {
+      "lang": "ar",
+      "method": "GET",
+      "path": "/api/v1/auth/me",
+      "status": 200
+    },
+    {
+      "lang": "ar",
+      "method": "GET",
+      "path": "/api/v1/auth/contexts",
+      "status": 200
+    },
+    {
+      "lang": "ar",
+      "method": "POST",
+      "path": "/api/v1/auth/context/validate",
+      "status": 201
+    },
+    {
+      "lang": "ar",
+      "method": "GET",
+      "path": "/api/v1/settings/appearance",
+      "status": 200
+    },
+    {
+      "lang": "ar",
+      "method": "GET",
+      "path": "/api/v1/notifications/unread-count",
+      "status": 200
+    },
+    {
+      "lang": "ar",
+      "method": "GET",
+      "path": "/api/v1/maintenance/schedules/cmwsd97jt001ihk95rzb02a34",
+      "status": 200
+    },
+    {
+      "lang": "ar",
+      "method": "GET",
+      "path": "/api/v1/auth/permissions",
+      "status": 200
+    },
+    {
+      "lang": "ar",
+      "method": "GET",
+      "path": "/api/v1/auth/me",
+      "status": 200
+    },
+    {
+      "lang": "ar",
+      "method": "GET",
+      "path": "/api/v1/auth/contexts",
+      "status": 200
+    },
+    {
+      "lang": "ar",
+      "method": "POST",
+      "path": "/api/v1/auth/context/validate",
+      "status": 201
+    },
+    {
+      "lang": "ar",
+      "method": "GET",
+      "path": "/api/v1/settings/appearance",
+      "status": 200
+    },
+    {
+      "lang": "ar",
+      "method": "GET",
+      "path": "/api/v1/notifications/unread-count",
+      "status": 200
+    },
+    {
+      "lang": "ar",
+      "method": "GET",
+      "path": "/api/v1/maintenance/preventive/upcoming",
+      "status": 200
+    },
+    {
+      "lang": "ar",
+      "method": "GET",
+      "path": "/api/v1/auth/permissions",
+      "status": 200
+    },
+    {
+      "lang": "ar",
+      "method": "GET",
+      "path": "/api/v1/auth/me",
+      "status": 200
+    },
+    {
+      "lang": "ar",
+      "method": "GET",
+      "path": "/api/v1/auth/contexts",
+      "status": 200
+    },
+    {
+      "lang": "ar",
+      "method": "POST",
+      "path": "/api/v1/auth/context/validate",
+      "status": 201
+    },
+    {
+      "lang": "ar",
+      "method": "GET",
+      "path": "/api/v1/settings/appearance",
+      "status": 200
+    },
+    {
+      "lang": "ar",
+      "method": "GET",
+      "path": "/api/v1/notifications/unread-count",
+      "status": 200
+    },
+    {
+      "lang": "ar",
+      "method": "GET",
+      "path": "/api/v1/maintenance/preventive/overdue",
+      "status": 200
+    },
+    {
+      "lang": "ar",
+      "method": "GET",
+      "path": "/api/v1/auth/permissions",
+      "status": 200
+    },
+    {
+      "lang": "ar",
+      "method": "GET",
+      "path": "/api/v1/auth/me",
+      "status": 200
+    },
+    {
+      "lang": "ar",
+      "method": "GET",
+      "path": "/api/v1/auth/contexts",
+      "status": 200
+    },
+    {
+      "lang": "ar",
+      "method": "POST",
+      "path": "/api/v1/auth/context/validate",
+      "status": 201
+    },
+    {
+      "lang": "ar",
+      "method": "GET",
+      "path": "/api/v1/settings/appearance",
+      "status": 200
+    },
+    {
+      "lang": "ar",
+      "method": "GET",
+      "path": "/api/v1/notifications/unread-count",
+      "status": 200
+    },
+    {
+      "lang": "ar",
+      "method": "GET",
+      "path": "/api/v1/maintenance/preventive/calendar",
+      "status": 200
+    },
+    {
+      "lang": "ar",
+      "method": "GET",
+      "path": "/api/v1/maintenance/preventive/calendar",
+      "status": 200
+    },
+    {
+      "lang": "ar",
+      "method": "GET",
+      "path": "/api/v1/auth/permissions",
+      "status": 200
+    },
+    {
+      "lang": "ar",
+      "method": "GET",
+      "path": "/api/v1/auth/me",
+      "status": 200
+    },
+    {
+      "lang": "ar",
+      "method": "GET",
+      "path": "/api/v1/auth/contexts",
+      "status": 200
+    },
+    {
+      "lang": "ar",
+      "method": "POST",
+      "path": "/api/v1/auth/context/validate",
+      "status": 201
+    },
+    {
+      "lang": "ar",
+      "method": "GET",
+      "path": "/api/v1/settings/appearance",
+      "status": 200
+    },
+    {
+      "lang": "ar",
+      "method": "GET",
+      "path": "/api/v1/notifications/unread-count",
+      "status": 200
+    },
+    {
+      "lang": "ar",
+      "method": "GET",
+      "path": "/api/v1/maintenance/dashboard/overdue",
+      "status": 200
+    },
+    {
+      "lang": "ar",
+      "method": "GET",
+      "path": "/api/v1/auth/permissions",
+      "status": 200
+    },
+    {
+      "lang": "ar",
+      "method": "GET",
+      "path": "/api/v1/auth/me",
+      "status": 200
+    },
+    {
+      "lang": "ar",
+      "method": "GET",
+      "path": "/api/v1/auth/contexts",
+      "status": 200
+    },
+    {
+      "lang": "ar",
+      "method": "POST",
+      "path": "/api/v1/auth/context/validate",
+      "status": 201
+    },
+    {
+      "lang": "ar",
+      "method": "GET",
+      "path": "/api/v1/settings/appearance",
+      "status": 200
+    },
+    {
+      "lang": "ar",
+      "method": "GET",
+      "path": "/api/v1/notifications/unread-count",
+      "status": 200
+    },
+    {
+      "lang": "ar",
+      "method": "GET",
+      "path": "/api/v1/maintenance/dashboard/upcoming-preventive",
+      "status": 200
+    },
+    {
+      "lang": "ar",
+      "method": "GET",
+      "path": "/api/v1/auth/permissions",
+      "status": 200
+    },
+    {
+      "lang": "ar",
+      "method": "GET",
+      "path": "/api/v1/auth/me",
+      "status": 200
+    },
+    {
+      "lang": "ar",
+      "method": "GET",
+      "path": "/api/v1/auth/contexts",
+      "status": 200
+    },
+    {
+      "lang": "ar",
+      "method": "POST",
+      "path": "/api/v1/auth/context/validate",
+      "status": 201
+    },
+    {
+      "lang": "ar",
+      "method": "GET",
+      "path": "/api/v1/settings/appearance",
+      "status": 200
+    },
+    {
+      "lang": "ar",
+      "method": "GET",
+      "path": "/api/v1/notifications/unread-count",
+      "status": 200
+    },
+    {
+      "lang": "ar",
+      "method": "GET",
+      "path": "/api/v1/reports/maintenance/schedules",
+      "status": 200
+    },
+    {
+      "lang": "ar",
+      "method": "GET",
+      "path": "/api/v1/auth/permissions",
+      "status": 200
+    },
+    {
+      "lang": "ar",
+      "method": "GET",
+      "path": "/api/v1/auth/me",
+      "status": 200
+    },
+    {
+      "lang": "ar",
+      "method": "GET",
+      "path": "/api/v1/auth/contexts",
+      "status": 200
+    },
+    {
+      "lang": "ar",
+      "method": "POST",
+      "path": "/api/v1/auth/context/validate",
+      "status": 201
+    },
+    {
+      "lang": "ar",
+      "method": "GET",
+      "path": "/api/v1/settings/appearance",
+      "status": 200
+    },
+    {
+      "lang": "ar",
+      "method": "GET",
+      "path": "/api/v1/notifications/unread-count",
+      "status": 200
+    },
+    {
+      "lang": "ar",
+      "method": "GET",
+      "path": "/api/v1/maintenance/schedules/cmwse15y3002shk95d673bwra",
+      "status": 200
+    }
+  ],
+  "consoleErrors": [],
+  "pageErrors": [],
+  "status": "PASS"
+}

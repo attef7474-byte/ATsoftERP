@@ -73,7 +73,7 @@ export default function SchedulesReportPage() {
     { key: 'machine', header: t('reports.machine'), render: (r: any) => r.machine?.name || '-' },
     { key: 'type', header: t('reports.type'), render: (r: any) => <LocalizedValue value={r.type} kind="maintenanceType" /> },
     { key: 'frequency', header: t('maintenance.frequency') },
-    { key: 'startDate', header: t('maintenance.startDate'), render: (r: any) => r.startDate ? new Date(r.startDate).toLocaleDateString() : '-' },
+    { key: 'effectiveDueDate', header: t('maintenance.nextDueDate'), render: (r: any) => r.effectiveDueDate ? new Date(r.effectiveDueDate).toLocaleDateString() : '-' },
     { key: 'endDate', header: t('maintenance.endDate'), render: (r: any) => r.endDate ? new Date(r.endDate).toLocaleDateString() : '-' },
     { key: 'status', header: t('reports.status'), render: (r: any) => <LocalizedValue value={r.status} kind="status" /> },
   ];
@@ -102,8 +102,8 @@ export default function SchedulesReportPage() {
           <ReportSummaryCards cards={data.cards} />
           {data.rows?.length > 0 && (
             <div className="flex justify-end">
-              <ReportExportButton onPrint={handlePrint} printDisabled={!canPrint || loading || !!error} filename="preventive-schedules" reportEndpoint="maintenance/schedules" headers={[t('reports.exportHeaders.title'), t('reports.exportHeaders.machine'), t('reports.exportHeaders.type'), t('reports.exportHeaders.frequency'), t('reports.exportHeaders.start'), t('reports.exportHeaders.end'), t('reports.exportHeaders.status')]} rows={data.rows}
-                mapRow={(r) => [r.title, r.machine?.name || '', r.type, r.frequency, r.startDate ? new Date(r.startDate).toLocaleDateString() : '', r.endDate ? new Date(r.endDate).toLocaleDateString() : '', r.status]} />
+              <ReportExportButton onPrint={handlePrint} printDisabled={!canPrint || loading || !!error} filename="preventive-schedules" reportEndpoint="maintenance/schedules" headers={[t('reports.exportHeaders.title'), t('reports.exportHeaders.machine'), t('reports.exportHeaders.type'), t('reports.exportHeaders.frequency'), t('maintenance.nextDueDate'), t('reports.exportHeaders.end'), t('reports.exportHeaders.status')]} rows={data.rows}
+                mapRow={(r) => [r.title, r.machine?.name || '', r.type, r.frequency, r.effectiveDueDate ? new Date(r.effectiveDueDate).toLocaleDateString() : '', r.endDate ? new Date(r.endDate).toLocaleDateString() : '', r.status]} />
             </div>
           )}
           <DataTable columns={columns} data={data.rows || []} keyExtractor={(r: any) => r.id} onRowClick={(r: any) => router.push(`/admin/maintenance/schedules/${r.id}/checklist`)} />

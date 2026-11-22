@@ -1,0 +1,184 @@
+{
+  "phase": 9,
+  "title": "Preventive Maintenance Due-Date Authority",
+  "status": "PASS",
+  "generatedAt": "2026-11-22T22:15:18.3169508Z",
+  "branch": "fix/personnel-maintenance-integrity-r1-integrated",
+  "baseline": {
+    "head": "32ad5cee5c27bd0c3469c4170fb21601a4738aec",
+    "originMain": "8c62740f3c95890a9daa99c93bf32aa5efe80026",
+    "leftRightCount": "12 0"
+  },
+  "database": "ATsoftERP_PERSONNEL_P78_20261122",
+  "productionMigrationApplied": false,
+  "productionWriteOccurred": false,
+  "secrets": "REDACTED",
+  "focusedTests": [
+    {
+      "name": "API due authority and schedule service",
+      "command": "npx jest --testMatch=\"**/*.spec.ts\" --runInBand --testPathPattern=\"(schedule-due-authority|maintenance-schedules.service)\" (from apps/api)",
+      "result": "PASS",
+      "suites": 2,
+      "tests": 31
+    },
+    {
+      "name": "API due consumers regression subset",
+      "command": "npx jest --testMatch=\"**/*.spec.ts\" --runInBand --testPathPattern=\"(schedule-due-authority|maintenance-schedules.service|preventive-maintenance.service|maintenance-dashboard.service|dashboard.service|maintenance-reports.service|shift-handovers.service|tenant-calendar-workload|maintenance-permissions-consistency)\" (from apps/api)",
+      "result": "PASS",
+      "suites": 9,
+      "tests": 121
+    },
+    {
+      "name": "Web upcoming/overdue print logic",
+      "command": "npx jest --config apps/web/tests/jest.config.js --runInBand maintenance-overdue-print maintenance-upcoming-print",
+      "result": "PASS",
+      "suites": 2,
+      "tests": 8
+    },
+    {
+      "name": "Web schedules print logic after authority migration",
+      "command": "npx jest --config apps/web/tests/jest.config.js --runInBand maintenance-schedules-print",
+      "result": "PASS",
+      "suites": 1,
+      "tests": 6
+    }
+  ],
+  "fullSuites": [
+    {
+      "name": "Full API regression",
+      "command": "npm run test:api",
+      "result": "PASS",
+      "suites": 264,
+      "tests": 5360,
+      "log": ".tmp/phase9/validation/api-full.log",
+      "warning": "A worker process was force exited after tests completed; no test failed. This warning was present before Phase 9 and was classified as a non-failing pre-existing warning."
+    },
+    {
+      "name": "Full Web regression",
+      "command": "npm run test:web-logic",
+      "result": "PASS",
+      "suites": 138,
+      "tests": 2598,
+      "log": ".tmp/phase9/validation/web-full-final.log",
+      "note": "The first full Web run found 2 stale startDate fixtures in maintenance-schedules-print.test.ts; after migrating those fixtures to effectiveDueDate the final full run was green."
+    }
+  ],
+  "prisma": [
+    {
+      "command": "npm run prisma:format --workspace apps/api with disposable-clone DATABASE_URL in command environment",
+      "result": "PASS",
+      "log": ".tmp/phase9/validation/prisma-format.log"
+    },
+    {
+      "command": "npm run prisma:validate --workspace apps/api with disposable-clone DATABASE_URL in command environment",
+      "result": "PASS",
+      "log": ".tmp/phase9/validation/prisma-validate.log"
+    },
+    {
+      "command": "npm run prisma:generate --workspace apps/api with disposable-clone DATABASE_URL in command environment",
+      "result": "PASS",
+      "log": ".tmp/phase9/validation/prisma-generate.log"
+    }
+  ],
+  "typechecksAndBuilds": [
+    {
+      "command": "npm run typecheck --workspace apps/api",
+      "result": "PASS",
+      "log": ".tmp/phase9/validation/api-typecheck.log"
+    },
+    {
+      "command": "npm run build --workspace apps/api",
+      "result": "PASS",
+      "log": ".tmp/phase9/validation/api-build.log"
+    },
+    {
+      "command": "npm run typecheck --workspace apps/web",
+      "result": "PASS",
+      "log": ".tmp/phase9/validation/web-typecheck.log"
+    },
+    {
+      "command": "NEXT_PUBLIC_API_URL=http://127.0.0.1:4001/api/v1 npm run build --workspace apps/web",
+      "result": "PASS",
+      "log": ".tmp/phase9/validation/web-build-final2.log"
+    }
+  ],
+  "staticChecks": [
+    {
+      "command": "npm run ui-baseline:check",
+      "result": "PASS",
+      "log": ".tmp/phase9/validation/ui-baseline-final.log",
+      "includes": ["UI baseline manifest", "i18n key parity", "raw-key safety", "permission UI verification"]
+    },
+    {
+      "command": "npm run credentials:check",
+      "result": "PASS",
+      "log": ".tmp/phase9/validation/credentials-final.log"
+    },
+    {
+      "command": "npm run route-contract:check",
+      "result": "EXPECTED_BASELINE_EXIT_1",
+      "log": ".tmp/phase9/validation/route-contract.log",
+      "metrics": {
+        "MALFORMED": 3,
+        "UNRESOLVED": 3,
+        "MISMATCHES": 0
+      }
+    },
+    {
+      "command": "git diff --check",
+      "result": "PASS"
+    },
+    {
+      "command": "conflict-marker and mixed-EOL scan over all Phase 9 owned files",
+      "result": "PASS",
+      "filesScanned": 33,
+      "newFilesScanned": 6
+    }
+  ],
+  "runtimeProof": {
+    "api": {
+      "artifact": "phase9-runtime-api-proof.json",
+      "status": "PASS",
+      "checks": 11,
+      "tokens": {
+        "SCHEDULE_ROWS_LOST": 0,
+        "DUPLICATE_GENERATED_REQUESTS": 0,
+        "INVALID_NEXT_DUE_DATES": 0,
+        "CROSS_TENANT_RESULTS": 0,
+        "UNINTENDED_START_DATE_MUTATIONS": 0,
+        "DUPLICATE_AUDIT_EVENTS": 0
+      }
+    },
+    "browser": {
+      "artifact": "phase9-runtime-browser-proof.json",
+      "status": "PASS",
+      "checks": 26,
+      "locales": ["EN/LTR", "AR/RTL"],
+      "consoleErrors": 0,
+      "pageErrors": 0,
+      "httpErrors": 0,
+      "tokens": {
+        "SCHEDULE_ROWS_LOST": 0,
+        "DUPLICATE_GENERATED_REQUESTS": 0,
+        "INVALID_NEXT_DUE_DATES": 0,
+        "CROSS_TENANT_RESULTS": 0,
+        "UNINTENDED_START_DATE_MUTATIONS": 0
+      }
+    }
+  },
+  "cleanup": {
+    "apiProofProcessPid": 26552,
+    "webProofProcessPid": 10564,
+    "stopOnlyPhase9OwnedPids": true,
+    "portsChecked": [4001, 3322],
+    "portsReleased": true,
+    "temporaryEnvironmentVariablesRemaining": false,
+    "credentialsRecheck": "PASS",
+    "launcherScriptsExitedAfterChildTermination": true
+  },
+  "warnings": [
+    "Full API Jest emitted a non-failing worker force-exit warning after all 5360 tests passed; it was present before Phase 9.",
+    "Route-contract check exits 1 by design against the accepted baseline MALFORMED=3, UNRESOLVED=3, MISMATCHES=0.",
+    "The API and Web proof launcher scripts exited with code 1 after their child servers were intentionally stopped at cleanup; this is expected and not a validation failure."
+  ]
+}

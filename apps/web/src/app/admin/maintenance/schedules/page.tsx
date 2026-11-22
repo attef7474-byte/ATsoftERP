@@ -359,7 +359,7 @@ export default function MaintenanceSchedulesPage() {
     { key: 'machine', header: t('maintenance.machine'), render: (s: MaintenanceSchedule) => s.machine?.name || '-' },
     { key: 'type', header: t('maintenance.maintenanceType'), render: (s: MaintenanceSchedule) => t(`status.${s.type}` as any) || s.type },
     { key: 'frequency', header: t('maintenance.frequency'), render: (s: MaintenanceSchedule) => t(`status.${s.frequency}` as any) || s.frequency },
-    { key: 'nextDueDate', header: t('maintenance.nextDueDate'), render: (s: MaintenanceSchedule) => s.nextDueDate ? new Date(s.nextDueDate).toLocaleDateString() : '-' },
+    { key: 'effectiveDueDate', header: t('maintenance.nextDueDate'), render: (s: MaintenanceSchedule) => s.effectiveDueDate ? new Date(s.effectiveDueDate).toLocaleDateString() : '-' },
     { key: 'dueStatus', header: t('maintenance.due'), render: (s: MaintenanceSchedule) => s.dueStatus ? <CmmsStatusBadge status={s.dueStatus} /> : '-' },
     { key: 'status', header: t('common.status'), render: (s: MaintenanceSchedule) => <CmmsStatusBadge status={s.status} /> },
   ];

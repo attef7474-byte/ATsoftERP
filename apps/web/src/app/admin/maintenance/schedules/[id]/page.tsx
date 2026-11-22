@@ -106,7 +106,7 @@ export default function MaintenanceScheduleDetailPage() {
             <div><dt className="text-sm font-medium text-gray-500">{t('maintenance.startDate')}</dt><dd className="mt-1 text-sm text-gray-900">{fmt(data.startDate)}</dd></div>
             <div><dt className="text-sm font-medium text-gray-500">{t('maintenance.endDate')}</dt><dd className="mt-1 text-sm text-gray-900">{data.endDate ? fmt(data.endDate) : '-'}</dd></div>
             <div><dt className="text-sm font-medium text-gray-500">{t('common.status')}</dt><dd className="mt-1"><StatusBadge status={data.status} /></dd></div>
-            <div><dt className="text-sm font-medium text-gray-500">{t('maintenance.nextDueDate')}</dt><dd className="mt-1 text-sm text-gray-900">{data.nextDueDate ? fmt(data.nextDueDate) : '-'}</dd></div>
+            <div><dt className="text-sm font-medium text-gray-500">{t('maintenance.nextDueDate')}</dt><dd className="mt-1 text-sm text-gray-900">{data.effectiveDueDate ? fmt(data.effectiveDueDate) : '-'}</dd></div>
             <div><dt className="text-sm font-medium text-gray-500">{t('maintenance.lastGeneratedAt')}</dt><dd className="mt-1 text-sm text-gray-900">{data.lastGeneratedAt ? fmt(data.lastGeneratedAt) : '-'}</dd></div>
             <div><dt className="text-sm font-medium text-gray-500">{t('maintenance.description')}</dt><dd className="mt-1 text-sm text-gray-900">{data.description || '-'}</dd></div>
           </dl>

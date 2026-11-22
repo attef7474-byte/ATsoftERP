@@ -38,7 +38,7 @@ export default function UpcomingPreventivePage() {
     { key: 'type', header: t('maintenance.maintenanceType'), render: (s: MaintenanceSchedule) => s.type || '-' },
     { key: 'startDate', header: t('maintenance.startDate'), render: (s: MaintenanceSchedule) => s.startDate ? new Date(s.startDate).toLocaleDateString() : '-' },
     { key: 'status', header: t('common.status'), render: (s: MaintenanceSchedule) => <CmmsStatusBadge status={s.status} /> },
-    { key: 'nextDueDate', header: t('maintenance.nextDue'), render: (s: MaintenanceSchedule) => s.nextDueDate ? new Date(s.nextDueDate).toLocaleDateString() : '-' },
+    { key: 'effectiveDueDate', header: t('maintenance.nextDueDate'), render: (s: MaintenanceSchedule) => s.effectiveDueDate ? new Date(s.effectiveDueDate).toLocaleDateString() : '-' },
   ];
 
   return (

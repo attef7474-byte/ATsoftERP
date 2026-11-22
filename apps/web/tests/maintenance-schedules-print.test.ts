@@ -21,7 +21,7 @@ jest.mock('../src/components/reports', () => ({ ReportPageShell: ({ children, fi
 jest.mock('../src/lib/api', () => ({ api: { get: jest.fn() } }));
 
 const Page=require('../src/app/admin/reports/maintenance/schedules/page').default,api=require('../src/lib/api').api;
-const row=(id='private-schedule')=>({id,title:'Motor inspection',machine:{name:'Machine A'},type:'PREVENTIVE',frequency:'MONTHLY',startDate:'2026-11-01',endDate:null,status:'ACTIVE'});
+const row=(id='private-schedule')=>({id,title:'Motor inspection',machine:{name:'Machine A'},type:'PREVENTIVE',frequency:'MONTHLY',effectiveDueDate:'2026-11-01',endDate:null,status:'ACTIVE'});
 const fixture=():SchedulesPrintData=>({rows:[row()],total:1,page:1,pageSize:20,totalPages:1,cards:[{label:'totalSchedules',value:1},{label:'overdueSchedules',value:0}]});
 describe('preventive schedule business print model',()=>{
   it.each(['ar','en'] as const)('renders %s localized frequency, status and optional end dates',locale=>{

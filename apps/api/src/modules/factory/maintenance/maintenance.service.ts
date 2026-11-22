@@ -5,6 +5,7 @@ import { NumberingService } from '../../numbering/numbering.service';
 import { CreateMachineDto, UpdateMachineDto, CreateMachinePartDto, CreateMachineDocumentDto, UpdateMachineLocationDto, UpdateMachineManufacturerDto, UpdateMachineWarrantyDto, UpdateMachineImageDto } from './dto/maintenance.dto';
 import { CostCentersService } from './cost-centers/cost-centers.service';
 import { ActiveOperationalContext } from '../../../common/operational-context/operational-context.types';
+import { activeNotExpired, dueSoonWhere, effectiveDueCompare, expiredWhere, getEffectiveDueDate, getScheduleDueState, notDueWhere, overdueWhere, withDueAuthority } from './maintenance-schedules/schedule-due-authority';
 
 @Injectable()
 export class MaintenanceService {
@@ -529,15 +530,15 @@ export class MaintenanceService {
       this.prisma.maintenanceSchedule.count({ where: machineFilter }),
       this.prisma.maintenanceSchedule.count({ where: { ...machineFilter, status: 'ACTIVE' } }),
       this.prisma.maintenanceSchedule.count({ where: { ...machineFilter, status: 'INACTIVE' } }),
-      this.prisma.maintenanceSchedule.count({ where: { ...machineFilter, status: 'ACTIVE', startDate: { lte: now } } }),
+      this.prisma.maintenanceSchedule.count({ where: { ...machineFilter, ...overdueWhere(now) } }),
       this.prisma.maintenanceSchedule.count({
-        where: { ...machineFilter, status: 'ACTIVE', startDate: { gt: now, lte: new Date(now.getTime() + 7 * 86400000) } },
+        where: { ...machineFilter, ...dueSoonWhere(now) },
       }),
       this.prisma.maintenanceSchedule.count({
-        where: { ...machineFilter, status: 'ACTIVE', startDate: { gt: new Date(now.getTime() + 7 * 86400000) } },
+        where: { ...machineFilter, ...notDueWhere(now) },
       }),
       this.prisma.maintenanceSchedule.count({
-        where: { ...machineFilter, status: 'ACTIVE', endDate: { not: null, lte: now } },
+        where: { ...machineFilter, ...expiredWhere(now) },
       }),
     ]);
     return { total, active, inactive, overdue, dueSoon, notDue, expired };
@@ -567,7 +568,10 @@ export class MaintenanceService {
       this.prisma.maintenanceTask.count({ where: { request: { machineId: id }, status: { in: ['PENDING', 'IN_PROGRESS'] } } }),
       this.prisma.downtimeLog.count({ where: { machineId: id, endTime: null, cancelledAt: null } }),
       this.prisma.downtimeLog.aggregate({ where: { machineId: id, cancelledAt: null, startTime: { gte: monthStart } }, _sum: { durationMinutes: true } }),
-      this.prisma.maintenanceSchedule.findFirst({ where: { machineId: id, status: 'ACTIVE', startDate: { gte: now } }, orderBy: { startDate: 'asc' } }),
+      this.prisma.maintenanceSchedule.findFirst({
+        where: { machineId: id, ...activeNotExpired(now), AND: [...activeNotExpired(now).AND, effectiveDueCompare('gte', now)] },
+        orderBy: [{ nextDueDate: 'asc' }, { startDate: 'asc' }],
+      }),
     ]);
 
     const totalDowntimeHours = downtimeAgg._sum.durationMinutes
@@ -577,9 +581,9 @@ export class MaintenanceService {
     return {
       id: machine.id, code: machine.code, name: machine.name, status: machine.status, category: machine.category,
       activeRequests, openTasks, activeDowntime, totalDowntimeHoursThisMonth: totalDowntimeHours,
-      nextMaintenanceDueDate: nextSchedule?.startDate || null,
+      nextMaintenanceDueDate: nextSchedule ? getEffectiveDueDate(nextSchedule as any) : null,
       nextMaintenanceTitle: nextSchedule?.title || null,
-      dueStatus: nextSchedule ? (nextSchedule.startDate > now ? 'notDue' : 'overdue') : null,
+      dueStatus: nextSchedule ? getScheduleDueState(nextSchedule as any, now) : null,
     };
   }
 
@@ -658,10 +662,13 @@ export class MaintenanceService {
             by: ['machineId'], where: { machineId: { in: machineIds }, cancelledAt: null, startTime: { gte: monthStart } }, _sum: { durationMinutes: true },
           }),
           this.prisma.maintenanceSchedule.findMany({
-            where: { machineId: { in: machineIds }, status: 'ACTIVE', startDate: { gte: now } },
-            orderBy: { startDate: 'asc' },
-            distinct: ['machineId'],
-            select: { machineId: true, startDate: true, title: true },
+            where: {
+              machineId: { in: machineIds },
+              ...activeNotExpired(now),
+              AND: [...activeNotExpired(now).AND, effectiveDueCompare('gte', now)],
+            },
+            orderBy: [{ nextDueDate: 'asc' }, { startDate: 'asc' }],
+            select: { machineId: true, startDate: true, nextDueDate: true, endDate: true, status: true, title: true },
           }),
         ])
       : [[], [], [], [], []];
@@ -675,7 +682,12 @@ export class MaintenanceService {
     }
     const activeDowntimeMap = Object.fromEntries(activeDowntimes.map((r) => [r.machineId, r._count]));
     const downtimeMinutesMap = Object.fromEntries(currentMonthDowntime.map((r) => [r.machineId, r._sum.durationMinutes || 0]));
-    const scheduleMap = Object.fromEntries(nextSchedules.map((s) => [s.machineId, s]));
+    const scheduleMap = Object.fromEntries(
+      (nextSchedules as any[])
+        .map((s) => withDueAuthority(s, now))
+        .sort((a, b) => a.effectiveDueDate.getTime() - b.effectiveDueDate.getTime())
+        .map((s) => [s.machineId, s]),
+    );
 
     const summaries = machines.map((m) => {
       const nextSch = scheduleMap[m.id];
@@ -685,9 +697,9 @@ export class MaintenanceService {
         openTasks: openTaskCountByMachine[m.id] || 0,
         activeDowntime: activeDowntimeMap[m.id] || 0,
         totalDowntimeHoursThisMonth: downtimeMinutesMap[m.id] ? Math.round((downtimeMinutesMap[m.id] / 60) * 100) / 100 : 0,
-        nextMaintenanceDueDate: nextSch?.startDate || null,
+        nextMaintenanceDueDate: nextSch?.effectiveDueDate || null,
         nextMaintenanceTitle: nextSch?.title || null,
-        dueStatus: nextSch ? (nextSch.startDate > now ? 'notDue' : 'overdue') : null,
+        dueStatus: nextSch?.dueStatus || null,
       };
     });
 

@@ -1,6 +1,7 @@
 import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../../../common/prisma/prisma.service';
 import { ActiveOperationalContext } from '../../../../common/operational-context/operational-context.types';
+import { activeNotExpired, effectiveDueBetween, withDueAuthority } from '../maintenance-schedules/schedule-due-authority';
 
 @Injectable()
 export class MaintenanceCalendarWorkloadService {
@@ -51,6 +52,7 @@ export class MaintenanceCalendarWorkloadService {
     if (isNaN(start.getTime()) || isNaN(end.getTime())) {
       throw new BadRequestException('Invalid date format');
     }
+    const now = new Date();
 
     const where: any = { deletedAt: null, machine: this.machineScope(ctx) };
     if (params.machineId) where.machineId = params.machineId;
@@ -86,11 +88,10 @@ export class MaintenanceCalendarWorkloadService {
       }),
       this.prisma.maintenanceSchedule.findMany({
         where: {
-          status: 'ACTIVE',
-          startDate: { lte: end },
-          OR: [
-            { endDate: null },
-            { endDate: { gte: start } },
+          ...activeNotExpired(now),
+          AND: [
+            ...activeNotExpired(now).AND,
+            ...effectiveDueBetween(start, end).AND,
           ],
           machine: this.machineScope(ctx),
           ...(params.machineId ? { machineId: params.machineId } : {}),
@@ -98,7 +99,7 @@ export class MaintenanceCalendarWorkloadService {
         include: {
           machine: { select: { id: true, code: true, name: true } },
         },
-        orderBy: { startDate: 'asc' },
+        orderBy: [{ nextDueDate: 'asc' }, { startDate: 'asc' }],
       }),
     ]);
 
@@ -132,7 +133,10 @@ export class MaintenanceCalendarWorkloadService {
       createdAt: r.createdAt,
     }));
 
-    const scheduleEvents = schedules.map(s => ({
+    const enrichedSchedules = schedules.map((s: any) => withDueAuthority(s, now))
+      .sort((a: any, b: any) => a.effectiveDueDate.getTime() - b.effectiveDueDate.getTime());
+
+    const scheduleEvents = enrichedSchedules.map(s => ({
       id: s.id,
       title: s.title,
       eventType: 'SCHEDULE',
@@ -144,11 +148,14 @@ export class MaintenanceCalendarWorkloadService {
       productionLineName: null,
       assignedPersonnelId: null,
       assignedPersonnelName: null,
-      status: s.status,
+      status: s.dueStatus,
+      scheduleStatus: s.status,
       priority: 'MEDIUM',
-      plannedStartAt: s.startDate,
+      plannedStartAt: s.effectiveDueDate,
       plannedEndAt: s.endDate,
-      dueAt: s.nextDueDate,
+      dueAt: s.effectiveDueDate,
+      effectiveDueDate: s.effectiveDueDate,
+      dueStatus: s.dueStatus,
       slaStatus: null,
       escalationLevel: null,
       targetRoute: `/admin/maintenance/schedules/${s.id}`,

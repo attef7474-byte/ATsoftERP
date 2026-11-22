@@ -2,7 +2,8 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../../common/prisma/prisma.service';
 import { InventoryReportFilterDto, MaintenanceReportFilterDto } from '../dto/report-filter.dto';
 import { ActiveOperationalContext } from '../../../common/operational-context/operational-context.types';
-import { buildDateFilter, nowPlusDays } from './report-query-utils';
+import { buildDateFilter } from './report-query-utils';
+import { dueSoonWhere, overdueWhere, withDueAuthority } from '../../factory/maintenance/maintenance-schedules/schedule-due-authority';
 
 @Injectable()
 export class DashboardReportsService {
@@ -18,7 +19,6 @@ export class DashboardReportsService {
   async getMaintenanceOverview(filters: MaintenanceReportFilterDto, ctx: ActiveOperationalContext) {
     const dateFilter = buildDateFilter(filters.dateFrom, filters.dateTo);
     const now = new Date();
-    const soon = nowPlusDays(7);
     const machine = this.machineScope(ctx);
 
     const requestWhere: any = { ...dateFilter, machine };
@@ -39,6 +39,11 @@ export class DashboardReportsService {
 
     const scheduleBaseWhere: any = { machine: scheduleMachineWhere, status: 'ACTIVE' };
     if (filters.machineId) scheduleBaseWhere.machineId = filters.machineId;
+    const withDuePredicate = (predicate: any) => ({
+      ...scheduleBaseWhere,
+      ...predicate,
+      AND: [...(scheduleBaseWhere.AND || []), ...(predicate.AND || [])],
+    });
 
     const [
       totalRequests, openRequests, inProgressRequests, completedRequests, cancelledRequests,
@@ -51,7 +56,7 @@ export class DashboardReportsService {
       this.prisma.maintenanceRequest.count({ where: { ...requestWhere, status: 'IN_PROGRESS' } }),
       this.prisma.maintenanceRequest.count({ where: { ...requestWhere, status: 'COMPLETED' } }),
       this.prisma.maintenanceRequest.count({ where: { ...requestWhere, status: 'CANCELLED' } }),
-      this.prisma.maintenanceSchedule.count({ where: { ...scheduleBaseWhere, endDate: { lte: now } } }),
+      this.prisma.maintenanceSchedule.count({ where: withDuePredicate(overdueWhere(now)) }),
       this.prisma.downtimeLog.aggregate({ where: { ...dateFilter, ...(filters.machineId ? { machineId: filters.machineId } : {}), cancelledAt: null, machine }, _sum: { durationMinutes: true } }),
       this.prisma.downtimeLog.count({ where: { endTime: null, cancelledAt: null, machine } }),
       this.prisma.maintenanceRequestCostEntry.aggregate({ where: { request: { machine } }, _sum: { amount: true } }),
@@ -61,9 +66,12 @@ export class DashboardReportsService {
       this.prisma.maintenanceRequest.groupBy({ by: ['type'], where: requestWhere, _count: true }),
       this.prisma.maintenanceRequest.groupBy({ by: ['machineId'], where: requestWhere, _count: true, orderBy: { _count: { id: 'desc' } }, take: 10 }),
       this.prisma.downtimeLog.groupBy({ by: ['machineId'], where: { ...dateFilter, ...(filters.machineId ? { machineId: filters.machineId } : {}), cancelledAt: null, machine }, _sum: { durationMinutes: true }, orderBy: { _sum: { durationMinutes: 'desc' } }, take: 10 }),
-      this.prisma.maintenanceSchedule.findMany({ where: { ...scheduleBaseWhere, endDate: { lte: soon } }, take: 10, include: { machine: { select: { id: true, code: true, name: true } } }, orderBy: { endDate: 'asc' } }),
+      this.prisma.maintenanceSchedule.findMany({ where: withDuePredicate(dueSoonWhere(now, 7)), take: 10, include: { machine: { select: { id: true, code: true, name: true } } }, orderBy: [{ nextDueDate: 'asc' }, { startDate: 'asc' }] }),
       this.prisma.maintenanceRequest.findMany({ where: requestWhere, take: 10, orderBy: { createdAt: 'desc' }, include: { machine: { select: { id: true, code: true, name: true } } } }),
     ]);
+
+    const enrichedDueSchedules = dueSchedules.map((schedule: any) => withDueAuthority(schedule, now))
+      .sort((a: any, b: any) => a.effectiveDueDate.getTime() - b.effectiveDueDate.getTime());
 
     return {
       cards: [
@@ -87,7 +95,7 @@ export class DashboardReportsService {
       requestsByType: requestsByType.map(r => ({ type: r.type, count: r._count })),
       topMachinesByRequestCount: topMachinesByReq.map(r => ({ machineId: r.machineId, count: r._count })),
       topMachinesByDowntime: topMachinesByDowntime.map(r => ({ machineId: r.machineId, totalMinutes: r._sum.durationMinutes || 0 })),
-      dueSchedules,
+      dueSchedules: enrichedDueSchedules,
       recentRequests,
     };
   }

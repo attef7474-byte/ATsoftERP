@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../../../common/prisma/prisma.service';
 import { DowntimeLogsService } from '../downtime-logs/downtime-logs.service';
+import { overdueWhere, upcomingWhere, withDueAuthority } from '../maintenance-schedules/schedule-due-authority';
 import { ActiveOperationalContext } from '../../../../common/operational-context/operational-context.types';
 
 @Injectable()
@@ -46,7 +47,7 @@ export class MaintenanceDashboardService {
       this.getOverdueCount(ctx),
       this.prisma.machine.count({ where: { status: 'UNDER_MAINTENANCE', deletedAt: null, companyId: ctx.companyId, OR: [{ branchId: ctx.branchId }, { branchId: null }] } }),
       this.prisma.downtimeLog.count({ where: { endTime: null, cancelledAt: null, machine } }),
-      this.prisma.maintenanceSchedule.count({ where: { status: 'ACTIVE', startDate: { gte: now }, endDate: null, machine } }),
+      this.prisma.maintenanceSchedule.count({ where: { ...upcomingWhere(now, 30), machine } }),
       this.prisma.maintenanceRequestCostEntry.aggregate({ where: { request: { machine } }, _sum: { amount: true } }),
       this.prisma.maintenanceRequest.count({ where: { deletedAt: null, machine } }),
       this.prisma.maintenanceRequest.count({ where: { status: 'COMPLETED', deletedAt: null, machine } }),
@@ -56,8 +57,8 @@ export class MaintenanceDashboardService {
       this.prisma.maintenancePartAccountability.count({ where: { maintenanceRequest: { machine } } }),
       this.prisma.maintenancePartAccountability.count({ where: { status: 'ASSIGNED', maintenanceRequest: { machine } } }),
       // --- Preventive / Emergency KPIs ---
-      this.prisma.maintenanceSchedule.count({ where: { status: 'ACTIVE', startDate: { lte: now }, machine } }),
-      this.prisma.maintenanceSchedule.count({ where: { status: 'ACTIVE', startDate: { lt: now }, endDate: null, machine } }),
+      this.prisma.maintenanceSchedule.count({ where: { ...overdueWhere(now), machine } }),
+      this.prisma.maintenanceSchedule.count({ where: { ...overdueWhere(now), machine } }),
       this.prisma.maintenanceRequest.count({ where: { type: 'PREVENTIVE', status: 'COMPLETED', deletedAt: null, machine } }),
       this.prisma.maintenanceRequest.count({ where: { isEmergency: true, status: 'OPEN', deletedAt: null, machine } }),
       this.prisma.maintenanceRequest.count({ where: { isEmergency: true, status: 'COMPLETED', deletedAt: null, machine } }),
@@ -123,7 +124,7 @@ export class MaintenanceDashboardService {
         where: { status: { in: ['OPEN', 'IN_PROGRESS'] }, endDate: { lt: now }, deletedAt: null, machine },
       }),
       this.prisma.maintenanceSchedule.count({
-        where: { status: 'ACTIVE', startDate: { lt: now }, endDate: null, machine },
+        where: { ...overdueWhere(now), machine },
       }),
     ]);
     return overdueRequests + overdueSchedules;
@@ -194,7 +195,7 @@ export class MaintenanceDashboardService {
     const machine = this.machineScope(ctx);
 
     const overdueRequestsQuery = { where: { status: { in: ['OPEN', 'IN_PROGRESS'] }, endDate: { lt: now }, deletedAt: null, machine }, skip: (page - 1) * limit, take: limit, orderBy: { endDate: 'asc' as 'asc' } };
-    const overdueSchedulesQuery = { where: { status: 'ACTIVE', startDate: { lt: now }, endDate: null, machine }, skip: (page - 1) * limit, take: limit, orderBy: { startDate: 'asc' as 'asc' } };
+    const overdueSchedulesQuery = { where: { ...overdueWhere(now), machine }, skip: (page - 1) * limit, take: limit, orderBy: { nextDueDate: 'asc' as 'asc' } };
 
     const [overdueRequestsList, overdueSchedulesList] = await Promise.all([
       this.prisma.maintenanceRequest.findMany({
@@ -210,11 +211,16 @@ export class MaintenanceDashboardService {
       }),
     ]);
 
-    const total = overdueRequestsList.length + overdueSchedulesList.length;
+    const enrichedSchedules = overdueSchedulesList.map((s: any) => withDueAuthority(s, now));
+    const [overdueRequestTotal, overdueScheduleTotal] = await Promise.all([
+      this.prisma.maintenanceRequest.count({ where: overdueRequestsQuery.where }),
+      this.prisma.maintenanceSchedule.count({ where: overdueSchedulesQuery.where }),
+    ]);
+    const total = overdueRequestTotal + overdueScheduleTotal;
     return {
       data: {
         requests: overdueRequestsList,
-        schedules: overdueSchedulesList,
+        schedules: enrichedSchedules,
       },
       meta: { page, limit, total, totalPages: Math.ceil(total / limit) },
     };
@@ -264,19 +270,21 @@ export class MaintenanceDashboardService {
     const page = query.page || 1;
     const limit = query.limit || 10;
     const now = new Date();
-    const thirtyDaysFromNow = new Date(now.getTime() + 30 * 86400000);
-    const where = { status: 'ACTIVE', startDate: { gte: now, lte: thirtyDaysFromNow }, machine: this.machineScope(ctx) };
+    const where = { ...upcomingWhere(now, 30), machine: this.machineScope(ctx) };
 
     const [data, total] = await Promise.all([
       this.prisma.maintenanceSchedule.findMany({
-        where, skip: (page - 1) * limit, take: limit, orderBy: { startDate: 'asc' },
+        where, skip: (page - 1) * limit, take: limit,
+        orderBy: [{ nextDueDate: 'asc' }, { startDate: 'asc' }],
         include: {
           machine: { select: { id: true, code: true, name: true } },
         },
       }),
       this.prisma.maintenanceSchedule.count({ where }),
     ]);
-    return { data, meta: { page, limit, total, totalPages: Math.ceil(total / limit) } };
+    const enriched = data.map((s: any) => withDueAuthority(s, now))
+      .sort((a: any, b: any) => a.effectiveDueDate.getTime() - b.effectiveDueDate.getTime());
+    return { data: enriched, meta: { page, limit, total, totalPages: Math.ceil(total / limit) } };
   }
 
   async getAccountabilityKpis(ctx: ActiveOperationalContext) {

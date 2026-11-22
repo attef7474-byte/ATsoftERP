@@ -208,6 +208,7 @@ export interface MaintenanceSchedule {
   startDate: string;
   endDate?: string | null;
   nextDueDate?: string | null;
+  effectiveDueDate?: string | null;
   lastRunAt?: string | null;
   lastGeneratedAt?: string | null;
   status: string;

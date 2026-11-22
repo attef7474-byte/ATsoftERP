@@ -9,6 +9,7 @@ import { ActiveOperationalContext } from '../../../../common/operational-context
 import { PreventiveScheduleDuplicateGuard } from './preventive-schedule-duplicate.guard';
 import { normalizeChecklistItemConfig, withDeterministicSortOrder } from '../maintenance-checklist-items/checklist-item-validation';
 import { MaintenanceChecklistStartAuthorityService } from '../maintenance-checklist-executions/maintenance-checklist-start-authority.service';
+import { calculateNextDueDate, dueStatusWhere, effectiveDueCompare, generationClaimWhere, getEffectiveDueDate, withDueAuthority } from './schedule-due-authority';
 
 interface PreparedChecklistItem {
   id?: string;
@@ -105,17 +106,8 @@ export class MaintenanceSchedulesService {
     if (!machine || !this.machineOwns(machine, ctx)) throw this.notFound('maintenance.machineNotFound', 'Machine not found');
   }
 
-  private computeDueStatus(schedule: { status: string; startDate: Date; endDate?: Date | null }): string {
-    const now = new Date();
-    const daysUntilDue = schedule.startDate
-      ? Math.ceil((new Date(schedule.startDate).getTime() - now.getTime()) / 86400000)
-      : null;
-
-    if (schedule.status !== 'ACTIVE') return 'inactive';
-    if (schedule.endDate && new Date(schedule.endDate) < now) return 'expired';
-    if (new Date(schedule.startDate) > now && daysUntilDue !== null && daysUntilDue <= 7) return 'dueSoon';
-    if (new Date(schedule.startDate) > now) return 'notDue';
-    return 'overdue';
+  private computeDueStatus(schedule: any, now: Date = new Date()): string {
+    return withDueAuthority(schedule, now).dueStatus;
   }
 
   async create(dto: CreateMaintenanceScheduleDto, userId: string, ctx: ActiveOperationalContext) {
@@ -161,6 +153,7 @@ export class MaintenanceSchedulesService {
     const page = query.page || 1;
     const limit = query.limit || 10;
     const skip = (page - 1) * limit;
+    const now = new Date();
 
     const where: any = { machine: this.machineScope(ctx) };
     if (query.search) {
@@ -176,7 +169,10 @@ export class MaintenanceSchedulesService {
     if (query.status) where.status = query.status;
     if (query.type) where.type = query.type;
     if (query.dueBefore) {
-      where.startDate = { ...where.startDate, lte: new Date(query.dueBefore) };
+      where.AND = [...(where.AND || []), effectiveDueCompare('lte', new Date(query.dueBefore))];
+    }
+    if (query.dueStatus) {
+      where.AND = [...(where.AND || []), dueStatusWhere(query.dueStatus, now)];
     }
 
     const [data, total] = await Promise.all([
@@ -190,15 +186,7 @@ export class MaintenanceSchedulesService {
       this.prisma.maintenanceSchedule.count({ where }),
     ]);
 
-    const enriched = data.map((item: any) => ({
-      ...item,
-      dueStatus: this.computeDueStatus(item),
-    }));
-
-    if (query.dueStatus) {
-      const filtered = enriched.filter((item: any) => item.dueStatus === query.dueStatus);
-      return { data: filtered, meta: { page, limit, total: filtered.length, totalPages: Math.ceil(filtered.length / limit) } };
-    }
+    const enriched = data.map((item: any) => withDueAuthority(item, now));
 
     return { data: enriched, meta: { page, limit, total, totalPages: Math.ceil(total / limit) } };
   }
@@ -216,7 +204,7 @@ export class MaintenanceSchedulesService {
     });
     if (!schedule) throw this.notFound('maintenance.scheduleNotFound', 'Maintenance schedule not found');
     if (!this.machineOwns(schedule.machine, ctx)) throw this.notFound('maintenance.scheduleNotFound', 'Maintenance schedule not found');
-    return { ...schedule, dueStatus: this.computeDueStatus(schedule) };
+    return withDueAuthority(schedule);
   }
 
   async update(id: string, dto: UpdateMaintenanceScheduleDto, userId: string, ctx: ActiveOperationalContext) {
@@ -349,7 +337,17 @@ export class MaintenanceSchedulesService {
 
   async generateRequest(id: string, userId: string, ctx: ActiveOperationalContext) {
     const schedule = await this.findOne(id, ctx);
+    const now = new Date();
     if (schedule.status !== 'ACTIVE') throw new BadRequestException('Only active schedules can generate requests');
+
+    const effectiveDueDate = getEffectiveDueDate(schedule);
+    if (effectiveDueDate.getTime() > now.getTime()) {
+      throw new ConflictException('This schedule occurrence is not due yet; nextDueDate has already been advanced.');
+    }
+    const endDate = schedule.endDate ? new Date(schedule.endDate) : null;
+    if (endDate && endDate.getTime() < now.getTime()) {
+      throw new BadRequestException('This schedule has expired and cannot generate requests');
+    }
 
     const existingRequest = await this.prisma.maintenanceRequest.findFirst({
       where: {
@@ -361,14 +359,26 @@ export class MaintenanceSchedulesService {
     });
     if (existingRequest) throw new ConflictException('An active request already exists for this schedule. Complete or cancel the existing request before generating a new one.');
 
+    const generatedAt = new Date();
+    let advancedNextDue: Date | null = null;
     const request = await this.prisma.$transaction(async (tx) => {
-      const requestNumber = await this.numberingService.generateNumberAtomicWithClient('MAINTENANCE_REQUEST', tx);
+      // Optimistic occurrence claim: a concurrent/retried call that still sees
+      // the same nextDueDate + lastGeneratedAt may advance it; a loser cannot.
+      const claim = await tx.maintenanceSchedule.updateMany({
+        where: generationClaimWhere(schedule),
+        data: { lastGeneratedAt: generatedAt },
+      });
+      if (claim.count !== 1) {
+        throw new ConflictException('This due occurrence was already generated by another request.');
+      }
 
-      const nextDue = this.calculateNextDueDate(schedule, new Date());
+      const requestNumber = await this.numberingService.generateNumberAtomicWithClient('MAINTENANCE_REQUEST', tx);
+      const nextDue = calculateNextDueDate(schedule, generatedAt);
+      advancedNextDue = nextDue;
 
       await tx.maintenanceSchedule.update({
         where: { id },
-        data: { lastGeneratedAt: new Date(), nextDueDate: nextDue, requestId: null },
+        data: { lastGeneratedAt: generatedAt, nextDueDate: nextDue, requestId: null },
       });
 
       return tx.maintenanceRequest.create({
@@ -385,25 +395,14 @@ export class MaintenanceSchedulesService {
       });
     });
 
-    await this.audit.log(userId, 'GENERATE', 'MaintenanceSchedule', id,
-      { requestId: request.id });
+    await this.audit.log(userId, 'GENERATE', 'MaintenanceSchedule', id, {
+      requestId: request.id,
+      previousEffectiveDueDate: effectiveDueDate,
+      previousNextDueDate: schedule.nextDueDate ?? null,
+      nextDueDate: advancedNextDue,
+      lastGeneratedAt: generatedAt,
+    });
     return request;
-  }
-
-  private calculateNextDueDate(schedule: { startDate: Date; intervalDays?: number | null; frequency: string; endDate?: Date | null }, from?: Date): Date | null {
-    const base = from || new Date();
-    if (schedule.endDate && new Date(schedule.endDate) < base) return null;
-    if (schedule.intervalDays && schedule.intervalDays > 0) {
-      return new Date(base.getTime() + schedule.intervalDays * 86400000);
-    }
-    switch (schedule.frequency) {
-      case 'DAILY': return new Date(base.getTime() + 86400000);
-      case 'WEEKLY': return new Date(base.getTime() + 7 * 86400000);
-      case 'MONTHLY': return new Date(base.getFullYear(), base.getMonth() + 1, base.getDate());
-      case 'QUARTERLY': return new Date(base.getFullYear(), base.getMonth() + 3, base.getDate());
-      case 'YEARLY': return new Date(base.getFullYear() + 1, base.getMonth(), base.getDate());
-      default: return schedule.intervalDays ? new Date(base.getTime() + schedule.intervalDays * 86400000) : null;
-    }
   }
 
   async getHistory(id: string, query: { page?: number; limit?: number }, ctx: ActiveOperationalContext) {

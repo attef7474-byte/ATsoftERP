@@ -41,7 +41,7 @@ export default function PreventiveCalendarPage() {
 
   const getSchedulesForDay = (day: number) => {
     return Object.values(data).flat().filter((s) => {
-      const sd = s.startDate ? new Date(s.startDate) : null;
+      const sd = s.effectiveDueDate ? new Date(s.effectiveDueDate) : null;
       return sd && sd.getFullYear() === year && sd.getMonth() === month && sd.getDate() === day;
     });
   };

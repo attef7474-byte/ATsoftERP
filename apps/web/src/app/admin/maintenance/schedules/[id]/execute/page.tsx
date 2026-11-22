@@ -73,7 +73,7 @@ export default function ExecuteSchedulePage() {
               <div><span className="text-sm text-gray-500">{t('maintenance.maintenanceType')}</span><p className="font-medium">{t(`status.${schedule.type}` as any) || schedule.type}</p></div>
               <div><span className="text-sm text-gray-500">{t('maintenance.frequency')}</span><p className="font-medium">{t(`status.${schedule.frequency}` as any) || schedule.frequency}</p></div>
               <div><span className="text-sm text-gray-500">{t('common.status')}</span><p><CmmsStatusBadge status={schedule.status} /></p></div>
-              <div><span className="text-sm text-gray-500">{t('maintenance.nextDue')}</span><p className="font-medium">{schedule.nextDueDate ? new Date(schedule.nextDueDate).toLocaleDateString() : '-'}</p></div>
+              <div><span className="text-sm text-gray-500">{t('maintenance.nextDue')}</span><p className="font-medium">{schedule.effectiveDueDate ? new Date(schedule.effectiveDueDate).toLocaleDateString() : '-'}</p></div>
             </div>
           </div>
         </CardContent>

@@ -214,3 +214,15 @@ Applied: P01, P02, P05, P09, P10, P12, P16, P20, P22, P23, P24, P31, P36, P37, P
 | PERSONNEL-P78-03 | Prisma CLI in the external integration worktree needs an explicit DATABASE_URL while the main .env points at a different database. | Export the authorized disposable-clone URL in the command environment and print no credentials; run format/validate/generate from the worktree with that env. | ACTIVE CHECK |
 
 Applied: P01, P02, P05, P09, P10, P12, P16, P17, P20, P22, P23, P26, PERSONNEL-P1-04, 05 and PERSONNEL-P34-01, 04, 06, plus the three new P78 checks. Phase 7/8 proof used a distinct disposable clone, two additive reviewed migrations, no production migration, fresh PASS evidence for browser/API/reconciliation, and zero historical-row loss.
+
+## Personnel Phase 9 preventive checks — 2026-11-22
+
+| ID | Problem / symptom | Preventive check | Status |
+| --- | --- | --- | --- |
+| PERSONNEL-P9-01 | Repeated browser proof runs left stale noncanonical `P9_*` schedules and machines that occupied the first Schedules page and made locale assertions fail independently of due authority. | Before each controlled browser proof, delete only noncanonical proof fixtures by exact IDs while preserving canonical API-proof IDs; record stale machine/schedule/request counts and assert canonical rows survive. | ACTIVE CHECK |
+| PERSONNEL-P9-02 | API proof generation advances controlled fixtures A and D, so later browser proof cannot assume they remain overdue. | Create independent post-generation fixtures G and H in browser proof; assert locale-specific expected overdue rows and assert H remains overdue with zero requests after G is generated. | ACTIVE CHECK |
+| PERSONNEL-P9-03 | Calendar navigation waited only for network idle and sampled the body while React still rendered both EN and AR loading text. | After each month navigation, wait for the expected month heading and the absence of both `Loading...` and `جارٍ التحميل...` before asserting calendar rows. | ACTIVE CHECK |
+| PERSONNEL-P9-04 | Migrating the schedules print column from `startDate` to `effectiveDueDate` left unit fixtures on the old field, producing blank/`?` date cells. | Update print fixtures to the authoritative field whenever a print model changes, rerun the focused print test, and rerun the full Web suite because other page tests reuse the fixture. | ACTIVE CHECK |
+| PERSONNEL-P9-05 | Runtime-only `NEXT_PUBLIC_API_URL` is not present in a built Web bundle, and newly added EN/AR keys can be missed until the browser renders fallback text. | Set `NEXT_PUBLIC_API_URL` at build time and require browser proof in EN/LTR and AR/RTL to reject raw keys and missing-text fallbacks. | ACTIVE CHECK |
+
+Applied: P01, P02, P05, P09, P10, P12, P16, P17, P20, P22, P23, P31, P36, P37, P44, P48, P78-02, P78-03, PERSONNEL-P1-05, PERSONNEL-P34-01, 04, 06 and PERSONNEL-P9-01–05. Phase 9 used a distinct disposable clone, no schema migration, no production write, exact temporary-grant revocation, fresh API/browser PASS evidence, and final reconciliation tokens of zero.

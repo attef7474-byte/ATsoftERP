@@ -39,7 +39,7 @@ export default function UpcomingPreventivePage() {
     { key: 'title', header: t('common.title') },
     { key: 'machine', header: t('maintenance.machine'), render: (s: MaintenanceSchedule) => s.machine?.name || '-' },
     { key: 'type', header: t('maintenance.maintenanceType') },
-    { key: 'startDate', header: t('maintenance.startDate'), render: (s: MaintenanceSchedule) => new Date(s.startDate).toLocaleDateString() },
+    { key: 'effectiveDueDate', header: t('maintenance.nextDueDate'), render: (s: MaintenanceSchedule) => s.effectiveDueDate ? new Date(s.effectiveDueDate).toLocaleDateString() : '-' },
     { key: 'status', header: t('common.status'), render: (s: MaintenanceSchedule) => <CmmsStatusBadge status={s.status} /> },
   ];
 
