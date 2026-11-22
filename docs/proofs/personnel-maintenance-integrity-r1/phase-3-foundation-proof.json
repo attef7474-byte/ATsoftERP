@@ -1,0 +1,42 @@
+{
+  "database": "ATsoftERP_PERSONNEL_P34_20261122",
+  "proofScriptSha256": "4cd35a87ab79284c9a7a45c35c17ea327a891be850fd035f647224dd24caa2ce",
+  "runId": "fd94e8d1-5e24-482b-a199-52d2dd9b83f3",
+  "startedAt": "2026-11-21T22:33:56.171Z",
+  "status": "PASS",
+  "sourceDatabaseWrites": 0,
+  "checks": [
+    {
+      "check": "Assignment API tenant, RBAC, duplicate and unknown actor/tenant field denials",
+      "status": "PASS"
+    },
+    {
+      "check": "Cancelled relation history retained; later reassignment creates a new relation",
+      "status": "PASS"
+    },
+    {
+      "check": "SQL filtered unique index rejects duplicate active relation independently of API",
+      "status": "PASS"
+    },
+    {
+      "check": "Legacy single user preserved; no execution/team semantics introduced",
+      "status": "PASS"
+    },
+    {
+      "check": "Phase 6 actor-aware business audit persisted atomically for assign/cancel",
+      "status": "PASS"
+    }
+  ],
+  "fixtureIds": {
+    "orderId": "cmwqziz3d000g0895qntcucil",
+    "companyId": "cmwqziyqw000008951jrdo6er",
+    "assignmentIds": [
+      "cmwqziz7c000i0895byxhgqwi",
+      "cmwqzizgo000l0895erekqyry"
+    ]
+  },
+  "browser": null,
+  "proxyTransportErrors": [],
+  "fixtureActorsDeactivated": 3,
+  "finishedAt": "2026-11-21T22:33:57.897Z"
+}

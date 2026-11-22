@@ -1,0 +1,444 @@
+{
+  "database": "ATsoftERP_PERSONNEL_P34_20261122",
+  "proofScriptSha256": "67b45597a2a52b4f6b89af508c6d7c40acbface5d51cabd28c0e1c76ae0ca525",
+  "runId": "77b25dc9-5950-4fda-aab2-dd87a307e894",
+  "startedAt": "2026-11-21T21:58:13.364Z",
+  "status": "PASS",
+  "sourceDatabaseWrites": 0,
+  "checks": [
+    {
+      "check": "Phase 6 canonical governance permissions remain seeded: 61 of 61",
+      "status": "PASS"
+    },
+    {
+      "check": "Real API request, work order and downtime lifecycle states",
+      "status": "PASS",
+      "detail": {
+        "requestStates": [
+          "COMPLETED",
+          "IN_PROGRESS",
+          "OPEN"
+        ],
+        "orderStates": [
+          "COMPLETED",
+          "IN_PROGRESS",
+          "PLANNED",
+          "DRAFT",
+          "CANCELLED"
+        ]
+      }
+    },
+    {
+      "check": "Foreign linked authorities excluded by explicit SQL relation scope",
+      "status": "PASS"
+    },
+    {
+      "check": "Normal actor permissions, foreign tenant read/edit/reference/list and context spoof denials",
+      "status": "PASS"
+    },
+    {
+      "check": "Browser en requests: states, hover, actions, direction and dark mode",
+      "status": "PASS"
+    },
+    {
+      "check": "Browser en work-orders: states, hover, actions, direction and dark mode",
+      "status": "PASS"
+    },
+    {
+      "check": "Browser en downtime-logs: states, hover, actions, direction and dark mode",
+      "status": "PASS"
+    },
+    {
+      "check": "Browser ar requests: states, hover, actions, direction and dark mode",
+      "status": "PASS"
+    },
+    {
+      "check": "Browser ar work-orders: states, hover, actions, direction and dark mode",
+      "status": "PASS"
+    },
+    {
+      "check": "Browser ar downtime-logs: states, hover, actions, direction and dark mode",
+      "status": "PASS"
+    },
+    {
+      "check": "UI action updates same request OPEN to IN_PROGRESS, refreshes orange row and persists actor audit",
+      "status": "PASS"
+    },
+    {
+      "check": "No inventory movement side effects",
+      "status": "PASS"
+    },
+    {
+      "check": "All pre-existing requests, orders, executions, downtime and audit records preserved",
+      "status": "PASS",
+      "detail": {
+        "maintenanceRequest": 22,
+        "maintenanceWorkOrder": 9,
+        "maintenanceTask": 15,
+        "downtimeLog": 5,
+        "auditLog": 5776
+      }
+    },
+    {
+      "check": "Actor-aware execution audit persisted",
+      "status": "PASS"
+    },
+    {
+      "check": "No open fixture labor sessions after cleanup",
+      "status": "PASS"
+    }
+  ],
+  "fixtureIds": {
+    "companyId": "cmwqy91fw0000lo95qh6aimld",
+    "branchId": "cmwqy91gh0001lo95vbu0gyqq",
+    "companyBId": "cmwqy91gu0002lo95uhxcp6k3",
+    "requestIds": [
+      "cmwqy91qu000alo95qe54x63h",
+      "cmwqy92gh000rlo95n7cpx26p",
+      "cmwqy92pr0015lo95pm4xxm87"
+    ],
+    "orderIds": [
+      "cmwqy92s5001alo95o5db8kex",
+      "cmwqy932c001jlo952nxjlu16",
+      "cmwqy939x001rlo95u8xcgyzd",
+      "cmwqy93dj001ulo95zz8f0jog",
+      "cmwqy93fb001wlo95ry68j72l"
+    ],
+    "executionIds": [
+      "cmwqy91xz000flo95x9iep3mg",
+      "cmwqy92im000wlo95kfi8ziqz",
+      "cmwqy92uf001clo95y0jryqfw",
+      "cmwqy934d001llo95bbrcybbc"
+    ]
+  },
+  "browser": {
+    "consoleErrors": [
+      {
+        "message": "Failed to load resource: the server responded with a status of 404 (Not Found)",
+        "location": {
+          "url": "http://127.0.0.1:3320/favicon.ico",
+          "line": 0,
+          "column": 0,
+          "lineNumber": 0,
+          "columnNumber": 0
+        }
+      }
+    ],
+    "failedApiResponses": [],
+    "networkFailures": [],
+    "screenshots": [
+      "test-results/personnel-p2-requests-en.png",
+      "test-results/personnel-p2-selection-en.png",
+      "test-results/personnel-p2-dark-requests-en.png",
+      "test-results/personnel-p2-work-orders-en.png",
+      "test-results/personnel-p2-dark-work-orders-en.png",
+      "test-results/personnel-p2-downtime-logs-en.png",
+      "test-results/personnel-p2-dark-downtime-logs-en.png",
+      "test-results/personnel-p2-requests-ar.png",
+      "test-results/personnel-p2-selection-ar.png",
+      "test-results/personnel-p2-dark-requests-ar.png",
+      "test-results/personnel-p2-work-orders-ar.png",
+      "test-results/personnel-p2-dark-work-orders-ar.png",
+      "test-results/personnel-p2-downtime-logs-ar.png",
+      "test-results/personnel-p2-dark-downtime-logs-ar.png"
+    ],
+    "observations": [
+      {
+        "locale": "en",
+        "domain": "requests",
+        "state": "COMPLETED",
+        "tone": "normal",
+        "background": "rgb(255, 255, 255)",
+        "text": "rgb(40, 78, 112)",
+        "contrastRatio": 8.7
+      },
+      {
+        "locale": "en",
+        "domain": "requests",
+        "state": "IN_PROGRESS",
+        "tone": "in-progress",
+        "background": "rgb(255, 247, 237)",
+        "text": "rgb(40, 78, 112)",
+        "contrastRatio": 8.19
+      },
+      {
+        "locale": "en",
+        "domain": "requests",
+        "state": "OPEN",
+        "tone": "attention",
+        "background": "rgb(254, 242, 242)",
+        "text": "rgb(40, 78, 112)",
+        "contrastRatio": 7.95
+      },
+      {
+        "locale": "en",
+        "domain": "requests",
+        "selected": true,
+        "background": "rgb(239, 246, 255)",
+        "text": "rgb(40, 78, 112)",
+        "contrastRatio": 7.99
+      },
+      {
+        "locale": "en",
+        "domain": "requests",
+        "dark": true,
+        "background": "rgb(73, 53, 27)",
+        "text": "rgb(226, 232, 240)",
+        "contrastRatio": 9.42
+      },
+      {
+        "locale": "en",
+        "domain": "requests",
+        "dark": true,
+        "selected": true,
+        "background": "rgb(30, 58, 95)",
+        "text": "rgb(226, 232, 240)",
+        "contrastRatio": 9.33
+      },
+      {
+        "locale": "en",
+        "domain": "work-orders",
+        "state": "COMPLETED",
+        "tone": "normal",
+        "background": "rgb(255, 255, 255)",
+        "text": "rgb(40, 78, 112)",
+        "contrastRatio": 8.7
+      },
+      {
+        "locale": "en",
+        "domain": "work-orders",
+        "state": "IN_PROGRESS",
+        "tone": "in-progress",
+        "background": "rgb(255, 247, 237)",
+        "text": "rgb(40, 78, 112)",
+        "contrastRatio": 8.19
+      },
+      {
+        "locale": "en",
+        "domain": "work-orders",
+        "state": "PLANNED",
+        "tone": "attention",
+        "background": "rgb(254, 242, 242)",
+        "text": "rgb(40, 78, 112)",
+        "contrastRatio": 7.95
+      },
+      {
+        "locale": "en",
+        "domain": "work-orders",
+        "state": "DRAFT",
+        "tone": "attention",
+        "background": "rgb(254, 242, 242)",
+        "text": "rgb(40, 78, 112)",
+        "contrastRatio": 7.95
+      },
+      {
+        "locale": "en",
+        "domain": "work-orders",
+        "state": "CANCELLED",
+        "tone": "normal",
+        "background": "rgb(255, 255, 255)",
+        "text": "rgb(40, 78, 112)",
+        "contrastRatio": 8.7
+      },
+      {
+        "locale": "en",
+        "domain": "work-orders",
+        "dark": true,
+        "background": "rgb(73, 53, 27)",
+        "text": "rgb(226, 232, 240)",
+        "contrastRatio": 9.42
+      },
+      {
+        "locale": "en",
+        "domain": "downtime-logs",
+        "state": "COMPLETED",
+        "tone": "normal",
+        "background": "rgb(255, 255, 255)",
+        "text": "rgb(40, 78, 112)",
+        "contrastRatio": 8.7
+      },
+      {
+        "locale": "en",
+        "domain": "downtime-logs",
+        "state": "IN_PROGRESS",
+        "tone": "in-progress",
+        "background": "rgb(255, 247, 237)",
+        "text": "rgb(40, 78, 112)",
+        "contrastRatio": 8.19
+      },
+      {
+        "locale": "en",
+        "domain": "downtime-logs",
+        "state": "OPEN",
+        "tone": "attention",
+        "background": "rgb(254, 242, 242)",
+        "text": "rgb(40, 78, 112)",
+        "contrastRatio": 7.95
+      },
+      {
+        "locale": "en",
+        "domain": "downtime-logs",
+        "dark": true,
+        "background": "rgb(73, 53, 27)",
+        "text": "rgb(226, 232, 240)",
+        "contrastRatio": 9.42
+      },
+      {
+        "locale": "ar",
+        "domain": "requests",
+        "state": "COMPLETED",
+        "tone": "normal",
+        "background": "rgb(255, 255, 255)",
+        "text": "rgb(40, 78, 112)",
+        "contrastRatio": 8.7
+      },
+      {
+        "locale": "ar",
+        "domain": "requests",
+        "state": "IN_PROGRESS",
+        "tone": "in-progress",
+        "background": "rgb(255, 247, 237)",
+        "text": "rgb(40, 78, 112)",
+        "contrastRatio": 8.19
+      },
+      {
+        "locale": "ar",
+        "domain": "requests",
+        "state": "OPEN",
+        "tone": "attention",
+        "background": "rgb(254, 242, 242)",
+        "text": "rgb(40, 78, 112)",
+        "contrastRatio": 7.95
+      },
+      {
+        "locale": "ar",
+        "domain": "requests",
+        "selected": true,
+        "background": "rgb(239, 246, 255)",
+        "text": "rgb(40, 78, 112)",
+        "contrastRatio": 7.99
+      },
+      {
+        "locale": "ar",
+        "domain": "requests",
+        "dark": true,
+        "background": "rgb(73, 53, 27)",
+        "text": "rgb(226, 232, 240)",
+        "contrastRatio": 9.42
+      },
+      {
+        "locale": "ar",
+        "domain": "requests",
+        "dark": true,
+        "selected": true,
+        "background": "rgb(30, 58, 95)",
+        "text": "rgb(226, 232, 240)",
+        "contrastRatio": 9.33
+      },
+      {
+        "locale": "ar",
+        "domain": "work-orders",
+        "state": "COMPLETED",
+        "tone": "normal",
+        "background": "rgb(255, 255, 255)",
+        "text": "rgb(40, 78, 112)",
+        "contrastRatio": 8.7
+      },
+      {
+        "locale": "ar",
+        "domain": "work-orders",
+        "state": "IN_PROGRESS",
+        "tone": "in-progress",
+        "background": "rgb(255, 247, 237)",
+        "text": "rgb(40, 78, 112)",
+        "contrastRatio": 8.19
+      },
+      {
+        "locale": "ar",
+        "domain": "work-orders",
+        "state": "PLANNED",
+        "tone": "attention",
+        "background": "rgb(254, 242, 242)",
+        "text": "rgb(40, 78, 112)",
+        "contrastRatio": 7.95
+      },
+      {
+        "locale": "ar",
+        "domain": "work-orders",
+        "state": "DRAFT",
+        "tone": "attention",
+        "background": "rgb(254, 242, 242)",
+        "text": "rgb(40, 78, 112)",
+        "contrastRatio": 7.95
+      },
+      {
+        "locale": "ar",
+        "domain": "work-orders",
+        "state": "CANCELLED",
+        "tone": "normal",
+        "background": "rgb(255, 255, 255)",
+        "text": "rgb(40, 78, 112)",
+        "contrastRatio": 8.7
+      },
+      {
+        "locale": "ar",
+        "domain": "work-orders",
+        "dark": true,
+        "background": "rgb(73, 53, 27)",
+        "text": "rgb(226, 232, 240)",
+        "contrastRatio": 9.42
+      },
+      {
+        "locale": "ar",
+        "domain": "downtime-logs",
+        "state": "COMPLETED",
+        "tone": "normal",
+        "background": "rgb(255, 255, 255)",
+        "text": "rgb(40, 78, 112)",
+        "contrastRatio": 8.7
+      },
+      {
+        "locale": "ar",
+        "domain": "downtime-logs",
+        "state": "IN_PROGRESS",
+        "tone": "in-progress",
+        "background": "rgb(255, 247, 237)",
+        "text": "rgb(40, 78, 112)",
+        "contrastRatio": 8.19
+      },
+      {
+        "locale": "ar",
+        "domain": "downtime-logs",
+        "state": "OPEN",
+        "tone": "attention",
+        "background": "rgb(254, 242, 242)",
+        "text": "rgb(40, 78, 112)",
+        "contrastRatio": 7.95
+      },
+      {
+        "locale": "ar",
+        "domain": "downtime-logs",
+        "dark": true,
+        "background": "rgb(73, 53, 27)",
+        "text": "rgb(226, 232, 240)",
+        "contrastRatio": 9.42
+      }
+    ],
+    "knownNonOperationalErrors": [
+      {
+        "message": "Failed to load resource: the server responded with a status of 404 (Not Found)",
+        "location": {
+          "url": "http://127.0.0.1:3320/favicon.ico",
+          "line": 0,
+          "column": 0,
+          "lineNumber": 0,
+          "columnNumber": 0
+        }
+      }
+    ]
+  },
+  "proxyTransportErrors": [],
+  "temporarySuperAdminGrantsRemaining": 0,
+  "fixtureActorsDeactivated": 4,
+  "finishedAt": "2026-11-21T21:58:39.069Z"
+}

@@ -1,0 +1,385 @@
+{
+  "database": "ATsoftERP_PERSONNEL_P34_20261122",
+  "proofScriptSha256": "5e737954884e757a179f266ab65365fef5cef0881e3267f73250bd75a1f08bc8",
+  "runId": "2fb7e46a-db5f-4a8b-9e11-f2e46ee98c9e",
+  "startedAt": "2026-11-21T21:57:51.084Z",
+  "status": "PASS",
+  "sourceDatabaseWrites": 0,
+  "checks": [
+    {
+      "check": "API three-word name rejected",
+      "status": "PASS"
+    },
+    {
+      "check": "API malformed phones rejected",
+      "status": "PASS"
+    },
+    {
+      "check": "Unknown fields rejected",
+      "status": "PASS"
+    },
+    {
+      "check": "Four-word name saved and whitespace/phone normalized",
+      "status": "PASS"
+    },
+    {
+      "check": "Own name and phone edit preserves identity",
+      "status": "PASS"
+    },
+    {
+      "check": "Normalized duplicate name and phone rejected",
+      "status": "PASS"
+    },
+    {
+      "check": "Edit collisions with another person rejected",
+      "status": "PASS"
+    },
+    {
+      "check": "User authority validates duplicates independently from OperationalPerson and permits own edit",
+      "status": "PASS"
+    },
+    {
+      "check": "Employee writes share canonical person duplicate policy",
+      "status": "PASS"
+    },
+    {
+      "check": "Legacy maintenance create is tenant-anchored and cannot bypass shared duplicate protection",
+      "status": "PASS"
+    },
+    {
+      "check": "Legacy maintenance create cannot bypass operational-person create permission",
+      "status": "PASS"
+    },
+    {
+      "check": "Company B read/edit/reference/search denial",
+      "status": "PASS"
+    },
+    {
+      "check": "Permission and unauthorized branch denial",
+      "status": "PASS"
+    },
+    {
+      "check": "Separate companies keep separate identities",
+      "status": "PASS"
+    },
+    {
+      "check": "A to B to C to A transfers preserve one current row, history and next transfer eligibility",
+      "status": "PASS"
+    },
+    {
+      "check": "Database audit events persisted",
+      "status": "PASS"
+    },
+    {
+      "check": "Concurrent identity submission creates one person",
+      "status": "PASS"
+    },
+    {
+      "check": "Legacy identity APIs cannot bypass full-name validation",
+      "status": "PASS"
+    },
+    {
+      "check": "Maintenance personnel tenant read/write denial",
+      "status": "PASS"
+    },
+    {
+      "check": "Cross-company person reference rejected by assignment API",
+      "status": "PASS"
+    },
+    {
+      "check": "Existing identity, assignment and audit rows preserved; inventory unchanged",
+      "status": "PASS"
+    },
+    {
+      "check": "Browser en ltr phone prefix and name/phone validation",
+      "status": "PASS"
+    },
+    {
+      "check": "Browser create traverses UI API permissions database and audit",
+      "status": "PASS"
+    },
+    {
+      "check": "Browser edit loads canonical phone and updates the same identity",
+      "status": "PASS"
+    },
+    {
+      "check": "Browser ar rtl phone prefix and name/phone validation",
+      "status": "PASS"
+    },
+    {
+      "check": "Browser current table has one row and transfer action after repeated transfers",
+      "status": "PASS"
+    },
+    {
+      "check": "Browser person history still displays all four placement rows",
+      "status": "PASS"
+    },
+    {
+      "check": "Browser authorized maintenance registration action remains available",
+      "status": "PASS"
+    }
+  ],
+  "fixtureIds": {
+    "companyId": "cmwqy8k6k000098959dsyxwhe",
+    "companyBId": "cmwqy8k71000198953j3kb9h5",
+    "actorId": "cmwqy8kay000a9895l06epsp0",
+    "branchId": "cmwqy8k7b000298952va1xf77",
+    "departmentIds": [
+      "cmwqy8k8500059895mn7cw9y3",
+      "cmwqy8k8k00069895m6kmtmqe",
+      "cmwqy8k8r00079895h8o38ynk"
+    ],
+    "personId": "cmwqy8klu000d98956c1189oo"
+  },
+  "browser": {
+    "consoleErrors": [
+      {
+        "message": "Failed to load resource: the server responded with a status of 404 (Not Found)",
+        "location": {
+          "url": "http://127.0.0.1:3320/favicon.ico",
+          "line": 0,
+          "column": 0,
+          "lineNumber": 0,
+          "columnNumber": 0
+        }
+      }
+    ],
+    "failedApiResponses": [],
+    "assetFailures": [],
+    "networkFailures": [
+      {
+        "path": "/api/v1/branches/cmwqy8k7b000298952va1xf77",
+        "method": "GET",
+        "error": "net::ERR_ABORTED",
+        "api": true
+      },
+      {
+        "path": "/api/v1/branches/cmwqy8k7b000298952va1xf77",
+        "method": "GET",
+        "error": "net::ERR_ABORTED",
+        "api": true
+      },
+      {
+        "path": "/api/v1/departments/cmwqy8k8500059895mn7cw9y3",
+        "method": "GET",
+        "error": "net::ERR_ABORTED",
+        "api": true
+      },
+      {
+        "path": "/api/v1/departments/cmwqy8k8500059895mn7cw9y3",
+        "method": "GET",
+        "error": "net::ERR_ABORTED",
+        "api": true
+      },
+      {
+        "path": "/api/v1/branches/cmwqy8k7b000298952va1xf77",
+        "method": "GET",
+        "error": "net::ERR_ABORTED",
+        "api": true
+      },
+      {
+        "path": "/api/v1/branches/cmwqy8k7b000298952va1xf77",
+        "method": "GET",
+        "error": "net::ERR_ABORTED",
+        "api": true
+      },
+      {
+        "path": "/api/v1/branches/cmwqy8k7b000298952va1xf77",
+        "method": "GET",
+        "error": "net::ERR_ABORTED",
+        "api": true
+      },
+      {
+        "path": "/api/v1/departments/cmwqy8k8500059895mn7cw9y3",
+        "method": "GET",
+        "error": "net::ERR_ABORTED",
+        "api": true
+      },
+      {
+        "path": "/api/v1/branches/cmwqy8k7b000298952va1xf77",
+        "method": "GET",
+        "error": "net::ERR_ABORTED",
+        "api": true
+      },
+      {
+        "path": "/api/v1/branches/cmwqy8k7b000298952va1xf77",
+        "method": "GET",
+        "error": "net::ERR_ABORTED",
+        "api": true
+      },
+      {
+        "path": "/api/v1/departments/cmwqy8k8500059895mn7cw9y3",
+        "method": "GET",
+        "error": "net::ERR_ABORTED",
+        "api": true
+      },
+      {
+        "path": "/api/v1/branches/cmwqy8k7b000298952va1xf77",
+        "method": "GET",
+        "error": "net::ERR_ABORTED",
+        "api": true
+      },
+      {
+        "path": "/api/v1/branches/cmwqy8k7b000298952va1xf77",
+        "method": "GET",
+        "error": "net::ERR_ABORTED",
+        "api": true
+      },
+      {
+        "path": "/api/v1/branches/cmwqy8k7b000298952va1xf77",
+        "method": "GET",
+        "error": "net::ERR_ABORTED",
+        "api": true
+      },
+      {
+        "path": "/api/v1/branches/cmwqy8k7b000298952va1xf77",
+        "method": "GET",
+        "error": "net::ERR_ABORTED",
+        "api": true
+      },
+      {
+        "path": "/api/v1/person-registrations",
+        "method": "GET",
+        "error": "net::ERR_ABORTED",
+        "api": true
+      },
+      {
+        "path": "/api/v1/branches/cmwqy8k7b000298952va1xf77",
+        "method": "GET",
+        "error": "net::ERR_ABORTED",
+        "api": true
+      },
+      {
+        "path": "/api/v1/branches/cmwqy8k7b000298952va1xf77",
+        "method": "GET",
+        "error": "net::ERR_ABORTED",
+        "api": true
+      },
+      {
+        "path": "/api/v1/branches/cmwqy8k7b000298952va1xf77",
+        "method": "GET",
+        "error": "net::ERR_ABORTED",
+        "api": true
+      },
+      {
+        "path": "/admin/maintenance/cost-centers",
+        "method": "GET",
+        "error": "net::ERR_ABORTED",
+        "api": false
+      },
+      {
+        "path": "/api/v1/branches/cmwqy8k7b000298952va1xf77",
+        "method": "GET",
+        "error": "net::ERR_ABORTED",
+        "api": true
+      },
+      {
+        "path": "/api/v1/branches/cmwqy8k7b000298952va1xf77",
+        "method": "GET",
+        "error": "net::ERR_ABORTED",
+        "api": true
+      },
+      {
+        "path": "/api/v1/branches/cmwqy8k7b000298952va1xf77",
+        "method": "GET",
+        "error": "net::ERR_ABORTED",
+        "api": true
+      },
+      {
+        "path": "/api/v1/branches/cmwqy8k7b000298952va1xf77",
+        "method": "GET",
+        "error": "net::ERR_ABORTED",
+        "api": true
+      },
+      {
+        "path": "/api/v1/branches/cmwqy8k7b000298952va1xf77",
+        "method": "GET",
+        "error": "net::ERR_ABORTED",
+        "api": true
+      },
+      {
+        "path": "/api/v1/branches/cmwqy8k7b000298952va1xf77",
+        "method": "GET",
+        "error": "net::ERR_ABORTED",
+        "api": true
+      },
+      {
+        "path": "/api/v1/branches/cmwqy8k7b000298952va1xf77",
+        "method": "GET",
+        "error": "net::ERR_ABORTED",
+        "api": true
+      },
+      {
+        "path": "/api/v1/branches/cmwqy8k7b000298952va1xf77",
+        "method": "GET",
+        "error": "net::ERR_ABORTED",
+        "api": true
+      },
+      {
+        "path": "/api/v1/branches/cmwqy8k7b000298952va1xf77",
+        "method": "GET",
+        "error": "net::ERR_ABORTED",
+        "api": true
+      },
+      {
+        "path": "/api/v1/branches/cmwqy8k7b000298952va1xf77",
+        "method": "GET",
+        "error": "net::ERR_ABORTED",
+        "api": true
+      },
+      {
+        "path": "/api/v1/branches/cmwqy8k7b000298952va1xf77",
+        "method": "GET",
+        "error": "net::ERR_ABORTED",
+        "api": true
+      }
+    ],
+    "screenshots": [
+      "test-results/personnel-p1-en.png",
+      "test-results/personnel-p1-ar.png"
+    ],
+    "knownNonOperationalErrors": [
+      {
+        "message": "Failed to load resource: the server responded with a status of 404 (Not Found)",
+        "location": {
+          "url": "http://127.0.0.1:3320/favicon.ico",
+          "line": 0,
+          "column": 0,
+          "lineNumber": 0,
+          "columnNumber": 0
+        }
+      }
+    ]
+  },
+  "proxyTransportErrors": [],
+  "rowPreservation": {
+    "user": {
+      "before": 28,
+      "preserved": 28,
+      "lost": 0
+    },
+    "operationalPerson": {
+      "before": 88,
+      "preserved": 88,
+      "lost": 0
+    },
+    "operationalPersonAssignment": {
+      "before": 56,
+      "preserved": 56,
+      "lost": 0
+    },
+    "auditLog": {
+      "before": 5752,
+      "preserved": 5752,
+      "lost": 0
+    }
+  },
+  "inventoryMovementCounts": {
+    "before": 125,
+    "after": 125
+  },
+  "browserActor": "Disposable SUPER_ADMIN fixture; allow/deny and tenant API proof above uses normal scoped actors",
+  "temporarySuperAdminGrantsRemaining": 0,
+  "fixtureActorsDeactivated": 6,
+  "finishedAt": "2026-11-21T21:58:09.532Z"
+}

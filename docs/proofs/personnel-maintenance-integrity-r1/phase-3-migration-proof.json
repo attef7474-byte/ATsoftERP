@@ -1,0 +1,1388 @@
+{
+  "database": "ATsoftERP_PERSONNEL_P34_20261122R2",
+  "migration": "20261122010000_work_order_planning_foundation",
+  "status": "PASS",
+  "startedAt": "2026-11-21T22:41:34.078Z",
+  "productionDdl": false,
+  "migrationSha256": "444c6cc9806feb7f0085e67845e92898fafead292636fb525779812d95cc62f4",
+  "before": {
+    "administrations": {
+      "count": 52,
+      "sha256": "e907a37a10cfbad97d664a9ab02f928e252280a1e3c9ece44f23047a0297ec77"
+    },
+    "attachments": {
+      "count": 1,
+      "sha256": "d2a4b4b188b879a15cbade8153b9d20884b34cd6e2bcd79dffddc190fab47125"
+    },
+    "audit_logs": {
+      "count": 5898,
+      "sha256": "654aff22cd4fbfec207ab84b089731f7a794bf39db968387ea51bba8b9166295"
+    },
+    "barcode_label_templates": {
+      "count": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "barcode_labels": {
+      "count": 2,
+      "sha256": "700a7a9bbb23a7e92745ab03a478ec59e6fa194bcd8ea1fe1fd20d9f70736fa6"
+    },
+    "barcode_print_jobs": {
+      "count": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "barcode_scan_events": {
+      "count": 2,
+      "sha256": "7e096264a8742076d5a80680ce45c3b31e1523ac8bf039c84729b4855b12e649"
+    },
+    "branches": {
+      "count": 26,
+      "sha256": "a17ffbc9b7f1da58f426df64ebe98b1041c530d3a9aa5c42a5aa027af42c4665"
+    },
+    "business_partner_addresses": {
+      "count": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "business_partner_bank_accounts": {
+      "count": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "business_partner_contacts": {
+      "count": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "business_partner_groups": {
+      "count": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "business_partners": {
+      "count": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "companies": {
+      "count": 56,
+      "sha256": "9c93307973644aae2ba4d3ccb0aeb15f4365710377d8341e24ac93293fddd890"
+    },
+    "component_spare_parts": {
+      "count": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "cost_centers": {
+      "count": 207,
+      "sha256": "e873983d43ccac0c7ef390560f87848b39a0e7a42265a95cf8af92092a94bca4"
+    },
+    "departments": {
+      "count": 196,
+      "sha256": "e2384099286aef72d0ae0c5ba241b0fbae00a715fc44f3db517358c78c9c1edb"
+    },
+    "downtime_logs": {
+      "count": 20,
+      "sha256": "b48225ad413cf86f68e96f3862ac6d4e9bacea10da6a6320b020cd6d14b10d75"
+    },
+    "downtime_segments": {
+      "count": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "finished_goods_issue_lines": {
+      "count": 12,
+      "sha256": "88fce213a60c7f41731bd860b45eb9d8f83bc887f5104ba78b2d8f8df3532876"
+    },
+    "finished_goods_issues": {
+      "count": 12,
+      "sha256": "7649cbba46df26177a8a2de99bfc749ae41667340901654a38d01b7f07f11388"
+    },
+    "general_inventory_issue_lines": {
+      "count": 30,
+      "sha256": "0b241dd35d49b216405a3d576795aeb6510488c6dbf6e7e2d274b7628f4be85b"
+    },
+    "general_inventory_issues": {
+      "count": 30,
+      "sha256": "ae079504aead80a3188d7254738036989233a5578fb6cc6a134942acc9fc4062"
+    },
+    "internal_conversation_participants": {
+      "count": 5,
+      "sha256": "a2595e5983f394285cf2a41dc7a3fdcceeffd4ee19125439465d9300a5817330"
+    },
+    "internal_conversations": {
+      "count": 4,
+      "sha256": "fa117513c93fa233c6b1ce7dd0fe14441d8cab86cf567e7ded0deec60d72ba43"
+    },
+    "internal_messages": {
+      "count": 5,
+      "sha256": "7e3dcb7da4a817a49db200a458d82d694351b24ef444e4766797a654f8f9d7ae"
+    },
+    "inventory_adjustment_lines": {
+      "count": 1,
+      "sha256": "329b33d16defcabd81f082c50d13b5459b9e30290f884e503e162a144e7884a5"
+    },
+    "inventory_adjustments": {
+      "count": 1,
+      "sha256": "6dc5a07a0b829f977af6ae0feff2ab476a294f7d5f64f9995f87a5c45ff57fbb"
+    },
+    "inventory_balances": {
+      "count": 24,
+      "sha256": "a36f358afdaa2fb31a5d1102e2378967e2b8da1eab7df5bdd23d76dda09c31cd"
+    },
+    "inventory_count_lines": {
+      "count": 3,
+      "sha256": "f1834fdc4810a4aef2948ad369c72220f42b49e9bc6684e9a0396bade201c2be"
+    },
+    "inventory_counts": {
+      "count": 4,
+      "sha256": "d9edac3d03c67b0d1414991fce7ddc03fbc2739188d17fe36128a2e422dbe574"
+    },
+    "inventory_locks": {
+      "count": 1,
+      "sha256": "d24705072c7ff4a383a21ddb875a1bef1679cf5f81d4033bd2a1045a9962997f"
+    },
+    "inventory_movement_lines": {
+      "count": 140,
+      "sha256": "9c919a5ae3809830f18a22fc3101a3de43f583c34cb61c34b93eb3ece9f8e5df"
+    },
+    "inventory_movements": {
+      "count": 125,
+      "sha256": "ab6f54a2a981eacfd0485181265341b941ffbdd71e7cb2ee89a8c6bf8fa7b1b3"
+    },
+    "inventory_opening_balance_lines": {
+      "count": 13,
+      "sha256": "64bd5aedc4071821474ae3812ab4cba26774ec333116ed38fad68459a3ac339f"
+    },
+    "inventory_opening_balances": {
+      "count": 5,
+      "sha256": "ca50a9c6b3e4c4d9f82fb0570fbf0c59c47682647f6078a6205a07f3feeacacd"
+    },
+    "inventory_operational_receipt_lines": {
+      "count": 18,
+      "sha256": "84025c30e0df72243b407e94daa266de899cc52ca3e99c8350f36551ede8695f"
+    },
+    "inventory_operational_receipts": {
+      "count": 18,
+      "sha256": "8b1a1fd0593d08f579b5faf0012a76b0b840de86ae358437fa30c615d8a87af7"
+    },
+    "inventory_physical_count_lines": {
+      "count": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "inventory_physical_counts": {
+      "count": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "inventory_stock_adjustment_lines": {
+      "count": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "inventory_stock_adjustments": {
+      "count": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "inventory_stock_transfer_lines": {
+      "count": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "inventory_stock_transfers": {
+      "count": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "inventory_valuation_balances": {
+      "count": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "inventory_valuation_initializations": {
+      "count": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "inventory_valuation_policies": {
+      "count": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "job_titles": {
+      "count": 40,
+      "sha256": "ad40314b480cfad24de61a6cf09b759a46b5ac5a65d1daf110952d880c2640a1"
+    },
+    "machine_categories": {
+      "count": 12,
+      "sha256": "293fe8153b6beff741c376b83ee48eb8f9033f1dbef8663f59230c64bb43631e"
+    },
+    "machine_component_machines": {
+      "count": 21,
+      "sha256": "739c29724af6b03052168007214e245e0c278e00343457158d927215fbcb1270"
+    },
+    "machine_components": {
+      "count": 15,
+      "sha256": "b17dbd87415ea013c65b40cbfd7817ee60c7c72cfdf94bdcd51b1072afd664b5"
+    },
+    "machine_documents": {
+      "count": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "machine_installed_part_readings": {
+      "count": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "machine_installed_parts": {
+      "count": 3,
+      "sha256": "53f9d2dc19eecfca010bb9bce5c6c7e2e34e6437cde81e9f41ab93cfb140bf57"
+    },
+    "machine_parts": {
+      "count": 889,
+      "sha256": "a4ee21d403293b10d67c3943613e337d45ba9a55816637588982ec2a55161676"
+    },
+    "machine_responsibility_assignments": {
+      "count": 10,
+      "sha256": "0d61ddff1f9af9c9c25761f60bbc6159d92b3598ca4527f1f6558e556adff0e6"
+    },
+    "machine_spare_parts": {
+      "count": 5,
+      "sha256": "38ed88eff1283cdeb2f4ee9ef5b6ca1943761b46e5563624d1ae76639260ec25"
+    },
+    "machines": {
+      "count": 214,
+      "sha256": "7f774dd83c7f037cb28347cc07838939567a2b24361747451cc968f33d577b5e"
+    },
+    "maintenance_bom_items": {
+      "count": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "maintenance_bom_versions": {
+      "count": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "maintenance_boms": {
+      "count": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "maintenance_checklist_execution_items": {
+      "count": 4,
+      "sha256": "41715a34eed25180093610549694eb33d5b92f07c177201265ec6004c597eded"
+    },
+    "maintenance_checklist_executions": {
+      "count": 5,
+      "sha256": "1c455e588289e65e9b138ed18e622d085738076845a844c5473e750035840287"
+    },
+    "maintenance_checklist_items": {
+      "count": 1,
+      "sha256": "cec5b5bba68d18ca4e9ee3a83c956335bcbba9fd7f42176482787f44856c2bd8"
+    },
+    "maintenance_execution_part_usages": {
+      "count": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "maintenance_execution_sessions": {
+      "count": 30,
+      "sha256": "0d0da617a5ba50210b25e8d3ae492f4f0b4969132ffe8f45175f17897a28f67c"
+    },
+    "maintenance_part_accountability": {
+      "count": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "maintenance_personnel": {
+      "count": 57,
+      "sha256": "d320a036a2e9a545153e0aea5586dd05a06691566c85dad7ad4ea0ba65c3dc80"
+    },
+    "maintenance_request_assignments": {
+      "count": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "maintenance_request_cost_entries": {
+      "count": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "maintenance_request_part_usages": {
+      "count": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "maintenance_request_required_parts": {
+      "count": 5,
+      "sha256": "1e5a8bf3e73521ecc730362c44490fc09323f457d14e8717b1549ffae3dd4d57"
+    },
+    "maintenance_requests": {
+      "count": 37,
+      "sha256": "d703585ba59935ca45df3bad469e590d7042430c98eef32e7200ad49162443a9"
+    },
+    "maintenance_schedules": {
+      "count": 6,
+      "sha256": "f06a66f8bf0ca5251b91e78faa6179bdd8d17b59f367af8ecfcbc9e2cad20b1f"
+    },
+    "maintenance_sla_rules": {
+      "count": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "maintenance_sla_states": {
+      "count": 21,
+      "sha256": "b7e7468dc014592477efaaf92e13efd18fa6c3efd9995233e04cc57de9a92e3e"
+    },
+    "maintenance_tasks": {
+      "count": 34,
+      "sha256": "9305dc02efc5070e022f141b3f98badf5fff44214691b60a64af57ab1e6f8475"
+    },
+    "maintenance_work_order_cost_entries": {
+      "count": 1,
+      "sha256": "8a46780dab11db5b8af64afc985f6317c7ce02368c36f0ed18b9b5a62aae0b0d"
+    },
+    "maintenance_work_order_parts": {
+      "count": 2,
+      "sha256": "d85a82d43bf0f6292af09b7569d6f7986de361603bf6ae565f2bac584c15cdd7"
+    },
+    "maintenance_work_orders": {
+      "count": 28,
+      "sha256": "8b2c9dfaa6ae87f5c31d03a2d8eef18fd73c2fb4e08948e9e982a8e3ce0114bd"
+    },
+    "notification_rules": {
+      "count": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "notifications": {
+      "count": 44,
+      "sha256": "39d0df33f2befdecc8d7c4edee1e122e9b2ee139e36da45d3a60adbfdbc3cbfb"
+    },
+    "number_sequences": {
+      "count": 72,
+      "sha256": "b31b6641dee70d4ebd28b4b674fab6264cff9d3afa99bd8ce3a8673ec7ef7cc9"
+    },
+    "operation_types": {
+      "count": 13,
+      "sha256": "492e8fc3f00f5e53d93a2156cf2bab598941597d6693f881fce01413b8c0919b"
+    },
+    "operational_cost_calculations": {
+      "count": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "operational_cost_center_assignments": {
+      "count": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "operational_cost_rates": {
+      "count": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "operational_cost_transactions": {
+      "count": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "operational_loss_reasons": {
+      "count": 9,
+      "sha256": "287d1ed0c1e9141eba4fd3b5ef5b7176ace5f86252d53e05006ccf1c2940b5b7"
+    },
+    "operational_overhead_allocation_lines": {
+      "count": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "operational_overhead_allocation_sources": {
+      "count": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "operational_overhead_entries": {
+      "count": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "operational_overhead_period_allocations": {
+      "count": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "operational_overhead_periods": {
+      "count": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "operational_people": {
+      "count": 86,
+      "sha256": "824410cd684ca4da31a852bf8d43d0f5b6b524b51c42b78c247863b914eeab14"
+    },
+    "operational_person_assignments": {
+      "count": 54,
+      "sha256": "85659617c44cba96ea7bac439768c5616754aaf3d5a9012f6d3ebf1aa524321b"
+    },
+    "operational_source_changes": {
+      "count": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "operational_standard_cost_snapshots": {
+      "count": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "organizational_units": {
+      "count": 6,
+      "sha256": "ad75cdbe23c52ff8df3a8a24a91baa00055f53422ea675f082039771a1e60a35"
+    },
+    "payment_terms": {
+      "count": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "permissions": {
+      "count": 828,
+      "sha256": "24c5c1d080d5a7650ddbc771be3cea5f37d07f920fc3cefb1b2d7ae0f2d1b608"
+    },
+    "preventive_spare_part_plan_items": {
+      "count": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "preventive_spare_part_plans": {
+      "count": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "product_categories": {
+      "count": 6,
+      "sha256": "8fa5b53e2c3836a410ae0c3f01b0969621be9a23bb2a6b26faae57c78fd7c138"
+    },
+    "product_uoms": {
+      "count": 22,
+      "sha256": "d9a33f07e8c33f3f1a8447de61e51bdba1c1997e94006b1913fa1b643e131ee5"
+    },
+    "production_capacity_standards": {
+      "count": 531,
+      "sha256": "f5d63e1019e7ff92897b8c8e6bf3ca432a92bbc1cdd7f46b3496d326fd981898"
+    },
+    "production_eligibilities": {
+      "count": 531,
+      "sha256": "89473cf7bb199f18dfa4c57a455044f8908d76ce69cff86ca406ed82eaae772c"
+    },
+    "production_finished_goods_receipt_lines": {
+      "count": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "production_finished_goods_receipts": {
+      "count": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "production_inspection_results": {
+      "count": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "production_inspections": {
+      "count": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "production_lines": {
+      "count": 34,
+      "sha256": "9339edd9117fe8d0cd3e15496e24553265e33f5acc23a7b6a4df8232959e41cc"
+    },
+    "production_loss_quantity_events": {
+      "count": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "production_material_consumption_corrections": {
+      "count": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "production_material_consumptions": {
+      "count": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "production_material_document_lines": {
+      "count": 12,
+      "sha256": "49bb93dd4f84f4628f51183af96a48c0bc8b400f43b78db0eacb080d9bebba41"
+    },
+    "production_material_documents": {
+      "count": 12,
+      "sha256": "e02f57097b950487ffef309c155a6b31e87ea177048a3e9b35ce42375c5e0de2"
+    },
+    "production_material_requirement_lines": {
+      "count": 56,
+      "sha256": "ef28cf912775550d8065562f51174aa033724e8cb7a783082ced002d4ebe2e2b"
+    },
+    "production_material_requirements": {
+      "count": 8,
+      "sha256": "f685de8014b1f551c8f008cd840031f2657684f709164490a6b509ade373664e"
+    },
+    "production_measurement_points": {
+      "count": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "production_nonconformance_attachments": {
+      "count": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "production_nonconformance_transitions": {
+      "count": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "production_nonconformances": {
+      "count": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "production_operational_assignments": {
+      "count": 2,
+      "sha256": "831aebd6b424248d60edb094697673263b5964acd022b46444bac419fd5f3406"
+    },
+    "production_order_attachments": {
+      "count": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "production_order_transitions": {
+      "count": 36,
+      "sha256": "3d689997a4e29ba763e529f19ebb197542402fca348b7d64e63ec0bef7a29879"
+    },
+    "production_orders": {
+      "count": 12,
+      "sha256": "f32edf42f9bc3465b665c45429da4cc0cf3a91f4889d316c1a7747b61ec7c947"
+    },
+    "production_output_events": {
+      "count": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "production_packagings": {
+      "count": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "production_performance_target_transitions": {
+      "count": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "production_performance_targets": {
+      "count": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "production_product_definitions": {
+      "count": 108,
+      "sha256": "c561dd53e750a56c9d91eaa7eb531c65a2ca73dc7ff1e97224a43514f96b5cdf"
+    },
+    "production_quality_dispositions": {
+      "count": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "production_quality_plans": {
+      "count": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "production_run_cost_snapshots": {
+      "count": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "production_run_sessions": {
+      "count": 4,
+      "sha256": "8a2c1a87163b34d0f1a47385b7f6b8023865fc65090d58c94363259735aa8dd6"
+    },
+    "production_run_transitions": {
+      "count": 11,
+      "sha256": "62e1e0d876aaa1b8786f56e86b83ffcb7bf50710be3b5fdead8c4f4327319eb0"
+    },
+    "production_runs": {
+      "count": 4,
+      "sha256": "516ec1deac1bcda21ece99dd72c90d1cfebb5f6184abeafbace121d6dbc16f6c"
+    },
+    "production_shift_assignments": {
+      "count": 2,
+      "sha256": "582992e28ea29ec4fbfeaa7ce1efa3558a8e35a9a4762a916306c05843118777"
+    },
+    "production_shift_calendar_entries": {
+      "count": 65,
+      "sha256": "9541272992bcccdfb6a2bf87f3f386bbf4d0ddbe6d73eebf2c5626c40a288b36"
+    },
+    "production_shift_calendars": {
+      "count": 3,
+      "sha256": "a52679bb063fb1e3e8b4e594acba99de71302d26134cc8e0219ca91bee4e924f"
+    },
+    "production_shift_template_days": {
+      "count": 1,
+      "sha256": "dba523f4502ac7cf6121f7ec4531beb6abaeb097d1ec5ae45439a921f8555e68"
+    },
+    "production_shift_templates": {
+      "count": 3,
+      "sha256": "b54efbe1cfc12e22b43945fc02419eaea81bf4dae5f4c59257161ebba4bebb14"
+    },
+    "production_shifts": {
+      "count": 21,
+      "sha256": "32cb02eb61a9ed0d9b63dfc5f8230a39eec2304ecabaddd12b1934e1494c3561"
+    },
+    "production_specifications": {
+      "count": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "production_units": {
+      "count": 2,
+      "sha256": "11ae15264eb7653597ff27caeb13028e4e222f1aae1be0ef8da4494aab4202c5"
+    },
+    "production_versions": {
+      "count": 107,
+      "sha256": "4a5dcae08666ddb3dedacd13f7fabf033ed39e6ed4fab02d4c7e3a37dae74226"
+    },
+    "products": {
+      "count": 131,
+      "sha256": "30dedb098f4f75679b73f36212c1c8407c91cdbedfb133d43d557786315ff979"
+    },
+    "quality_characteristics": {
+      "count": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "quality_sampling_points": {
+      "count": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "role_permissions": {
+      "count": 1403,
+      "sha256": "b0e19a3eb184c3a8a474a610f32e1ed195e5ee4a2c19c8bbe7f750b2b62cde2f"
+    },
+    "roles": {
+      "count": 19,
+      "sha256": "8ae9be41ad4c2bd7e269a07575dc707851787b78820a72751667aedf91e395b1"
+    },
+    "shift_handover_items": {
+      "count": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "shift_handovers": {
+      "count": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "spare_part_condition_balances": {
+      "count": 2,
+      "sha256": "feec050fe511c7861695a82f15b603b61e35c61374c491d1e540dfe16e1a5931"
+    },
+    "spare_part_condition_movements": {
+      "count": 4,
+      "sha256": "a1af57bfa3d84b2f9920f1d334ecb2ff6f0a9dc44df4883f30152b1483e5146a"
+    },
+    "spare_part_issue_lines": {
+      "count": 7,
+      "sha256": "89d39364cb41477874c433ad72671ded387fb1cfc83faa2a39dc87a5d2f557b9"
+    },
+    "spare_part_issues": {
+      "count": 7,
+      "sha256": "01e0ceb8cce33d8c89e378652cfd20fe22021803dbb1482ed0cf60d31e9d546b"
+    },
+    "spare_part_repair_actions": {
+      "count": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "spare_part_repair_orders": {
+      "count": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "spare_part_replacement_histories": {
+      "count": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "spare_parts": {
+      "count": 407,
+      "sha256": "8b6f0ee34329db4fd2cc050076658ce8bc6aded9a64dafd04e6aa251455c3ac6"
+    },
+    "supervisor_assignments": {
+      "count": 11,
+      "sha256": "d656a08bb30d3a99f52772e96a72590310d6a553edc508cca99e6c08fb9698c1"
+    },
+    "system_settings": {
+      "count": 46,
+      "sha256": "a7228af20d45aee6adbafb78424704cc826d44ee9ca5c35a50fb93ab564132c8"
+    },
+    "units": {
+      "count": 12,
+      "sha256": "762d8e1ff5f893bf5447f7cbfc94e40c36be32cd07f87a957ba476543bf1f104"
+    },
+    "user_operational_scopes": {
+      "count": 1,
+      "sha256": "8cd8140d5406ad40a4febcaab8c9ea2ebc6d36602060f703a7102886935bbe2b"
+    },
+    "user_roles": {
+      "count": 25,
+      "sha256": "2d245d86042fb0232f8f595cab45a4e0dcff47ed6b07cd87de9021bf6491d840"
+    },
+    "users": {
+      "count": 40,
+      "sha256": "4dc5a73672eb4bebc259b0466078b1f63e12358e6c0a37837831cf7aa51aca11"
+    },
+    "warehouse_locations": {
+      "count": 6,
+      "sha256": "fa7501795ba8b6f45f1377fe44c66d91e73335fda729b6f18db707736105f992"
+    },
+    "warehouses": {
+      "count": 27,
+      "sha256": "ed7ca97201e27384574e3a9b112bb095780eaf1734f9e7a5657783a0542d3237"
+    }
+  },
+  "keyLengths": [
+    {
+      "workOrder": 25,
+      "company": 25,
+      "branch": 25,
+      "legacyUser": 25
+    }
+  ],
+  "after": {
+    "administrations": {
+      "count": 52,
+      "sha256": "e907a37a10cfbad97d664a9ab02f928e252280a1e3c9ece44f23047a0297ec77"
+    },
+    "attachments": {
+      "count": 1,
+      "sha256": "d2a4b4b188b879a15cbade8153b9d20884b34cd6e2bcd79dffddc190fab47125"
+    },
+    "audit_logs": {
+      "count": 5898,
+      "sha256": "654aff22cd4fbfec207ab84b089731f7a794bf39db968387ea51bba8b9166295"
+    },
+    "barcode_label_templates": {
+      "count": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "barcode_labels": {
+      "count": 2,
+      "sha256": "700a7a9bbb23a7e92745ab03a478ec59e6fa194bcd8ea1fe1fd20d9f70736fa6"
+    },
+    "barcode_print_jobs": {
+      "count": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "barcode_scan_events": {
+      "count": 2,
+      "sha256": "7e096264a8742076d5a80680ce45c3b31e1523ac8bf039c84729b4855b12e649"
+    },
+    "branches": {
+      "count": 26,
+      "sha256": "a17ffbc9b7f1da58f426df64ebe98b1041c530d3a9aa5c42a5aa027af42c4665"
+    },
+    "business_partner_addresses": {
+      "count": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "business_partner_bank_accounts": {
+      "count": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "business_partner_contacts": {
+      "count": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "business_partner_groups": {
+      "count": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "business_partners": {
+      "count": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "companies": {
+      "count": 56,
+      "sha256": "9c93307973644aae2ba4d3ccb0aeb15f4365710377d8341e24ac93293fddd890"
+    },
+    "component_spare_parts": {
+      "count": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "cost_centers": {
+      "count": 207,
+      "sha256": "e873983d43ccac0c7ef390560f87848b39a0e7a42265a95cf8af92092a94bca4"
+    },
+    "departments": {
+      "count": 196,
+      "sha256": "e2384099286aef72d0ae0c5ba241b0fbae00a715fc44f3db517358c78c9c1edb"
+    },
+    "downtime_logs": {
+      "count": 20,
+      "sha256": "b48225ad413cf86f68e96f3862ac6d4e9bacea10da6a6320b020cd6d14b10d75"
+    },
+    "downtime_segments": {
+      "count": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "finished_goods_issue_lines": {
+      "count": 12,
+      "sha256": "88fce213a60c7f41731bd860b45eb9d8f83bc887f5104ba78b2d8f8df3532876"
+    },
+    "finished_goods_issues": {
+      "count": 12,
+      "sha256": "7649cbba46df26177a8a2de99bfc749ae41667340901654a38d01b7f07f11388"
+    },
+    "general_inventory_issue_lines": {
+      "count": 30,
+      "sha256": "0b241dd35d49b216405a3d576795aeb6510488c6dbf6e7e2d274b7628f4be85b"
+    },
+    "general_inventory_issues": {
+      "count": 30,
+      "sha256": "ae079504aead80a3188d7254738036989233a5578fb6cc6a134942acc9fc4062"
+    },
+    "internal_conversation_participants": {
+      "count": 5,
+      "sha256": "a2595e5983f394285cf2a41dc7a3fdcceeffd4ee19125439465d9300a5817330"
+    },
+    "internal_conversations": {
+      "count": 4,
+      "sha256": "fa117513c93fa233c6b1ce7dd0fe14441d8cab86cf567e7ded0deec60d72ba43"
+    },
+    "internal_messages": {
+      "count": 5,
+      "sha256": "7e3dcb7da4a817a49db200a458d82d694351b24ef444e4766797a654f8f9d7ae"
+    },
+    "inventory_adjustment_lines": {
+      "count": 1,
+      "sha256": "329b33d16defcabd81f082c50d13b5459b9e30290f884e503e162a144e7884a5"
+    },
+    "inventory_adjustments": {
+      "count": 1,
+      "sha256": "6dc5a07a0b829f977af6ae0feff2ab476a294f7d5f64f9995f87a5c45ff57fbb"
+    },
+    "inventory_balances": {
+      "count": 24,
+      "sha256": "a36f358afdaa2fb31a5d1102e2378967e2b8da1eab7df5bdd23d76dda09c31cd"
+    },
+    "inventory_count_lines": {
+      "count": 3,
+      "sha256": "f1834fdc4810a4aef2948ad369c72220f42b49e9bc6684e9a0396bade201c2be"
+    },
+    "inventory_counts": {
+      "count": 4,
+      "sha256": "d9edac3d03c67b0d1414991fce7ddc03fbc2739188d17fe36128a2e422dbe574"
+    },
+    "inventory_locks": {
+      "count": 1,
+      "sha256": "d24705072c7ff4a383a21ddb875a1bef1679cf5f81d4033bd2a1045a9962997f"
+    },
+    "inventory_movement_lines": {
+      "count": 140,
+      "sha256": "9c919a5ae3809830f18a22fc3101a3de43f583c34cb61c34b93eb3ece9f8e5df"
+    },
+    "inventory_movements": {
+      "count": 125,
+      "sha256": "ab6f54a2a981eacfd0485181265341b941ffbdd71e7cb2ee89a8c6bf8fa7b1b3"
+    },
+    "inventory_opening_balance_lines": {
+      "count": 13,
+      "sha256": "64bd5aedc4071821474ae3812ab4cba26774ec333116ed38fad68459a3ac339f"
+    },
+    "inventory_opening_balances": {
+      "count": 5,
+      "sha256": "ca50a9c6b3e4c4d9f82fb0570fbf0c59c47682647f6078a6205a07f3feeacacd"
+    },
+    "inventory_operational_receipt_lines": {
+      "count": 18,
+      "sha256": "84025c30e0df72243b407e94daa266de899cc52ca3e99c8350f36551ede8695f"
+    },
+    "inventory_operational_receipts": {
+      "count": 18,
+      "sha256": "8b1a1fd0593d08f579b5faf0012a76b0b840de86ae358437fa30c615d8a87af7"
+    },
+    "inventory_physical_count_lines": {
+      "count": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "inventory_physical_counts": {
+      "count": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "inventory_stock_adjustment_lines": {
+      "count": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "inventory_stock_adjustments": {
+      "count": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "inventory_stock_transfer_lines": {
+      "count": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "inventory_stock_transfers": {
+      "count": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "inventory_valuation_balances": {
+      "count": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "inventory_valuation_initializations": {
+      "count": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "inventory_valuation_policies": {
+      "count": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "job_titles": {
+      "count": 40,
+      "sha256": "ad40314b480cfad24de61a6cf09b759a46b5ac5a65d1daf110952d880c2640a1"
+    },
+    "machine_categories": {
+      "count": 12,
+      "sha256": "293fe8153b6beff741c376b83ee48eb8f9033f1dbef8663f59230c64bb43631e"
+    },
+    "machine_component_machines": {
+      "count": 21,
+      "sha256": "739c29724af6b03052168007214e245e0c278e00343457158d927215fbcb1270"
+    },
+    "machine_components": {
+      "count": 15,
+      "sha256": "b17dbd87415ea013c65b40cbfd7817ee60c7c72cfdf94bdcd51b1072afd664b5"
+    },
+    "machine_documents": {
+      "count": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "machine_installed_part_readings": {
+      "count": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "machine_installed_parts": {
+      "count": 3,
+      "sha256": "53f9d2dc19eecfca010bb9bce5c6c7e2e34e6437cde81e9f41ab93cfb140bf57"
+    },
+    "machine_parts": {
+      "count": 889,
+      "sha256": "a4ee21d403293b10d67c3943613e337d45ba9a55816637588982ec2a55161676"
+    },
+    "machine_responsibility_assignments": {
+      "count": 10,
+      "sha256": "0d61ddff1f9af9c9c25761f60bbc6159d92b3598ca4527f1f6558e556adff0e6"
+    },
+    "machine_spare_parts": {
+      "count": 5,
+      "sha256": "38ed88eff1283cdeb2f4ee9ef5b6ca1943761b46e5563624d1ae76639260ec25"
+    },
+    "machines": {
+      "count": 214,
+      "sha256": "7f774dd83c7f037cb28347cc07838939567a2b24361747451cc968f33d577b5e"
+    },
+    "maintenance_bom_items": {
+      "count": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "maintenance_bom_versions": {
+      "count": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "maintenance_boms": {
+      "count": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "maintenance_checklist_execution_items": {
+      "count": 4,
+      "sha256": "41715a34eed25180093610549694eb33d5b92f07c177201265ec6004c597eded"
+    },
+    "maintenance_checklist_executions": {
+      "count": 5,
+      "sha256": "1c455e588289e65e9b138ed18e622d085738076845a844c5473e750035840287"
+    },
+    "maintenance_checklist_items": {
+      "count": 1,
+      "sha256": "cec5b5bba68d18ca4e9ee3a83c956335bcbba9fd7f42176482787f44856c2bd8"
+    },
+    "maintenance_execution_part_usages": {
+      "count": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "maintenance_execution_sessions": {
+      "count": 30,
+      "sha256": "0d0da617a5ba50210b25e8d3ae492f4f0b4969132ffe8f45175f17897a28f67c"
+    },
+    "maintenance_part_accountability": {
+      "count": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "maintenance_personnel": {
+      "count": 57,
+      "sha256": "d320a036a2e9a545153e0aea5586dd05a06691566c85dad7ad4ea0ba65c3dc80"
+    },
+    "maintenance_request_assignments": {
+      "count": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "maintenance_request_cost_entries": {
+      "count": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "maintenance_request_part_usages": {
+      "count": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "maintenance_request_required_parts": {
+      "count": 5,
+      "sha256": "1e5a8bf3e73521ecc730362c44490fc09323f457d14e8717b1549ffae3dd4d57"
+    },
+    "maintenance_requests": {
+      "count": 37,
+      "sha256": "d703585ba59935ca45df3bad469e590d7042430c98eef32e7200ad49162443a9"
+    },
+    "maintenance_schedules": {
+      "count": 6,
+      "sha256": "f06a66f8bf0ca5251b91e78faa6179bdd8d17b59f367af8ecfcbc9e2cad20b1f"
+    },
+    "maintenance_sla_rules": {
+      "count": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "maintenance_sla_states": {
+      "count": 21,
+      "sha256": "b7e7468dc014592477efaaf92e13efd18fa6c3efd9995233e04cc57de9a92e3e"
+    },
+    "maintenance_tasks": {
+      "count": 34,
+      "sha256": "9305dc02efc5070e022f141b3f98badf5fff44214691b60a64af57ab1e6f8475"
+    },
+    "maintenance_work_order_cost_entries": {
+      "count": 1,
+      "sha256": "8a46780dab11db5b8af64afc985f6317c7ce02368c36f0ed18b9b5a62aae0b0d"
+    },
+    "maintenance_work_order_parts": {
+      "count": 2,
+      "sha256": "d85a82d43bf0f6292af09b7569d6f7986de361603bf6ae565f2bac584c15cdd7"
+    },
+    "maintenance_work_orders": {
+      "count": 28,
+      "sha256": "8b2c9dfaa6ae87f5c31d03a2d8eef18fd73c2fb4e08948e9e982a8e3ce0114bd"
+    },
+    "notification_rules": {
+      "count": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "notifications": {
+      "count": 44,
+      "sha256": "39d0df33f2befdecc8d7c4edee1e122e9b2ee139e36da45d3a60adbfdbc3cbfb"
+    },
+    "number_sequences": {
+      "count": 72,
+      "sha256": "b31b6641dee70d4ebd28b4b674fab6264cff9d3afa99bd8ce3a8673ec7ef7cc9"
+    },
+    "operation_types": {
+      "count": 13,
+      "sha256": "492e8fc3f00f5e53d93a2156cf2bab598941597d6693f881fce01413b8c0919b"
+    },
+    "operational_cost_calculations": {
+      "count": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "operational_cost_center_assignments": {
+      "count": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "operational_cost_rates": {
+      "count": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "operational_cost_transactions": {
+      "count": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "operational_loss_reasons": {
+      "count": 9,
+      "sha256": "287d1ed0c1e9141eba4fd3b5ef5b7176ace5f86252d53e05006ccf1c2940b5b7"
+    },
+    "operational_overhead_allocation_lines": {
+      "count": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "operational_overhead_allocation_sources": {
+      "count": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "operational_overhead_entries": {
+      "count": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "operational_overhead_period_allocations": {
+      "count": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "operational_overhead_periods": {
+      "count": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "operational_people": {
+      "count": 86,
+      "sha256": "824410cd684ca4da31a852bf8d43d0f5b6b524b51c42b78c247863b914eeab14"
+    },
+    "operational_person_assignments": {
+      "count": 54,
+      "sha256": "85659617c44cba96ea7bac439768c5616754aaf3d5a9012f6d3ebf1aa524321b"
+    },
+    "operational_source_changes": {
+      "count": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "operational_standard_cost_snapshots": {
+      "count": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "organizational_units": {
+      "count": 6,
+      "sha256": "ad75cdbe23c52ff8df3a8a24a91baa00055f53422ea675f082039771a1e60a35"
+    },
+    "payment_terms": {
+      "count": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "permissions": {
+      "count": 828,
+      "sha256": "24c5c1d080d5a7650ddbc771be3cea5f37d07f920fc3cefb1b2d7ae0f2d1b608"
+    },
+    "preventive_spare_part_plan_items": {
+      "count": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "preventive_spare_part_plans": {
+      "count": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "product_categories": {
+      "count": 6,
+      "sha256": "8fa5b53e2c3836a410ae0c3f01b0969621be9a23bb2a6b26faae57c78fd7c138"
+    },
+    "product_uoms": {
+      "count": 22,
+      "sha256": "d9a33f07e8c33f3f1a8447de61e51bdba1c1997e94006b1913fa1b643e131ee5"
+    },
+    "production_capacity_standards": {
+      "count": 531,
+      "sha256": "f5d63e1019e7ff92897b8c8e6bf3ca432a92bbc1cdd7f46b3496d326fd981898"
+    },
+    "production_eligibilities": {
+      "count": 531,
+      "sha256": "89473cf7bb199f18dfa4c57a455044f8908d76ce69cff86ca406ed82eaae772c"
+    },
+    "production_finished_goods_receipt_lines": {
+      "count": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "production_finished_goods_receipts": {
+      "count": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "production_inspection_results": {
+      "count": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "production_inspections": {
+      "count": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "production_lines": {
+      "count": 34,
+      "sha256": "9339edd9117fe8d0cd3e15496e24553265e33f5acc23a7b6a4df8232959e41cc"
+    },
+    "production_loss_quantity_events": {
+      "count": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "production_material_consumption_corrections": {
+      "count": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "production_material_consumptions": {
+      "count": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "production_material_document_lines": {
+      "count": 12,
+      "sha256": "49bb93dd4f84f4628f51183af96a48c0bc8b400f43b78db0eacb080d9bebba41"
+    },
+    "production_material_documents": {
+      "count": 12,
+      "sha256": "e02f57097b950487ffef309c155a6b31e87ea177048a3e9b35ce42375c5e0de2"
+    },
+    "production_material_requirement_lines": {
+      "count": 56,
+      "sha256": "ef28cf912775550d8065562f51174aa033724e8cb7a783082ced002d4ebe2e2b"
+    },
+    "production_material_requirements": {
+      "count": 8,
+      "sha256": "f685de8014b1f551c8f008cd840031f2657684f709164490a6b509ade373664e"
+    },
+    "production_measurement_points": {
+      "count": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "production_nonconformance_attachments": {
+      "count": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "production_nonconformance_transitions": {
+      "count": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "production_nonconformances": {
+      "count": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "production_operational_assignments": {
+      "count": 2,
+      "sha256": "831aebd6b424248d60edb094697673263b5964acd022b46444bac419fd5f3406"
+    },
+    "production_order_attachments": {
+      "count": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "production_order_transitions": {
+      "count": 36,
+      "sha256": "3d689997a4e29ba763e529f19ebb197542402fca348b7d64e63ec0bef7a29879"
+    },
+    "production_orders": {
+      "count": 12,
+      "sha256": "f32edf42f9bc3465b665c45429da4cc0cf3a91f4889d316c1a7747b61ec7c947"
+    },
+    "production_output_events": {
+      "count": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "production_packagings": {
+      "count": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "production_performance_target_transitions": {
+      "count": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "production_performance_targets": {
+      "count": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "production_product_definitions": {
+      "count": 108,
+      "sha256": "c561dd53e750a56c9d91eaa7eb531c65a2ca73dc7ff1e97224a43514f96b5cdf"
+    },
+    "production_quality_dispositions": {
+      "count": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "production_quality_plans": {
+      "count": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "production_run_cost_snapshots": {
+      "count": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "production_run_sessions": {
+      "count": 4,
+      "sha256": "8a2c1a87163b34d0f1a47385b7f6b8023865fc65090d58c94363259735aa8dd6"
+    },
+    "production_run_transitions": {
+      "count": 11,
+      "sha256": "62e1e0d876aaa1b8786f56e86b83ffcb7bf50710be3b5fdead8c4f4327319eb0"
+    },
+    "production_runs": {
+      "count": 4,
+      "sha256": "516ec1deac1bcda21ece99dd72c90d1cfebb5f6184abeafbace121d6dbc16f6c"
+    },
+    "production_shift_assignments": {
+      "count": 2,
+      "sha256": "582992e28ea29ec4fbfeaa7ce1efa3558a8e35a9a4762a916306c05843118777"
+    },
+    "production_shift_calendar_entries": {
+      "count": 65,
+      "sha256": "9541272992bcccdfb6a2bf87f3f386bbf4d0ddbe6d73eebf2c5626c40a288b36"
+    },
+    "production_shift_calendars": {
+      "count": 3,
+      "sha256": "a52679bb063fb1e3e8b4e594acba99de71302d26134cc8e0219ca91bee4e924f"
+    },
+    "production_shift_template_days": {
+      "count": 1,
+      "sha256": "dba523f4502ac7cf6121f7ec4531beb6abaeb097d1ec5ae45439a921f8555e68"
+    },
+    "production_shift_templates": {
+      "count": 3,
+      "sha256": "b54efbe1cfc12e22b43945fc02419eaea81bf4dae5f4c59257161ebba4bebb14"
+    },
+    "production_shifts": {
+      "count": 21,
+      "sha256": "32cb02eb61a9ed0d9b63dfc5f8230a39eec2304ecabaddd12b1934e1494c3561"
+    },
+    "production_specifications": {
+      "count": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "production_units": {
+      "count": 2,
+      "sha256": "11ae15264eb7653597ff27caeb13028e4e222f1aae1be0ef8da4494aab4202c5"
+    },
+    "production_versions": {
+      "count": 107,
+      "sha256": "4a5dcae08666ddb3dedacd13f7fabf033ed39e6ed4fab02d4c7e3a37dae74226"
+    },
+    "products": {
+      "count": 131,
+      "sha256": "30dedb098f4f75679b73f36212c1c8407c91cdbedfb133d43d557786315ff979"
+    },
+    "quality_characteristics": {
+      "count": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "quality_sampling_points": {
+      "count": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "role_permissions": {
+      "count": 1403,
+      "sha256": "b0e19a3eb184c3a8a474a610f32e1ed195e5ee4a2c19c8bbe7f750b2b62cde2f"
+    },
+    "roles": {
+      "count": 19,
+      "sha256": "8ae9be41ad4c2bd7e269a07575dc707851787b78820a72751667aedf91e395b1"
+    },
+    "shift_handover_items": {
+      "count": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "shift_handovers": {
+      "count": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "spare_part_condition_balances": {
+      "count": 2,
+      "sha256": "feec050fe511c7861695a82f15b603b61e35c61374c491d1e540dfe16e1a5931"
+    },
+    "spare_part_condition_movements": {
+      "count": 4,
+      "sha256": "a1af57bfa3d84b2f9920f1d334ecb2ff6f0a9dc44df4883f30152b1483e5146a"
+    },
+    "spare_part_issue_lines": {
+      "count": 7,
+      "sha256": "89d39364cb41477874c433ad72671ded387fb1cfc83faa2a39dc87a5d2f557b9"
+    },
+    "spare_part_issues": {
+      "count": 7,
+      "sha256": "01e0ceb8cce33d8c89e378652cfd20fe22021803dbb1482ed0cf60d31e9d546b"
+    },
+    "spare_part_repair_actions": {
+      "count": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "spare_part_repair_orders": {
+      "count": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "spare_part_replacement_histories": {
+      "count": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "spare_parts": {
+      "count": 407,
+      "sha256": "8b6f0ee34329db4fd2cc050076658ce8bc6aded9a64dafd04e6aa251455c3ac6"
+    },
+    "supervisor_assignments": {
+      "count": 11,
+      "sha256": "d656a08bb30d3a99f52772e96a72590310d6a553edc508cca99e6c08fb9698c1"
+    },
+    "system_settings": {
+      "count": 46,
+      "sha256": "a7228af20d45aee6adbafb78424704cc826d44ee9ca5c35a50fb93ab564132c8"
+    },
+    "units": {
+      "count": 12,
+      "sha256": "762d8e1ff5f893bf5447f7cbfc94e40c36be32cd07f87a957ba476543bf1f104"
+    },
+    "user_operational_scopes": {
+      "count": 1,
+      "sha256": "8cd8140d5406ad40a4febcaab8c9ea2ebc6d36602060f703a7102886935bbe2b"
+    },
+    "user_roles": {
+      "count": 25,
+      "sha256": "2d245d86042fb0232f8f595cab45a4e0dcff47ed6b07cd87de9021bf6491d840"
+    },
+    "users": {
+      "count": 40,
+      "sha256": "4dc5a73672eb4bebc259b0466078b1f63e12358e6c0a37837831cf7aa51aca11"
+    },
+    "warehouse_locations": {
+      "count": 6,
+      "sha256": "fa7501795ba8b6f45f1377fe44c66d91e73335fda729b6f18db707736105f992"
+    },
+    "warehouses": {
+      "count": 27,
+      "sha256": "ed7ca97201e27384574e3a9b112bb095780eaf1734f9e7a5657783a0542d3237"
+    }
+  },
+  "state": {
+    "assignments": 0,
+    "mappedLegacyParts": 0,
+    "unfinished": 0,
+    "activeUniqueIndex": 1
+  },
+  "preservedTables": 170,
+  "finishedAt": "2026-11-21T22:41:43.807Z"
+}

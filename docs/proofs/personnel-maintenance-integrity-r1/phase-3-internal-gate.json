@@ -1,0 +1,29 @@
+{
+  "status": "PASS",
+  "recordedAt": "2026-11-21T21:59:53.888007+00:00",
+  "phase4StartedBeforeGate": false,
+  "gates": {
+    "PHASE_3_SCHEMA_FOUNDATION": "PASS",
+    "WORK_ORDER_ASSIGNMENT_FOUNDATION": "PASS",
+    "PER_PART_WAREHOUSE_FOUNDATION": "PASS",
+    "LEGACY_WORK_ORDER_DATA_PRESERVED": "PASS",
+    "MIGRATION_CLONE_PROOF": "PASS",
+    "PHASE_1_REGRESSION": "PASS",
+    "PHASE_2_REGRESSION": "PASS"
+  },
+  "migration": "20261122010000_work_order_planning_foundation",
+  "preservedTableContentHashes": 170,
+  "focusedApi": {
+    "suites": 2,
+    "tests": 126
+  },
+  "fullApi": {
+    "suites": 261,
+    "tests": 5308
+  },
+  "foundationApiChecks": 5,
+  "phase1RuntimeChecks": 28,
+  "phase2RuntimeChecks": 15,
+  "legacyBackfill": false,
+  "productionMigrationApplied": false
+}

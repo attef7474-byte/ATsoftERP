@@ -1,0 +1,602 @@
+{
+  "database": "ATsoftERP_PERSONNEL_P34_20261122R2",
+  "proofScriptSha256": "dbfec07d9230dcbb044eda0c560cbe92fd4f35de8310c00306d8ab5eb825282a",
+  "runId": "fb9de956-e18a-4cb1-907c-b7c9b02fa43b",
+  "startedAt": "2026-11-22T00:07:10.246Z",
+  "status": "PASS",
+  "sourceDatabaseWrites": 0,
+  "checks": [
+    {
+      "check": "Canonical spare-part F9 candidates expose both active spare parts",
+      "status": "PASS",
+      "detail": {
+        "count": 22
+      }
+    },
+    {
+      "check": "Browser en: create payload has no client product/cost fields and two independent SparePart warehouses",
+      "status": "PASS",
+      "detail": {
+        "workOrderId": "cmwr2v2ut000izc95fv4hnbnp"
+      }
+    },
+    {
+      "check": "Browser en: saved order reload shows derived inventory item labels and independent per-line warehouse",
+      "status": "PASS"
+    },
+    {
+      "check": "Browser en: edit saved the same Work Order record and reload preserved the change",
+      "status": "PASS"
+    },
+    {
+      "check": "Browser en: LTR/RTL, labels, absent cost fields, save/reload, clean console and network",
+      "status": "PASS"
+    },
+    {
+      "check": "Browser ar: create payload has no client product/cost fields and two independent SparePart warehouses",
+      "status": "PASS",
+      "detail": {
+        "workOrderId": "cmwr2v9m9000nzc95y2az9xo6"
+      }
+    },
+    {
+      "check": "Browser ar: saved order reload shows derived inventory item labels and independent per-line warehouse",
+      "status": "PASS"
+    },
+    {
+      "check": "Browser ar: edit saved the same Work Order record and reload preserved the change",
+      "status": "PASS"
+    },
+    {
+      "check": "Browser ar: LTR/RTL, labels, absent cost fields, save/reload, clean console and network",
+      "status": "PASS"
+    },
+    {
+      "check": "Backend derived Product from each selected SparePart and kept independent warehouses",
+      "status": "PASS",
+      "detail": {
+        "parts": [
+          {
+            "sparePartId": "cmwr2uvcz000czc95ynjwq6nq",
+            "productId": "cmwr2uvce000azc95tyh9ubeo",
+            "warehouseId": "cmwr2uvdm000ezc95vfhhv36y"
+          },
+          {
+            "sparePartId": "cmwr2uvdg000dzc95e7rhsyqh",
+            "productId": "cmwr2uvct000bzc95fkbg284e",
+            "warehouseId": "cmwr2uvdv000fzc95aesn5hub"
+          }
+        ]
+      }
+    },
+    {
+      "check": "Browser en: legacy product-only part is clearly labeled and not converted",
+      "status": "PASS"
+    },
+    {
+      "check": "Browser ar: legacy product-only part is clearly labeled and not converted",
+      "status": "PASS"
+    },
+    {
+      "check": "Direct API denied mismatched Product, invalid SparePart, foreign/wrong-branch Warehouse, foreign Work Order, branch spoof, missing permission and invalid MaintenancePersonnel",
+      "status": "PASS",
+      "detail": {
+        "denials": 10
+      }
+    },
+    {
+      "check": "Legacy product-only row remained readable and was not converted or backfilled",
+      "status": "PASS"
+    },
+    {
+      "check": "Work Order planning and save produced zero inventory movement and zero stock-balance change",
+      "status": "PASS"
+    },
+    {
+      "check": "All pre-existing work orders, parts, requests, audit and movement rows preserved",
+      "status": "PASS",
+      "detail": {
+        "maintenanceWorkOrder": 43,
+        "maintenanceWorkOrderPart": 20,
+        "maintenanceRequest": 41,
+        "auditLog": 5997,
+        "inventoryMovement": 125
+      }
+    },
+    {
+      "check": "Actor-aware CREATE/UPDATE audits persisted with tenant scope; denied actors wrote no audit",
+      "status": "PASS"
+    }
+  ],
+  "fixtureIds": {
+    "companyId": "cmwr2uv7t0000zc95gzn11jzm",
+    "branchId": "cmwr2uv8d0001zc952i5ca1oz",
+    "companyBId": "cmwr2uv8p0002zc95kchlycw0",
+    "unauthorizedBranchId": "cmwr2uv910004zc95p6qshl1a",
+    "sparePartIds": [
+      "cmwr2uvcz000czc95ynjwq6nq",
+      "cmwr2uvdg000dzc95e7rhsyqh"
+    ],
+    "productIds": [
+      "cmwr2uvce000azc95tyh9ubeo",
+      "cmwr2uvct000bzc95fkbg284e"
+    ],
+    "warehouseIds": [
+      "cmwr2uvdm000ezc95vfhhv36y",
+      "cmwr2uvdv000fzc95aesn5hub",
+      "cmwr2uve0000gzc950kkgqemp",
+      "cmwr2uve7000hzc95g2o54rph"
+    ],
+    "enOrderId": "cmwr2v2ut000izc95fv4hnbnp",
+    "arOrderId": "cmwr2v9m9000nzc95y2az9xo6",
+    "legacyOrderId": "cmwr2vdcd000szc95j9k38d9i"
+  },
+  "apiDenials": [
+    {
+      "method": "POST",
+      "route": "/maintenance-work-orders",
+      "status": 400,
+      "messageKey": "common.validationFailed",
+      "field": "productId",
+      "code": "validation.invalidReference"
+    },
+    {
+      "method": "POST",
+      "route": "/maintenance-work-orders",
+      "status": 400,
+      "messageKey": "common.validationFailed",
+      "field": "sparePartId",
+      "code": "validation.invalidReference"
+    },
+    {
+      "method": "POST",
+      "route": "/maintenance-work-orders",
+      "status": 400,
+      "messageKey": "common.validationFailed",
+      "field": "warehouseId",
+      "code": "validation.invalidReference"
+    },
+    {
+      "method": "POST",
+      "route": "/maintenance-work-orders",
+      "status": 400,
+      "messageKey": "common.validationFailed",
+      "field": "warehouseId",
+      "code": "validation.invalidReference"
+    },
+    {
+      "method": "POST",
+      "route": "/maintenance-work-orders",
+      "status": 403,
+      "messageKey": "operationalContext.companyMismatch",
+      "field": null,
+      "code": null
+    },
+    {
+      "method": "GET",
+      "route": "/maintenance-work-orders/cmwr2v2ut000izc95fv4hnbnp",
+      "status": 404,
+      "messageKey": "maintenance.workOrderNotFound",
+      "field": null,
+      "code": null
+    },
+    {
+      "method": "PATCH",
+      "route": "/maintenance-work-orders/cmwr2v2ut000izc95fv4hnbnp",
+      "status": 404,
+      "messageKey": "maintenance.workOrderNotFound",
+      "field": null,
+      "code": null
+    },
+    {
+      "method": "GET",
+      "route": "/maintenance-work-orders/cmwr2v2ut000izc95fv4hnbnp",
+      "status": 403,
+      "messageKey": "operationalContext.notAllowed",
+      "field": null,
+      "code": null
+    },
+    {
+      "method": "GET",
+      "route": "/maintenance-work-orders?limit=10",
+      "status": 403,
+      "messageKey": "auth.insufficientPermissions",
+      "field": null,
+      "code": null
+    },
+    {
+      "method": "POST",
+      "route": "/maintenance-work-orders/cmwr2v2ut000izc95fv4hnbnp/assignments",
+      "status": 404,
+      "messageKey": "maintenance.personnelNotFound",
+      "field": null,
+      "code": null
+    }
+  ],
+  "browser": null,
+  "proxyTransportErrors": [],
+  "browsers": [
+    {
+      "locale": "en",
+      "consoleErrors": [
+        {
+          "message": "Failed to load resource: the server responded with a status of 404 (Not Found)",
+          "location": {
+            "url": "http://127.0.0.1:3320/favicon.ico",
+            "line": 0,
+            "column": 0,
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        }
+      ],
+      "failedApiResponses": [],
+      "networkFailures": [
+        {
+          "path": "/api/v1/inventory/warehouses/cmwr2uvdv000fzc95aesn5hub",
+          "method": "GET",
+          "error": "net::ERR_ABORTED"
+        },
+        {
+          "path": "/api/v1/maintenance-work-orders/part-candidates/cmwr2uvcz000czc95ynjwq6nq",
+          "method": "GET",
+          "error": "net::ERR_ABORTED"
+        },
+        {
+          "path": "/api/v1/inventory/warehouses/cmwr2uvdm000ezc95vfhhv36y",
+          "method": "GET",
+          "error": "net::ERR_ABORTED"
+        },
+        {
+          "path": "/api/v1/maintenance-work-orders/part-candidates/cmwr2uvcz000czc95ynjwq6nq",
+          "method": "GET",
+          "error": "net::ERR_ABORTED"
+        },
+        {
+          "path": "/api/v1/inventory/warehouses/cmwr2uvdm000ezc95vfhhv36y",
+          "method": "GET",
+          "error": "net::ERR_ABORTED"
+        },
+        {
+          "path": "/api/v1/maintenance-work-orders/part-candidates/cmwr2uvcz000czc95ynjwq6nq",
+          "method": "GET",
+          "error": "net::ERR_ABORTED"
+        },
+        {
+          "path": "/api/v1/maintenance-work-orders/part-candidates/cmwr2uvcz000czc95ynjwq6nq",
+          "method": "GET",
+          "error": "net::ERR_ABORTED"
+        },
+        {
+          "path": "/api/v1/inventory/warehouses/cmwr2uvdv000fzc95aesn5hub",
+          "method": "GET",
+          "error": "net::ERR_ABORTED"
+        },
+        {
+          "path": "/api/v1/inventory/warehouses/cmwr2uvdm000ezc95vfhhv36y",
+          "method": "GET",
+          "error": "net::ERR_ABORTED"
+        },
+        {
+          "path": "/api/v1/maintenance-work-orders/part-candidates/cmwr2uvcz000czc95ynjwq6nq",
+          "method": "GET",
+          "error": "net::ERR_ABORTED"
+        },
+        {
+          "path": "/api/v1/inventory/warehouses/cmwr2uvdm000ezc95vfhhv36y",
+          "method": "GET",
+          "error": "net::ERR_ABORTED"
+        },
+        {
+          "path": "/api/v1/inventory/warehouses/cmwr2uvdv000fzc95aesn5hub",
+          "method": "GET",
+          "error": "net::ERR_ABORTED"
+        },
+        {
+          "path": "/api/v1/maintenance-work-orders/part-candidates/cmwr2uvcz000czc95ynjwq6nq",
+          "method": "GET",
+          "error": "net::ERR_ABORTED"
+        },
+        {
+          "path": "/api/v1/inventory/warehouses/cmwr2uvdm000ezc95vfhhv36y",
+          "method": "GET",
+          "error": "net::ERR_ABORTED"
+        },
+        {
+          "path": "/api/v1/maintenance-work-orders/part-candidates/cmwr2uvdg000dzc95e7rhsyqh",
+          "method": "GET",
+          "error": "net::ERR_ABORTED"
+        },
+        {
+          "path": "/api/v1/maintenance-work-orders/part-candidates/cmwr2uvdg000dzc95e7rhsyqh",
+          "method": "GET",
+          "error": "net::ERR_ABORTED"
+        },
+        {
+          "path": "/api/v1/maintenance-work-orders",
+          "method": "GET",
+          "error": "net::ERR_ABORTED"
+        },
+        {
+          "path": "/api/v1/inventory/warehouses/cmwr2uvdm000ezc95vfhhv36y",
+          "method": "GET",
+          "error": "net::ERR_ABORTED"
+        },
+        {
+          "path": "/api/v1/maintenance-work-orders/part-candidates/cmwr2uvdg000dzc95e7rhsyqh",
+          "method": "GET",
+          "error": "net::ERR_ABORTED"
+        },
+        {
+          "path": "/api/v1/maintenance-work-orders/part-candidates/cmwr2uvdg000dzc95e7rhsyqh",
+          "method": "GET",
+          "error": "net::ERR_ABORTED"
+        },
+        {
+          "path": "/api/v1/inventory/warehouses/cmwr2uvdv000fzc95aesn5hub",
+          "method": "GET",
+          "error": "net::ERR_ABORTED"
+        },
+        {
+          "path": "/api/v1/inventory/warehouses/cmwr2uvdm000ezc95vfhhv36y",
+          "method": "GET",
+          "error": "net::ERR_ABORTED"
+        },
+        {
+          "path": "/api/v1/maintenance-work-orders/part-candidates/cmwr2uvcz000czc95ynjwq6nq",
+          "method": "GET",
+          "error": "net::ERR_ABORTED"
+        },
+        {
+          "path": "/api/v1/maintenance-work-orders/cmwr2v2ut000izc95fv4hnbnp",
+          "method": "GET",
+          "error": "net::ERR_ABORTED"
+        }
+      ],
+      "screenshots": [
+        "test-results/phase4-runtime-browser-proof/work-order-list-en.png",
+        "test-results/phase4-runtime-browser-proof/new-work-order-form-en.png",
+        "test-results/phase4-runtime-browser-proof/new-work-order-parts-en.png",
+        "test-results/phase4-runtime-browser-proof/work-order-detail-parts-en.png"
+      ],
+      "observations": [
+        {
+          "locale": "en",
+          "detail": "derived-product-and-independent-warehouses",
+          "rowA": "[QA-P4-SPA-04785378-3] Phase Four Spare Part A · Derived inventory item: [QA-P4-PA-04785378-3] Phase Four Inventory Item A\t[QA-P4-WA-04785378-3] Phase Four Warehouse A\t2 pcs\t١٠\t٢٠\tPending\t0\t\nEdit\nDelete",
+          "rowB": "[QA-P4-SPB-04785378-3] Phase Four Spare Part B · Derived inventory item: [QA-P4-PB-04785378-3] Phase Four Inventory Item B\t[QA-P4-WB-04785378-3] Phase Four Warehouse B\t3 pcs\t٢٠\t٦٠\tPending\t0\t\nEdit\nDelete"
+        },
+        {
+          "locale": "en",
+          "detail": "edit-part-dialog",
+          "warehouseLabel": "Warehouse for this planned part",
+          "warehouseControl": "[QA-P4-WB-04785378-3] Phase Four Warehouse B"
+        }
+      ],
+      "createPayloads": [
+        {
+          "scopeType": "GENERAL",
+          "parts": [
+            {
+              "sparePartId": "cmwr2uvcz000czc95ynjwq6nq",
+              "warehouseId": "cmwr2uvdm000ezc95vfhhv36y",
+              "quantity": 2,
+              "unit": "pcs",
+              "unitCost": 10
+            },
+            {
+              "sparePartId": "cmwr2uvdg000dzc95e7rhsyqh",
+              "warehouseId": "cmwr2uvdv000fzc95aesn5hub",
+              "quantity": 3,
+              "unit": "pcs",
+              "unitCost": 20
+            }
+          ],
+          "description": "Phase Four EN UI work order EN",
+          "type": "CORRECTIVE",
+          "priority": "MEDIUM"
+        }
+      ],
+      "issueCalls": [],
+      "knownNonOperationalErrors": [
+        {
+          "message": "Failed to load resource: the server responded with a status of 404 (Not Found)",
+          "location": {
+            "url": "http://127.0.0.1:3320/favicon.ico",
+            "line": 0,
+            "column": 0,
+            "lineNumber": 0,
+            "columnNumber": 0
+          }
+        }
+      ]
+    },
+    {
+      "locale": "ar",
+      "consoleErrors": [],
+      "failedApiResponses": [],
+      "networkFailures": [
+        {
+          "path": "/api/v1/inventory/warehouses/cmwr2uvdm000ezc95vfhhv36y",
+          "method": "GET",
+          "error": "net::ERR_ABORTED"
+        },
+        {
+          "path": "/api/v1/maintenance-work-orders/part-candidates/cmwr2uvcz000czc95ynjwq6nq",
+          "method": "GET",
+          "error": "net::ERR_ABORTED"
+        },
+        {
+          "path": "/api/v1/inventory/warehouses/cmwr2uvdv000fzc95aesn5hub",
+          "method": "GET",
+          "error": "net::ERR_ABORTED"
+        },
+        {
+          "path": "/api/v1/maintenance-work-orders/part-candidates/cmwr2uvcz000czc95ynjwq6nq",
+          "method": "GET",
+          "error": "net::ERR_ABORTED"
+        },
+        {
+          "path": "/api/v1/maintenance-work-orders/part-candidates/cmwr2uvdg000dzc95e7rhsyqh",
+          "method": "GET",
+          "error": "net::ERR_ABORTED"
+        },
+        {
+          "path": "/api/v1/inventory/warehouses/cmwr2uvdm000ezc95vfhhv36y",
+          "method": "GET",
+          "error": "net::ERR_ABORTED"
+        },
+        {
+          "path": "/api/v1/inventory/warehouses/cmwr2uvdm000ezc95vfhhv36y",
+          "method": "GET",
+          "error": "net::ERR_ABORTED"
+        },
+        {
+          "path": "/api/v1/maintenance-work-orders/part-candidates/cmwr2uvcz000czc95ynjwq6nq",
+          "method": "GET",
+          "error": "net::ERR_ABORTED"
+        },
+        {
+          "path": "/api/v1/maintenance-work-orders/part-candidates/cmwr2uvdg000dzc95e7rhsyqh",
+          "method": "GET",
+          "error": "net::ERR_ABORTED"
+        },
+        {
+          "path": "/api/v1/maintenance-work-orders/part-candidates/cmwr2uvcz000czc95ynjwq6nq",
+          "method": "GET",
+          "error": "net::ERR_ABORTED"
+        },
+        {
+          "path": "/api/v1/maintenance-work-orders",
+          "method": "GET",
+          "error": "net::ERR_ABORTED"
+        },
+        {
+          "path": "/api/v1/inventory/warehouses/cmwr2uvdv000fzc95aesn5hub",
+          "method": "GET",
+          "error": "net::ERR_ABORTED"
+        },
+        {
+          "path": "/api/v1/maintenance-work-orders/part-candidates/cmwr2uvcz000czc95ynjwq6nq",
+          "method": "GET",
+          "error": "net::ERR_ABORTED"
+        },
+        {
+          "path": "/api/v1/inventory/warehouses/cmwr2uvdm000ezc95vfhhv36y",
+          "method": "GET",
+          "error": "net::ERR_ABORTED"
+        },
+        {
+          "path": "/api/v1/inventory/warehouses/cmwr2uvdm000ezc95vfhhv36y",
+          "method": "GET",
+          "error": "net::ERR_ABORTED"
+        },
+        {
+          "path": "/api/v1/inventory/warehouses/cmwr2uvdm000ezc95vfhhv36y",
+          "method": "GET",
+          "error": "net::ERR_ABORTED"
+        },
+        {
+          "path": "/api/v1/maintenance-work-orders/part-candidates/cmwr2uvdg000dzc95e7rhsyqh",
+          "method": "GET",
+          "error": "net::ERR_ABORTED"
+        },
+        {
+          "path": "/api/v1/maintenance-work-orders/part-candidates/cmwr2uvcz000czc95ynjwq6nq",
+          "method": "GET",
+          "error": "net::ERR_ABORTED"
+        },
+        {
+          "path": "/api/v1/inventory/warehouses/cmwr2uvdm000ezc95vfhhv36y",
+          "method": "GET",
+          "error": "net::ERR_ABORTED"
+        },
+        {
+          "path": "/api/v1/maintenance-work-orders/part-candidates/cmwr2uvcz000czc95ynjwq6nq",
+          "method": "GET",
+          "error": "net::ERR_ABORTED"
+        },
+        {
+          "path": "/api/v1/maintenance-work-orders/part-candidates/cmwr2uvdg000dzc95e7rhsyqh",
+          "method": "GET",
+          "error": "net::ERR_ABORTED"
+        },
+        {
+          "path": "/api/v1/inventory/warehouses/cmwr2uvdv000fzc95aesn5hub",
+          "method": "GET",
+          "error": "net::ERR_ABORTED"
+        },
+        {
+          "path": "/api/v1/inventory/warehouses/cmwr2uvdv000fzc95aesn5hub",
+          "method": "GET",
+          "error": "net::ERR_ABORTED"
+        },
+        {
+          "path": "/api/v1/maintenance-work-orders/cmwr2v9m9000nzc95y2az9xo6",
+          "method": "GET",
+          "error": "net::ERR_ABORTED"
+        }
+      ],
+      "screenshots": [
+        "test-results/phase4-runtime-browser-proof/work-order-list-ar.png",
+        "test-results/phase4-runtime-browser-proof/new-work-order-form-ar.png",
+        "test-results/phase4-runtime-browser-proof/new-work-order-parts-ar.png",
+        "test-results/phase4-runtime-browser-proof/work-order-detail-parts-ar.png"
+      ],
+      "observations": [
+        {
+          "locale": "ar",
+          "detail": "derived-product-and-independent-warehouses",
+          "rowA": "[QA-P4-SPA-04785378-3] Phase Four Spare Part A · صنف المخزون المشتق: [QA-P4-PA-04785378-3] Phase Four Inventory Item A\t[QA-P4-WA-04785378-3] Phase Four Warehouse A\t2 pcs\t١٠\t٢٠\tقيد الانتظار\t0\t\nتعديل\nحذف",
+          "rowB": "[QA-P4-SPB-04785378-3] Phase Four Spare Part B · صنف المخزون المشتق: [QA-P4-PB-04785378-3] Phase Four Inventory Item B\t[QA-P4-WB-04785378-3] Phase Four Warehouse B\t3 pcs\t٢٠\t٦٠\tقيد الانتظار\t0\t\nتعديل\nحذف"
+        },
+        {
+          "locale": "ar",
+          "detail": "edit-part-dialog",
+          "warehouseLabel": "مستودع هذا الصنف المخطط",
+          "warehouseControl": "[QA-P4-WB-04785378-3] Phase Four Warehouse B"
+        }
+      ],
+      "createPayloads": [
+        {
+          "scopeType": "GENERAL",
+          "parts": [
+            {
+              "sparePartId": "cmwr2uvcz000czc95ynjwq6nq",
+              "warehouseId": "cmwr2uvdm000ezc95vfhhv36y",
+              "quantity": 2,
+              "unit": "pcs",
+              "unitCost": 10
+            },
+            {
+              "sparePartId": "cmwr2uvdg000dzc95e7rhsyqh",
+              "warehouseId": "cmwr2uvdv000fzc95aesn5hub",
+              "quantity": 3,
+              "unit": "pcs",
+              "unitCost": 20
+            }
+          ],
+          "description": "Phase Four AR UI work order AR",
+          "type": "CORRECTIVE",
+          "priority": "MEDIUM"
+        }
+      ],
+      "issueCalls": [],
+      "knownNonOperationalErrors": []
+    },
+    {
+      "locales": [
+        "en",
+        "ar"
+      ],
+      "screenshots": [
+        "test-results/phase4-runtime-browser-proof/legacy-order-en.png",
+        "test-results/phase4-runtime-browser-proof/legacy-order-ar.png"
+      ]
+    }
+  ],
+  "temporarySuperAdminGrantsRemaining": 0,
+  "fixtureActorsDeactivated": 4,
+  "cleanup": "PASS",
+  "finishedAt": "2026-11-22T00:07:42.505Z"
+}
