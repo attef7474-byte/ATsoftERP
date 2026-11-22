@@ -226,3 +226,14 @@ Applied: P01, P02, P05, P09, P10, P12, P16, P17, P20, P22, P23, P26, PERSONNEL-P
 | PERSONNEL-P9-05 | Runtime-only `NEXT_PUBLIC_API_URL` is not present in a built Web bundle, and newly added EN/AR keys can be missed until the browser renders fallback text. | Set `NEXT_PUBLIC_API_URL` at build time and require browser proof in EN/LTR and AR/RTL to reject raw keys and missing-text fallbacks. | ACTIVE CHECK |
 
 Applied: P01, P02, P05, P09, P10, P12, P16, P17, P20, P22, P23, P31, P36, P37, P44, P48, P78-02, P78-03, PERSONNEL-P1-05, PERSONNEL-P34-01, 04, 06 and PERSONNEL-P9-01–05. Phase 9 used a distinct disposable clone, no schema migration, no production write, exact temporary-grant revocation, fresh API/browser PASS evidence, and final reconciliation tokens of zero.
+
+## Personnel Phase 10 preventive checks — 2026-11-23
+
+| ID | Problem / symptom | Preventive check | Status |
+| --- | --- | --- | --- |
+| PERSONNEL-P10-01 | `prisma generate` in the external integration worktree reported writing the client to the junctioned node_modules target outside the worktree, not to the worktree itself. | Do not treat the junction target path as a worktree change and do not modify the forbidden source tree to "clean up." Confirm the Prisma schema is unchanged and verify `git status` in the actual worktree. | ACTIVE CHECK |
+| PERSONNEL-P10-02 | A tracked-text conflict-marker regex matched 30 proof-report separator lines made of repeated `=`, which are not merge conflicts. | Compare the marker scan between HEAD and origin/main and inspect matched files; classify repeated-separator report lines as pre-existing baseline, and fail only on real `<<<<<<<`/`>>>>>>>` markers in code. Exclude build output such as `.next`. | ACTIVE CHECK |
+| PERSONNEL-P10-03 | The first disposable-clone migration failed with SQL error 1088 on `maintenance_work_order_parts` because runtime login `atsofterp_dev` lacked ALTER/DDL rights, not because of a migration-script defect. | Verify the login's DDL rights before blaming migration SQL; for the disposable clone proof use an authorized Windows-integrated sysadmin login, and never migrate Production with a login that lacks DDL rights. Dispose the failed clone and retry from the verified backup. | ACTIVE CHECK |
+| PERSONNEL-P10-04 | A program-added spec contained one CRLF line among LF lines, failing the mixed-EOL scan. | Normalize the file to LF with byte-level verification before release; rerun `git diff --check` and mixed-EOL scan on the exact release tree. | ACTIVE CHECK |
+
+Applied in Phase 10: P01, P02, P05, P09, P10, P12, P16, P20, P22, P23, P31, P36, P37, P44, P48, PERSONNEL-P1-04, 05, PERSONNEL-P34-01, 04, 06 and PERSONNEL-P10-01–04. Phase 10 uses a distinct verified backup clone, exact reviewed migrations applied once, no applied-migration edits, and a separate clean worktree for final main integration.
