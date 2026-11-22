@@ -1,0 +1,167 @@
+{
+  "phase": "Phase 5/6 closure",
+  "status": "PASS",
+  "startedAt": "2026-11-22T03:03:48.893Z",
+  "database": "ATsoftERP_PERSONNEL_P34_20261122",
+  "checks": [
+    {
+      "name": "Nest app booted on disposable clone",
+      "status": "PASS",
+      "detail": {
+        "database": "ATsoftERP_PERSONNEL_P34_20261122",
+        "apiPort": 63491
+      }
+    },
+    {
+      "name": "Closure fixture actors created",
+      "status": "PASS",
+      "detail": {
+        "techA": "cmwr961fw00001s95u70ecs0y",
+        "techB": "cmwr961jd00011s95l3th81dr",
+        "techD": "cmwr961me00021s95ppc6r3z6"
+      }
+    },
+    {
+      "name": "Closure work order created",
+      "status": "PASS",
+      "detail": {
+        "woId": "cmwr9620i000c1s95p6290sav",
+        "workOrderNumber": "WO-000028"
+      }
+    },
+    {
+      "name": "Closure canonical task created",
+      "status": "PASS",
+      "detail": {
+        "taskId": "cmwr962ad000i1s95797jhjfj"
+      }
+    },
+    {
+      "name": "Browser infrastructure started",
+      "status": "PASS",
+      "detail": {
+        "proxy": 3322,
+        "web": 3323
+      }
+    },
+    {
+      "name": "Browser EN: A sees assigned task in task list",
+      "status": "PASS"
+    },
+    {
+      "name": "Browser EN: A starts task via real browser action; task IN_PROGRESS",
+      "status": "PASS"
+    },
+    {
+      "name": "Browser EN: WO list shows Phase 2 semantic in-progress/orange row tone for IN_PROGRESS WO",
+      "status": "PASS"
+    },
+    {
+      "name": "Browser EN: B joins via real browser action; same canonical task, no duplicate, A+B active",
+      "status": "PASS"
+    },
+    {
+      "name": "Browser EN: D cannot see actionable assigned work (task not in my-tasks list)",
+      "status": "PASS"
+    },
+    {
+      "name": "Browser EN: A leave/handoff via real browser action; B remains active, task IN_PROGRESS",
+      "status": "PASS"
+    },
+    {
+      "name": "Browser EN: B completes via real browser action; task DONE, WO COMPLETED",
+      "status": "PASS"
+    },
+    {
+      "name": "Browser EN: WO list final semantic row state normal after COMPLETED",
+      "status": "PASS"
+    },
+    {
+      "name": "Browser AR: tasks page renders RTL; execution closure checked in EN, AR rendering verified",
+      "status": "PASS"
+    },
+    {
+      "name": "Closure invariants rechecked",
+      "status": "PASS",
+      "detail": {
+        "DUPLICATE_ACTIVE_TEAM_ASSIGNMENTS": 0,
+        "DUPLICATE_ACTIVE_EXECUTIONS": 0,
+        "DUPLICATE_STOCK_MOVEMENTS": 0,
+        "DUPLICATE_OPEN_DOWNTIME": 0,
+        "UNAUTHORIZED_EXECUTION_SESSIONS": 0,
+        "CROSS_TENANT_TEAM_ASSIGNMENTS": 0,
+        "LOST_HISTORY_ROWS": 0
+      }
+    }
+  ],
+  "failures": [],
+  "apiDenials": [],
+  "browsers": [
+    {
+      "locale": "en",
+      "actor": "A",
+      "realErrors": 0,
+      "badApi": 0,
+      "badNet": 0,
+      "benignIgnored": 11,
+      "screenshots": true
+    },
+    {
+      "locale": "en",
+      "actor": "B-join",
+      "realErrors": 0,
+      "badApi": 0,
+      "badNet": 0,
+      "benignIgnored": 5,
+      "screenshots": true
+    },
+    {
+      "locale": "en",
+      "actor": "D",
+      "realErrors": 0,
+      "badApi": 0,
+      "badNet": 0,
+      "benignIgnored": 5,
+      "screenshots": true
+    },
+    {
+      "locale": "en",
+      "actor": "A-leave",
+      "realErrors": 0,
+      "badApi": 0,
+      "badNet": 0,
+      "benignIgnored": 5,
+      "screenshots": true
+    },
+    {
+      "locale": "en",
+      "actor": "B-complete",
+      "realErrors": 0,
+      "badApi": 0,
+      "badNet": 0,
+      "benignIgnored": 10,
+      "screenshots": true
+    },
+    {
+      "locale": "ar",
+      "actor": "A-render",
+      "realErrors": 0,
+      "badApi": 0,
+      "badNet": 0,
+      "benignIgnored": 5,
+      "screenshots": true
+    }
+  ],
+  "invariants": {
+    "DUPLICATE_ACTIVE_TEAM_ASSIGNMENTS": 0,
+    "DUPLICATE_ACTIVE_EXECUTIONS": 0,
+    "DUPLICATE_STOCK_MOVEMENTS": 0,
+    "DUPLICATE_OPEN_DOWNTIME": 0,
+    "UNAUTHORIZED_EXECUTION_SESSIONS": 0,
+    "CROSS_TENANT_TEAM_ASSIGNMENTS": 0,
+    "LOST_HISTORY_ROWS": 0
+  },
+  "fixtureActorsDeactivated": 3,
+  "cleanup": "PASS",
+  "finishedAt": "2026-11-22T03:04:33.760Z"
+}
