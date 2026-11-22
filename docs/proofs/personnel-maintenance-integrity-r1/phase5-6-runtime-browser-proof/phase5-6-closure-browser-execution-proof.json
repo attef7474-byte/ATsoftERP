@@ -1,7 +1,7 @@
 {
   "phase": "Phase 5/6 closure",
   "status": "PASS",
-  "startedAt": "2026-11-22T03:03:48.893Z",
+  "startedAt": "2026-11-22T03:17:25.424Z",
   "database": "ATsoftERP_PERSONNEL_P34_20261122",
   "checks": [
     {
@@ -9,31 +9,31 @@
       "status": "PASS",
       "detail": {
         "database": "ATsoftERP_PERSONNEL_P34_20261122",
-        "apiPort": 63491
+        "apiPort": 56318
       }
     },
     {
       "name": "Closure fixture actors created",
       "status": "PASS",
       "detail": {
-        "techA": "cmwr961fw00001s95u70ecs0y",
-        "techB": "cmwr961jd00011s95l3th81dr",
-        "techD": "cmwr961me00021s95ppc6r3z6"
+        "techA": "cmwr9njfx0000c095ms38tfe3",
+        "techB": "cmwr9njjt0001c095tmaodom8",
+        "techD": "cmwr9njmu0002c095rjsf5ztw"
       }
     },
     {
       "name": "Closure work order created",
       "status": "PASS",
       "detail": {
-        "woId": "cmwr9620i000c1s95p6290sav",
-        "workOrderNumber": "WO-000028"
+        "woId": "cmwr9nk0w000cc095ik1rp2s2",
+        "workOrderNumber": "WO-000029"
       }
     },
     {
       "name": "Closure canonical task created",
       "status": "PASS",
       "detail": {
-        "taskId": "cmwr962ad000i1s95797jhjfj"
+        "taskId": "cmwr9nkal000ic095a3izxxvw"
       }
     },
     {
@@ -122,7 +122,21 @@
       "badApi": 0,
       "badNet": 0,
       "benignIgnored": 5,
-      "screenshots": true
+      "screenshots": true,
+      "api": [
+        {
+          "bodyLen": 4000
+        },
+        {
+          "bodyLen": 4000
+        },
+        {
+          "bodyLen": 65
+        },
+        {
+          "bodyLen": 65
+        }
+      ]
     },
     {
       "locale": "en",
@@ -163,5 +177,5 @@
   },
   "fixtureActorsDeactivated": 3,
   "cleanup": "PASS",
-  "finishedAt": "2026-11-22T03:04:33.760Z"
+  "finishedAt": "2026-11-22T03:18:11.142Z"
 }
