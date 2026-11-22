@@ -1,0 +1,252 @@
+{
+  "phase": 10,
+  "title": "Full Regression + Production Closeout",
+  "status": "RELEASE_CANDIDATE",
+  "generatedAt": "2026-11-22T23:08:23.0134597Z",
+  "secrets": "REDACTED",
+  "git": {
+    "featureBranch": "fix/personnel-maintenance-integrity-r1-integrated",
+    "featureHeadPushed": "9040d4f3a2a65f9714344cc13755de2e0842b003",
+    "featureRemoteEquality": "PASS",
+    "originMainAtReconcile": "8c62740f3c95890a9daa99c93bf32aa5efe80026",
+    "originMainAtFinalFetch": "8c62740f3c95890a9daa99c93bf32aa5efe80026",
+    "mergeBase": "8c62740f3c95890a9daa99c93bf32aa5efe80026",
+    "upstreamCommitsSinceMergeBase": 0,
+    "ahead": 14,
+    "behind": 0,
+    "integrationBranch": "phase10/main-integration-20261123",
+    "integrationHeadBeforeEvidence": "9040d4f3a2a65f9714344cc13755de2e0842b003",
+    "integrationWorktree": "separate clean worktree under .tmp/phase10-main-integration-20261123",
+    "mergeType": "fast-forward (no rebase, no force push, no history rewrite)",
+    "historyRewriteOperations": "NONE"
+  },
+  "overlapConflictRegister": {
+    "newUpstreamCommits": 0,
+    "upstreamChangedFilesOverlappingProgram": 0,
+    "semanticConflicts": 0,
+    "mergeConflicts": 0,
+    "realTrackedConflictMarkersHead": 0,
+    "realTrackedConflictMarkersOriginMain": 0,
+    "preexistingProofReportSeparatorLines": 30,
+    "separatorFiles": ["docs/proofs/production-readiness-final-report.md"],
+    "classification": "The 30 tracked '====' lines are pre-existing report separators in both HEAD and origin/main, not merge conflicts; excluded from the failure set.",
+    "mixedEolFilesBefore": 1,
+    "mixedEolFileFixed": "apps/api/src/modules/factory/maintenance/maintenance-work-orders/maintenance-technician-authority.service.spec.ts",
+    "mixedEolFilesAfter": 0,
+    "untrackedBuildOutputExcluded": [".next"]
+  },
+  "migrations": {
+    "enumeration": [
+      {
+        "name": "20261122010000_work_order_planning_foundation",
+        "sha256": "444c6cc9806feb7f0085e67845e92898fafead292636fb525779812d95cc62f4"
+      },
+      {
+        "name": "20261122120000_add_checklist_template_lifecycle",
+        "sha256": "341083a3b71dd3f7d33b2adb752a1396747765df6da2d4740d26d5d80d82ac81"
+      },
+      {
+        "name": "20261122130000_add_checklist_execution_starter",
+        "sha256": "26fbbf4986ef1aa524c45abfcae5cbf9e586a43e028c69378db713e227baaaa1"
+      }
+    ],
+    "appliedMigrationsEdited": "NONE",
+    "migrationHistoryDeleted": "NONE",
+    "localMigrationCount": 103,
+    "productionActiveMigrationCountAtPreflight": 100,
+    "pendingProgramMigrationsAtPreflight": 3
+  },
+  "productionReadinessPreflight": {
+    "databaseIdentity": {
+      "database": "ATsoftERP_DB",
+      "server": "DELL\\WINCC",
+      "host": "DELL",
+      "instance": "WINCC",
+      "state": "ONLINE"
+    },
+    "services": {
+      "ATsoftERP_API": "Running/Automatic",
+      "ATsoftERP_Caddy": "Running/Automatic",
+      "ATsoftERP_Web": "Running/Automatic",
+      "ATsoftERP-DailyBackup": "Ready, LastTaskResult=0"
+    },
+    "health": {
+      "sqlPort50079": "reachable",
+      "httpsApiHealth": 200,
+      "httpsWebRoot": 200
+    },
+    "backup": {
+      "path": "C:\\ATsoftERP\\Backups\\ATsoftERP_DB_20261122_020002.bak",
+      "verification": "PASS",
+      "bytes": 100122624,
+      "latestBackupUtc": "2026-11-21T23:00:03.3008902Z"
+    },
+    "dataCounts": {
+      "operational_people": 86,
+      "operational_person_assignments": 54,
+      "maintenance_personnel": 57,
+      "maintenance_requests": 22,
+      "maintenance_work_orders": 8,
+      "maintenance_work_order_parts": 2,
+      "maintenance_tasks": 15,
+      "maintenance_execution_sessions": 14,
+      "maintenance_schedules": 6,
+      "maintenance_checklist_items": 1,
+      "maintenance_checklist_executions": 5,
+      "maintenance_checklist_execution_items": 4,
+      "downtime_logs": 5,
+      "inventory_movements": 125,
+      "audit_logs": 5752
+    },
+    "invariants": {
+      "orphanChecks": 0,
+      "duplicateCurrentPersonAssignments": 0,
+      "duplicateOpenExecutionSessions": 0,
+      "duplicateActiveChecklistExecutions": 0,
+      "invalidChecklistActorRefs": 0,
+      "missingChecklistSnapshots": 0,
+      "crossTenantTaskWorkOrder": 0,
+      "legacyProductOnlyWorkOrderParts": 0,
+      "duplicateStockIssueKeysInvestigated": 5,
+      "duplicateStockIssueKeysClassification": "Issue/return movement pairs; not a proven duplicate defect."
+    }
+  },
+  "migrationCloneProof": {
+    "status": "PASS",
+    "database": "ATsoftERP_DB_PHASE10B_2629",
+    "sourceBackup": "C:\\ATsoftERP\\Backups\\ATsoftERP_DB_20261122_020002.bak",
+    "firstAttempt": {
+      "database": "ATsoftERP_DB_PHASE10_7551",
+      "result": "FAILED",
+      "error": "SQL error 1088 / P3018 on maintenance_work_order_parts",
+      "rootCause": "Runtime login atsofterp_dev lacks ALTER/DDL rights (ALTER_WO_PARTS=0, DB_OWNER=0, DDL_ADMIN=0); not a migration SQL defect",
+      "disposition": "failed clone dropped"
+    },
+    "secondAttempt": {
+      "loginMode": "Windows-integrated sysadmin identity",
+      "result": "PASS",
+      "migrationsAppliedExactlyOnce": 3,
+      "activeMigrations": 103,
+      "pendingProgramMigrations": 3,
+      "newObjects": {
+        "workOrderAssignmentsTable": "present",
+        "workOrderPartsWarehouseColumn": 1,
+        "checklistExecutionStartedByColumn": 1,
+        "newForeignKeys": 7,
+        "newIndexes": 7
+      }
+    },
+    "dataReconciliation": {
+      "keyTableCounts": "matched backup-era production",
+      "auditLogsClone": 5750,
+      "auditLogsLive": 5752,
+      "classification": "Two-row delta consistent with live activity after the 02:00 backup",
+      "lostRows": 0,
+      "orphanRows": 0,
+      "unintendedHistoryDeletion": 0
+    },
+    "disposableCloneDisposition": "PENDING_DROP_AFTER_PRODUCTION_VERIFICATION"
+  },
+  "technicalGate": {
+    "tree": "phase10/main-integration-20261123 @ 9040d4f3a2a65f9714344cc13755de2e0842b003",
+    "dependencyInstall": "npm ci --no-audit --no-fund (792 packages, isolated worktree)",
+    "prismaFormat": "PASS",
+    "prismaValidate": "PASS",
+    "prismaGenerate": "PASS",
+    "apiTypecheck": "PASS",
+    "webTypecheck": "PASS",
+    "apiBuild": "PASS",
+    "webBuild": "PASS",
+    "apiTests": {
+      "result": "PASS",
+      "command": "npx jest --testMatch=\"**/*.spec.ts\" --runInBand (from apps/api)",
+      "suites": 264,
+      "tests": 5360
+    },
+    "webTests": {
+      "result": "PASS",
+      "command": "npm run test:web-logic",
+      "suites": 138,
+      "tests": 2598
+    },
+    "i18n": "PASS",
+    "rawKeys": "PASS",
+    "uiBaseline": "PASS",
+    "permissionUi": "PASS",
+    "credentialsCheck": "PASS (no hardcoded credentials in tracked files)",
+    "routeContract": {
+      "result": "MATCHED_ACCEPTED_BASELINE",
+      "malformed": 3,
+      "unresolved": 3,
+      "mismatches": 0,
+      "commandExit": 1,
+      "exitClassification": "Expected: the accepted baseline intentionally contains 3 malformed and 3 unresolved entries; no new mismatch."
+    },
+    "gitDiffCheck": "PASS",
+    "realConflictMarkerScan": "PASS (0)",
+    "mixedEolScan": "PASS (0)"
+  },
+  "regression": {
+    "phase1To9": {
+      "result": "PASS",
+      "fullApi": "264 suites / 5360 tests",
+      "fullWeb": "138 suites / 2598 tests",
+      "focused": {
+        "command": "npx jest --testMatch=\"**/*.spec.ts\" --runInBand --testPathPattern=\"(person-identity|maintenance-personnel.service|work-order-assignments.service|maintenance-technician-authority.service|schedule-due-authority|maintenance-schedules.service|maintenance-checklist-start-authority.service|maintenance-checklist-executions.service|maintenance-work-orders.service|maintenance-tasks.service|preventive-maintenance.service|person-registrations.service|users.service|employees.service|register-historical-permission|r4r-least-privilege)\" (from apps/api)",
+        "suites": 16,
+        "tests": 411
+      }
+    },
+    "phase9Tokens": {
+      "scheduleRowsLost": 0,
+      "duplicateGeneratedRequests": 0,
+      "invalidNextDueDates": 0,
+      "crossTenantResults": 0,
+      "unintendedStartDateMutations": 0
+    }
+  },
+  "browserProof": {
+    "result": "PASS",
+    "artifact": "phase10-runtime-browser-proof.json",
+    "screenshots": "docs/proofs/personnel-maintenance-integrity-r1/phase10-browser/",
+    "database": "ATsoftERP_DB_PHASE10B_2629",
+    "productionMutations": "NONE",
+    "authMode": "ENV_DERIVED_JWT",
+    "actorRole": "SUPER_ADMIN (controlled disposable-clone proof only)",
+    "enLtr": {
+      "routesChecked": 15,
+      "apiResponses": 151,
+      "unexpectedApiResponses": 0,
+      "pageErrors": 0,
+      "rawKeys": 0,
+      "fallbacks": 0
+    },
+    "arRtl": {
+      "routesChecked": 15,
+      "apiResponses": 151,
+      "unexpectedApiResponses": 0,
+      "pageErrors": 0,
+      "rawKeys": 0,
+      "fallbacks": 0
+    }
+  },
+  "releaseCandidateGate": {
+    "LATEST_MAIN_RECONCILED": "PASS",
+    "MIGRATION_CLONE_PROOF": "PASS",
+    "FULL_TECHNICAL_GATES": "PASS",
+    "PHASE_1_9_REGRESSION": "PASS",
+    "LOST_ROWS": 0,
+    "ORPHAN_ROWS": 0,
+    "UNINTENDED_HISTORY_DELETION": 0,
+    "decision": "ELIGIBLE FOR MERGE TO MAIN"
+  },
+  "production": {
+    "status": "PENDING",
+    "backup": "PENDING",
+    "migration": "NOT_RUN",
+    "deployment": "NOT_RUN",
+    "browserProof": "NOT_RUN",
+    "finalDataProof": "NOT_RUN",
+    "finalGitProof": "NOT_RUN"
+  }
+}
