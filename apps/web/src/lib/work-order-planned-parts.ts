@@ -3,6 +3,7 @@ export interface PlannedPartDraft {
   clientKey: string;
   sparePartId: string;
   productId: string;
+  warehouseId: string;
   quantity: string;
   unit: string;
   unitCost: string;
@@ -12,7 +13,8 @@ export interface PlannedPartDraft {
 export function validatePlannedParts(parts: PlannedPartDraft[]): Record<string, string> {
   const errors: Record<string, string> = {};
   parts.forEach((part, index) => {
-    if (!part.sparePartId && !part.productId) errors['parts.' + index + '.sparePartId'] = 'validation.required';
+    if (!part.sparePartId) errors['parts.' + index + '.sparePartId'] = 'validation.required';
+    if (!part.warehouseId) errors['parts.' + index + '.warehouseId'] = 'validation.required';
     if (!part.quantity.trim() || !Number.isFinite(Number(part.quantity)) || Number(part.quantity) < 0.0001) {
       errors['parts.' + index + '.quantity'] = 'validation.invalidQuantity';
     }
@@ -29,7 +31,7 @@ export function plannedPartsPayload(parts: PlannedPartDraft[], mode: 'create' | 
   return {
     parts: parts.map(part => ({
       ...(part.sparePartId ? { sparePartId: part.sparePartId } : {}),
-      ...(part.productId ? { productId: part.productId } : {}),
+      warehouseId: part.warehouseId,
       quantity: Number(part.quantity),
       ...(part.unit.trim() ? { unit: part.unit.trim() } : {}),
       ...(part.unitCost.trim() ? { unitCost: Number(part.unitCost) } : {}),

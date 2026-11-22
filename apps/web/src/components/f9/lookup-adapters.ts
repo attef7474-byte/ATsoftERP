@@ -435,6 +435,12 @@ export const sparePartAdapter: LookupAdapter<SparePart> = {
   ],
 };
 
+/** Same canonical F9; only active spare parts with a valid maintenance stock identity. */
+export const workOrderSparePartAdapter: LookupAdapter<SparePart> = {
+  ...sparePartAdapter,
+  endpoint: '/maintenance-work-orders/part-candidates',
+};
+
 /**
  * R2-E — the ACTUAL installed physical part on a machine. This adapter exists so a
  * replacement can never be expressed as a bare spare-part id: the selected record

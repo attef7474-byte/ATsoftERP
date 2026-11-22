@@ -6,17 +6,21 @@ const WORK_ORDER_TYPES = ['CORRECTIVE', 'PREVENTIVE', 'PREDICTIVE', 'OVERHAUL', 
 const WORK_ORDER_PRIORITIES = ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'] as const;
 
 export class CreateWorkOrderPartDto {
-  @ApiPropertyOptional({ description: 'Spare part id. productId is derived from the spare part when omitted.' })
-  @IsOptional()
+  @ApiProperty({ description: 'Canonical spare part; inventory product is derived server-side.' })
   @IsString()
   @IsNotEmpty()
-  sparePartId?: string;
+  sparePartId: string;
 
   @ApiPropertyOptional({ description: 'Product id (inventory item). Required when sparePartId is omitted.' })
   @IsOptional()
   @IsString()
   @IsNotEmpty()
   productId?: string;
+
+  @ApiProperty()
+  @IsString()
+  @IsNotEmpty()
+  warehouseId: string;
 
   @ApiProperty({ example: 1 })
   @IsNumber({ allowNaN: false, allowInfinity: false })

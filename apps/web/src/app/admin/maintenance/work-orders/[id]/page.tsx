@@ -7,7 +7,7 @@ import { useToast } from '../../../../../components/admin/toast-provider';
 import { MaintenanceWorkOrder } from '../../../../../lib/admin-types';
 import { Button, Card, CardHeader, CardContent, DataTable, LoadingState, EmptyState, ErrorState, Modal, Input, ConfirmDialog, Select, Textarea, StatusBadge } from '../../../../../components/admin/ui';
 import { useRegisterAdminActions, useStableHandlers, ActionBackIcon, ActionRefreshIcon, ActionEditIcon, ActionAddIcon, ActionDeleteIcon, ActionPrintIcon } from '../../../../../components/admin/admin-action-bar';
-import { F9Lookup, machineAdapter, machineComponentAdapter, maintenanceRequestAdapter, warehouseAdapter, userAdapter, sparePartAdapter, productAdapter } from '../../../../../components/f9';
+import { F9Lookup, machineAdapter, machineComponentAdapter, maintenanceRequestAdapter, warehouseAdapter, userAdapter, workOrderSparePartAdapter } from '../../../../../components/f9';
 import { CmmsStatusBadge } from '../../../../../components/maintenance/CmmsStatusBadge';
 import { CmmsPriorityBadge } from '../../../../../components/maintenance/CmmsPriorityBadge';
 import { useParams, useRouter } from 'next/navigation';
@@ -46,6 +46,7 @@ interface PartForm {
   id: string;
   sparePartId: string;
   productId: string;
+  warehouseId: string;
   quantity: string;
   unit: string;
   unitCost: string;
@@ -66,7 +67,7 @@ const EMPTY_WO_FORM: WorkOrderForm = {
   assignedToId: '', supervisorId: '', plannedStartAt: '', plannedEndAt: '',
   estimatedCost: '', notes: '',
 };
-const EMPTY_PART_FORM: PartForm = { id: '', sparePartId: '', productId: '', quantity: '', unit: '', unitCost: '', notes: '' };
+const EMPTY_PART_FORM: PartForm = { id: '', sparePartId: '', productId: '', warehouseId: '', quantity: '', unit: '', unitCost: '', notes: '' };
 const EMPTY_COST_FORM: CostForm = { id: '', type: 'LABOR', description: '', amount: '', incurredAt: '' };
 
 export default function MaintenanceWorkOrderDetailPage() {
@@ -271,6 +272,7 @@ export default function MaintenanceWorkOrderDetailPage() {
       id: part.id,
       sparePartId: part.sparePartId || '',
       productId: part.productId || '',
+      warehouseId: part.warehouseId || '',
       quantity: String(part.quantity ?? ''),
       unit: part.unit || '',
       unitCost: part.unitCost != null ? String(part.unitCost) : '',
@@ -282,8 +284,10 @@ export default function MaintenanceWorkOrderDetailPage() {
 
   const handlePartSave = async () => {
     const errors: Record<string, string> = {};
-    if (!partForm.sparePartId && !partForm.productId) {
-      errors.part = t('validation.required');
+    const legacyProductOnly = !!partForm.productId && !partForm.sparePartId;
+    if (!legacyProductOnly) {
+      if (!partForm.sparePartId) errors.sparePartId = t('validation.required');
+      if (!partForm.warehouseId) errors.warehouseId = t('validation.required');
     }
     if (!partForm.quantity.trim() || Number.isNaN(Number(partForm.quantity)) || Number(partForm.quantity) <= 0) {
       errors.quantity = t('validation.required');
@@ -293,8 +297,10 @@ export default function MaintenanceWorkOrderDetailPage() {
     setPartSaving(true);
     try {
       const payload: Record<string, string | number> = { quantity: Number(partForm.quantity) };
-      if (partForm.sparePartId) payload.sparePartId = partForm.sparePartId;
-      if (partForm.productId) payload.productId = partForm.productId;
+      if (!legacyProductOnly) {
+        if (partForm.sparePartId) payload.sparePartId = partForm.sparePartId;
+        if (partForm.warehouseId) payload.warehouseId = partForm.warehouseId;
+      }
       if (partForm.unit.trim()) payload.unit = partForm.unit.trim();
       if (partForm.unitCost.trim()) {
         const value = Number(partForm.unitCost);
@@ -456,7 +462,15 @@ export default function MaintenanceWorkOrderDetailPage() {
   };
 
   const partColumns = [
-    { key: 'item', header: t('maintenance.partQuantity'), render: (p: any) => p.sparePart ? `[${p.sparePart.code}] ${p.sparePart.name}` : (p.product ? `[${p.product.code}] ${p.product.name}` : '-') },
+    { key: 'item', header: t('maintenance.sparePartLabel'), render: (p: any) => {
+      if (p.sparePart) {
+        const derived = p.product ? ` · ${t('maintenance.derivedInventoryItem')}: [${p.product.code}] ${p.product.name}` : '';
+        return `[${p.sparePart.code}] ${p.sparePart.name}${derived}`;
+      }
+      if (p.product) return `${t('maintenance.legacyInventoryItem')}: [${p.product.code}] ${p.product.name}`;
+      return '-';
+    } },
+    { key: 'warehouse', header: t('maintenance.plannedPartWarehouse'), render: (p: any) => p.warehouse ? `[${p.warehouse.code}] ${p.warehouse.name}` : '-' },
     { key: 'quantity', header: t('maintenance.partQuantity'), render: (p: any) => `${p.quantity}${p.unit ? ` ${p.unit}` : ''}` },
     { key: 'unitCost', header: t('maintenance.partUnitCost'), render: (p: any) => p.unitCost != null ? Number(p.unitCost).toLocaleString() : '-' },
     { key: 'totalCost', header: t('maintenance.partTotalCost'), render: (p: any) => p.totalCost != null ? Number(p.totalCost).toLocaleString() : '-' },
@@ -818,8 +832,17 @@ export default function MaintenanceWorkOrderDetailPage() {
         <div className="space-y-4">
           {validationErrors.form && <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">{validationErrors.form}</div>}
           {validationErrors.part && <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">{validationErrors.part}</div>}
-          <F9Lookup label={t('maintenance.sparePartLabel')} name="sparePartId" value={partForm.sparePartId} onChange={(v) => { setPartForm({ ...partForm, sparePartId: v }); setValidationErrors(prev => ({ ...prev, part: '' })); }} adapter={sparePartAdapter} />
-          <F9Lookup label={t('maintenance.linkedInventoryItem')} name="productId" value={partForm.productId} onChange={(v) => { setPartForm({ ...partForm, productId: v }); setValidationErrors(prev => ({ ...prev, part: '' })); }} adapter={productAdapter} />
+          {!!partForm.productId && !partForm.sparePartId ? (
+            <div className="space-y-1 rounded-lg border border-[var(--ws-border)] bg-[var(--ws-soft)] p-3">
+              <p className="text-sm font-medium">{t('maintenance.legacyInventoryItem')}: [{data?.parts?.find((p: any) => p.id === partForm.id)?.product?.code || ''}] {data?.parts?.find((p: any) => p.id === partForm.id)?.product?.name || partForm.productId}</p>
+              <p className="text-xs text-gray-500">{t('maintenance.legacyPartHint')}</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <F9Lookup label={t('maintenance.sparePartLabel')} name="sparePartId" value={partForm.sparePartId} onChange={(v) => { setPartForm({ ...partForm, sparePartId: v }); setValidationErrors(prev => ({ ...prev, sparePartId: '' })); }} adapter={workOrderSparePartAdapter} error={validationErrors.sparePartId} />
+              <F9Lookup label={t('maintenance.plannedPartWarehouse')} name="warehouseId" value={partForm.warehouseId} onChange={(v) => { setPartForm({ ...partForm, warehouseId: v }); setValidationErrors(prev => ({ ...prev, warehouseId: '' })); }} adapter={warehouseAdapter} error={validationErrors.warehouseId} />
+            </div>
+          )}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <Input label={t('maintenance.partQuantity')} name="quantity" type="number" min="0.0001" step="0.0001" value={partForm.quantity} onChange={(e) => { setPartForm({ ...partForm, quantity: e.target.value }); setValidationErrors(prev => ({ ...prev, quantity: '' })); }} error={validationErrors.quantity} required />
             <Input label={t('maintenance.unit')} name="unit" value={partForm.unit} onChange={(e) => { setPartForm({ ...partForm, unit: e.target.value }); }} />

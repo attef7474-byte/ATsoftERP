@@ -1,6 +1,8 @@
 import { Controller, Get, Post, Patch, Delete, Body, Param, Query, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { MaintenanceWorkOrdersService } from './maintenance-work-orders.service';
+import { WorkOrderAssignmentsService } from './work-order-assignments.service';
+import { WorkOrderAssignmentDto } from './dto/work-order-assignment.dto';
 import { CreateMaintenanceWorkOrderDto } from './dto/create-maintenance-work-order.dto';
 import { CreateWorkOrderFromRequestDto } from './dto/create-work-order-from-request.dto';
 import { UpdateMaintenanceWorkOrderDto } from './dto/update-maintenance-work-order.dto';
@@ -20,7 +22,37 @@ import { ActiveOperationalContext } from '../../../../common/operational-context
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 @Controller({ path: 'maintenance-work-orders', version: '1' })
 export class MaintenanceWorkOrdersController {
-  constructor(private service: MaintenanceWorkOrdersService) {}
+  constructor(private service: MaintenanceWorkOrdersService, private assignments: WorkOrderAssignmentsService) {}
+
+  @Get(':id/assignments')
+  @Permissions('maintenance-work-order:read')
+  listAssignments(@Param('id') id: string, @Query() query: { page?: string; limit?: string }, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.assignments.list(id, { page: Number(query.page), limit: Number(query.limit) }, ctx);
+  }
+
+  @Post(':id/assignments')
+  @Permissions('maintenance-work-order:update')
+  assign(@Param('id') id: string, @Body() dto: WorkOrderAssignmentDto, @CurrentUser('id') actorId: string, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.assignments.assign(id, dto, actorId, ctx);
+  }
+
+  @Patch(':id/assignments/:assignmentId/cancel')
+  @Permissions('maintenance-work-order:update')
+  cancelAssignment(@Param('id') id: string, @Param('assignmentId') assignmentId: string, @CurrentUser('id') actorId: string, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.assignments.cancel(id, assignmentId, actorId, ctx);
+  }
+
+  @Get('part-candidates')
+  @Permissions('maintenance-work-order:read')
+  partCandidates(@Query() query: { page?: string; limit?: string; search?: string }, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.partCandidates({ page: Number(query.page), limit: Number(query.limit), search: query.search }, ctx);
+  }
+
+  @Get('part-candidates/:partId')
+  @Permissions('maintenance-work-order:read')
+  partCandidate(@Param('partId') partId: string, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.service.partCandidates({}, ctx, partId);
+  }
 
   @Post()
   @Permissions('maintenance-work-order:create')

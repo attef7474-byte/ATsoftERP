@@ -203,28 +203,29 @@ model BusinessPartnerBankAccount {
 
 model Company {
   // B2 inverse relations only; existing physical contract unchanged.
-  overheadAllocations OperationalOverheadPeriodAllocation[]
-  overheadAllocationLines OperationalOverheadAllocationLine[]
+  overheadAllocations       OperationalOverheadPeriodAllocation[]
+  overheadAllocationLines   OperationalOverheadAllocationLine[]
   overheadAllocationSources OperationalOverheadAllocationSource[]
-  id                      String    @id @default(cuid())
-  code                    String    @unique
-  name                    String
-  legalName               String?
-  taxNumber               String?
-  phone                   String?
-  email                   String?
-  address                 String?
-  logo                    String?
-  operationalCurrencyCode String?   @db.NVarChar(3)
-  status                  String    @default("ACTIVE")
-  createdAt               DateTime  @default(now())
-  updatedAt               DateTime  @updatedAt
-  deletedAt               DateTime?
+  id                        String                                @id @default(cuid())
+  code                      String                                @unique
+  name                      String
+  legalName                 String?
+  taxNumber                 String?
+  phone                     String?
+  email                     String?
+  address                   String?
+  logo                      String?
+  operationalCurrencyCode   String?                               @db.NVarChar(3)
+  status                    String                                @default("ACTIVE")
+  createdAt                 DateTime                              @default(now())
+  updatedAt                 DateTime                              @updatedAt
+  deletedAt                 DateTime?
 
   branches                         Branch[]
   departments                      Department[]
   organizationalUnits              OrganizationalUnit[]
   maintenanceWorkOrders            MaintenanceWorkOrder[]
+  workOrderAssignments             MaintenanceWorkOrderAssignment[]
   users                            User[]
   warehouses                       Warehouse[]
   machines                         Machine[]
@@ -299,41 +300,42 @@ model Company {
   valuationInitializations         InventoryValuationInitialization[]
   productionRunCostSnapshots       ProductionRunCostSnapshot[]
 
-  maintenanceExecutions MaintenanceTask[]
-  sparePartIssues SparePartIssue[]
-  sparePartIssueLines SparePartIssueLine[]
+  maintenanceExecutions      MaintenanceTask[]
+  sparePartIssues            SparePartIssue[]
+  sparePartIssueLines        SparePartIssueLine[]
   generalInventoryIssues     GeneralInventoryIssue[]
   generalInventoryIssueLines GeneralInventoryIssueLine[]
+  operationalOverheadPeriods OperationalOverheadPeriod[]
+  operationalOverheadEntries OperationalOverheadEntry[]
 
   @@index([status])
   @@index([code])
   @@index([createdAt])
   @@map("companies")
-  operationalOverheadPeriods       OperationalOverheadPeriod[]
-  operationalOverheadEntries       OperationalOverheadEntry[]
 }
 
 model Branch {
   // B2 inverse relations only; existing physical contract unchanged.
-  overheadAllocations OperationalOverheadPeriodAllocation[]
-  overheadAllocationLines OperationalOverheadAllocationLine[]
+  overheadAllocations       OperationalOverheadPeriodAllocation[]
+  overheadAllocationLines   OperationalOverheadAllocationLine[]
   overheadAllocationSources OperationalOverheadAllocationSource[]
-  id        String    @id @default(cuid())
-  companyId String
-  company   Company   @relation(fields: [companyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  code      String
-  name      String
-  address   String?
-  phone     String?
-  status    String    @default("ACTIVE")
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  deletedAt DateTime?
+  id                        String                                @id @default(cuid())
+  companyId                 String
+  company                   Company                               @relation(fields: [companyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  code                      String
+  name                      String
+  address                   String?
+  phone                     String?
+  status                    String                                @default("ACTIVE")
+  createdAt                 DateTime                              @default(now())
+  updatedAt                 DateTime                              @updatedAt
+  deletedAt                 DateTime?
 
   departments                      Department[]
   administrations                  Administration[]
   organizationalUnits              OrganizationalUnit[]
   maintenanceWorkOrders            MaintenanceWorkOrder[]
+  workOrderAssignments             MaintenanceWorkOrderAssignment[]
   users                            User[]
   warehouses                       Warehouse[]
   machines                         Machine[]
@@ -403,18 +405,18 @@ model Branch {
   shiftHandovers                   ShiftHandover[]
   productionRunCostSnapshots       ProductionRunCostSnapshot[]
 
-  maintenanceExecutions MaintenanceTask[]
-  sparePartIssues SparePartIssue[]
-  sparePartIssueLines SparePartIssueLine[]
+  maintenanceExecutions      MaintenanceTask[]
+  sparePartIssues            SparePartIssue[]
+  sparePartIssueLines        SparePartIssueLine[]
   generalInventoryIssues     GeneralInventoryIssue[]
   generalInventoryIssueLines GeneralInventoryIssueLine[]
+  operationalOverheadPeriods OperationalOverheadPeriod[]
+  operationalOverheadEntries OperationalOverheadEntry[]
 
   @@unique([companyId, code])
   @@index([status])
   @@index([createdAt])
   @@map("branches")
-  operationalOverheadPeriods       OperationalOverheadPeriod[]
-  operationalOverheadEntries       OperationalOverheadEntry[]
 }
 
 model Administration {
@@ -1192,27 +1194,29 @@ model ProductionOperationalAssignment {
 }
 
 model User {
-  id                String      @id @default(cuid())
-  email             String      @unique
-  passwordHash      String
-  name              String
-  phone             String?
-  avatar            String?
-  status            String      @default("ACTIVE")
-  companyId         String?
-  company           Company?    @relation(fields: [companyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  branchId          String?
-  branch            Branch?     @relation(fields: [branchId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  departmentId      String?
-  department        Department? @relation(fields: [departmentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  twoFactorEnabled  Boolean     @default(false)
-  twoFactorSecret   String?
-  authVersion       Int         @default(0)
-  passwordChangedAt DateTime?
-  lastLoginAt       DateTime?
-  createdAt         DateTime    @default(now())
-  updatedAt         DateTime    @updatedAt
-  deletedAt         DateTime?
+  assignedWorkOrderPersonnel  MaintenanceWorkOrderAssignment[] @relation("WorkOrderAssignmentActor")
+  cancelledWorkOrderPersonnel MaintenanceWorkOrderAssignment[] @relation("WorkOrderAssignmentCancelActor")
+  id                          String                           @id @default(cuid())
+  email                       String                           @unique
+  passwordHash                String
+  name                        String
+  phone                       String?
+  avatar                      String?
+  status                      String                           @default("ACTIVE")
+  companyId                   String?
+  company                     Company?                         @relation(fields: [companyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  branchId                    String?
+  branch                      Branch?                          @relation(fields: [branchId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  departmentId                String?
+  department                  Department?                      @relation(fields: [departmentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  twoFactorEnabled            Boolean                          @default(false)
+  twoFactorSecret             String?
+  authVersion                 Int                              @default(0)
+  passwordChangedAt           DateTime?
+  lastLoginAt                 DateTime?
+  createdAt                   DateTime                         @default(now())
+  updatedAt                   DateTime                         @updatedAt
+  deletedAt                   DateTime?
 
   roles                             UserRole[]
   notifications                     Notification[]
@@ -1252,10 +1256,10 @@ model User {
   updatedValuationPolicies          InventoryValuationPolicy[]          @relation("InventoryValuationPolicyUpdatedBy")
   createdValuationInitializations   InventoryValuationInitialization[]
 
-  createdMaintenanceExecutions MaintenanceTask[] @relation("MaintenanceTaskCreatedBy")
-  maintenanceExecutionSessions MaintenanceExecutionSession[] @relation("ExecutionSessionTechnician")
-  maintenanceSessionHandoffs MaintenanceExecutionSession[] @relation("ExecutionSessionHandoff")
-  recordedExecutionPartUsages MaintenanceExecutionPartUsage[] @relation("ExecutionPartRecordedBy")
+  createdMaintenanceExecutions MaintenanceTask[]               @relation("MaintenanceTaskCreatedBy")
+  maintenanceExecutionSessions MaintenanceExecutionSession[]   @relation("ExecutionSessionTechnician")
+  maintenanceSessionHandoffs   MaintenanceExecutionSession[]   @relation("ExecutionSessionHandoff")
+  recordedExecutionPartUsages  MaintenanceExecutionPartUsage[] @relation("ExecutionPartRecordedBy")
 
   @@index([email])
   @@index([status])
@@ -1556,6 +1560,7 @@ model Warehouse {
   adjustments                      InventoryAdjustment[]
   stockIssuePartLines              MaintenanceRequestRequiredPart[]
   maintenanceWorkOrders            MaintenanceWorkOrder[]
+  maintenanceWorkOrderParts        MaintenanceWorkOrderPart[]
   openingBalances                  InventoryOpeningBalance[]
   stockAdjustments                 InventoryStockAdjustment[]
   srcStockTransfers                InventoryStockTransfer[]            @relation("srcWarehouse")
@@ -2594,9 +2599,9 @@ model Machine {
 }
 
 model MachinePart {
-  id     String  @id @default(cuid())
-  code   String  @unique
-  name   String
+  id          String     @id @default(cuid())
+  code        String     @unique
+  name        String
   // R4N: additive canonical link to the single authoritative technical catalog.
   // Nullable and unpopulated for all historical rows; a non-null value is only
   // ever written when technical identity is independently verified.
@@ -2748,39 +2753,39 @@ model MachineComponentMachine {
 }
 
 model SparePart {
-  id                      String    @id @default(cuid())
-  code                    String    @unique
-  name                    String
-  description             String?
-  category                String?
-  specification           String?
-  unit                    String?
-  unitId                  String?
-  unitRef                 Unit?     @relation(fields: [unitId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  manufacturer            String?
-  model                   String?
-  partNumber              String?
-  barcode                 String?
-  minRecommendedStock     Float?
-  maxRecommendedStock     Float?
-  reorderPoint            Float?
-  isCritical              Boolean   @default(false)
+  id                             String    @id @default(cuid())
+  code                           String    @unique
+  name                           String
+  description                    String?
+  category                       String?
+  specification                  String?
+  unit                           String?
+  unitId                         String?
+  unitRef                        Unit?     @relation(fields: [unitId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  manufacturer                   String?
+  model                          String?
+  partNumber                     String?
+  barcode                        String?
+  minRecommendedStock            Float?
+  maxRecommendedStock            Float?
+  reorderPoint                   Float?
+  isCritical                     Boolean   @default(false)
   // Batch Y — spare part classification (String, nullable, backward compatible)
-  technicalClassification String?
-  usageType               String?
-  nature                  String?
-  importance              String?
-  status                  String    @default("ACTIVE")
+  technicalClassification        String?
+  usageType                      String?
+  nature                         String?
+  importance                     String?
+  status                         String    @default("ACTIVE")
   // Phase 3 — catalog standard expected life. NULL means "not defined".
   // Snapshotted onto each new MachineInstalledPart; never backfilled.
-  defaultExpectedLifeValue       Float?  @map("default_expected_life_value")
-  defaultExpectedLifeUnit        String? @map("default_expected_life_unit") // DAYS | HOURS | CYCLES
-  defaultWarningThresholdPercent Int?    @map("default_warning_threshold_percent")
-  productId               String?
-  product                 Product?  @relation(fields: [productId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  createdAt               DateTime  @default(now())
-  updatedAt               DateTime  @updatedAt
-  deletedAt               DateTime?
+  defaultExpectedLifeValue       Float?    @map("default_expected_life_value")
+  defaultExpectedLifeUnit        String?   @map("default_expected_life_unit") // DAYS | HOURS | CYCLES
+  defaultWarningThresholdPercent Int?      @map("default_warning_threshold_percent")
+  productId                      String?
+  product                        Product?  @relation(fields: [productId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  createdAt                      DateTime  @default(now())
+  updatedAt                      DateTime  @updatedAt
+  deletedAt                      DateTime?
 
   componentLinks            ComponentSparePart[]
   machineLinks              MachineSparePart[]
@@ -2888,14 +2893,14 @@ model MaintenanceRequest {
   isEmergency              Boolean?
   notes                    String?
   // SLA fields (Batch M) — mapped to canonical snake_case columns
-  responseDueAt            DateTime?           @map("response_due_at")
-  startDueAt               DateTime?           @map("start_due_at")
-  completeDueAt            DateTime?           @map("complete_due_at")
-  slaStatus                String?             @default("ON_TRACK") @map("sla_status")
-  escalationLevel          String?             @default("NONE") @map("escalation_level")
-  lastEscalatedAt          DateTime?           @map("last_escalated_at")
-  createdAt                DateTime            @default(now())
-  updatedAt                DateTime            @updatedAt
+  responseDueAt            DateTime?         @map("response_due_at")
+  startDueAt               DateTime?         @map("start_due_at")
+  completeDueAt            DateTime?         @map("complete_due_at")
+  slaStatus                String?           @default("ON_TRACK") @map("sla_status")
+  escalationLevel          String?           @default("NONE") @map("escalation_level")
+  lastEscalatedAt          DateTime?         @map("last_escalated_at")
+  createdAt                DateTime          @default(now())
+  updatedAt                DateTime          @updatedAt
   deletedAt                DateTime?
 
   tasks                 MaintenanceTask[]
@@ -3072,23 +3077,23 @@ model MaintenanceSlaRule {
 }
 
 model MaintenanceSlaState {
-  id                   String             @id @default(cuid()) @db.NVarChar(200)
-  maintenanceRequestId String             @map("maintenance_request_id")
-  maintenanceRequestKey String            @map("maintenance_request_key") @db.NVarChar(200)
-  maintenanceRequest   MaintenanceRequest @relation(fields: [maintenanceRequestId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  id                    String             @id @default(cuid()) @db.NVarChar(200)
+  maintenanceRequestId  String             @map("maintenance_request_id")
+  maintenanceRequestKey String             @map("maintenance_request_key") @db.NVarChar(200)
+  maintenanceRequest    MaintenanceRequest @relation(fields: [maintenanceRequestId], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
-  responseDueAt      DateTime?   @map("response_due_at")
-  startDueAt         DateTime?   @map("start_due_at")
-  completeDueAt      DateTime?   @map("complete_due_at")
-  slaStatus          String      @default("ON_TRACK") @map("sla_status") @db.NVarChar(50)
-  escalationLevel    String      @default("NONE") @map("escalation_level") @db.NVarChar(50)
-  lastEscalatedAt    DateTime?   @map("last_escalated_at")
-  responseActualAt   DateTime?   @map("response_actual_at")
-  startActualAt      DateTime?   @map("start_actual_at")
-  completeActualAt   DateTime?   @map("complete_actual_at")
-  responseOverdueMin Int?        @map("response_overdue_min")
-  startOverdueMin    Int?        @map("start_overdue_min")
-  completeOverdueMin Int?        @map("complete_overdue_min")
+  responseDueAt      DateTime? @map("response_due_at")
+  startDueAt         DateTime? @map("start_due_at")
+  completeDueAt      DateTime? @map("complete_due_at")
+  slaStatus          String    @default("ON_TRACK") @map("sla_status") @db.NVarChar(50)
+  escalationLevel    String    @default("NONE") @map("escalation_level") @db.NVarChar(50)
+  lastEscalatedAt    DateTime? @map("last_escalated_at")
+  responseActualAt   DateTime? @map("response_actual_at")
+  startActualAt      DateTime? @map("start_actual_at")
+  completeActualAt   DateTime? @map("complete_actual_at")
+  responseOverdueMin Int?      @map("response_overdue_min")
+  startOverdueMin    Int?      @map("start_overdue_min")
+  completeOverdueMin Int?      @map("complete_overdue_min")
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -3140,6 +3145,7 @@ model MaintenancePersonnel {
 
   machineResponsibilities MachineResponsibilityAssignment[]
   requestAssignments      MaintenanceRequestAssignment[]
+  workOrderAssignments    MaintenanceWorkOrderAssignment[]
   partAccountabilities    MaintenancePartAccountability[]
 
   @@index([role])
@@ -3309,39 +3315,39 @@ model MaintenancePartAccountability {
 
 // Canonical maintenance execution root. Historical task IDs and request links are preserved.
 model MaintenanceTask {
-  id                 String                      @id @default(cuid())
-  sourceType         String                      @default("MAINTENANCE_REQUEST") @db.NVarChar(32)
-  scopeType          String                      @default("MACHINE") @db.NVarChar(32)
+  id                 String                @id @default(cuid())
+  sourceType         String                @default("MAINTENANCE_REQUEST") @db.NVarChar(32)
+  scopeType          String                @default("MACHINE") @db.NVarChar(32)
   requestId          String?
-  request            MaintenanceRequest?         @relation(fields: [requestId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  request            MaintenanceRequest?   @relation(fields: [requestId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   workOrderId        String?
-  workOrder          MaintenanceWorkOrder?       @relation(fields: [workOrderId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  workOrder          MaintenanceWorkOrder? @relation(fields: [workOrderId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   companyId          String?
-  company            Company?                    @relation(fields: [companyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  company            Company?              @relation(fields: [companyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   branchId           String?
-  branch             Branch?                     @relation(fields: [branchId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  branch             Branch?               @relation(fields: [branchId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   machineId          String?
-  machine            Machine?                    @relation(fields: [machineId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  machine            Machine?              @relation(fields: [machineId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   productionLineId   String?
-  productionLine     ProductionLine?             @relation(fields: [productionLineId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  productionLine     ProductionLine?       @relation(fields: [productionLineId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   machineComponentId String?
-  machineComponent   MachineComponent?           @relation(fields: [machineComponentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  machineComponent   MachineComponent?     @relation(fields: [machineComponentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   costCenterId       String?
-  costCenter         CostCenter?                 @relation(fields: [costCenterId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  costCenter         CostCenter?           @relation(fields: [costCenterId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   workLocation       String?
   createdById        String?
-  createdBy          User?                       @relation("MaintenanceTaskCreatedBy", fields: [createdById], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  createdBy          User?                 @relation("MaintenanceTaskCreatedBy", fields: [createdById], references: [id], onDelete: NoAction, onUpdate: NoAction)
   title              String
   description        String?
-  status             String                      @default("PENDING")
+  status             String                @default("PENDING")
   assignedToId       String?
-  assignedTo         User?                       @relation("MaintenanceTaskAssignedTo", fields: [assignedToId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  assignedTo         User?                 @relation("MaintenanceTaskAssignedTo", fields: [assignedToId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   startedAt          DateTime?
   completedAt        DateTime?
   cancelledAt        DateTime?
   notes              String?
-  createdAt          DateTime                    @default(now())
-  updatedAt          DateTime                    @updatedAt
+  createdAt          DateTime              @default(now())
+  updatedAt          DateTime              @updatedAt
 
   sessions     MaintenanceExecutionSession[]
   partUsages   MaintenanceExecutionPartUsage[]
@@ -3548,7 +3554,6 @@ model DowntimeLog {
   segments      DowntimeSegment[]
 
   @@index([executionId])
-
   @@index([machineId])
   @@index([requestId])
   @@index([startTime])
@@ -3656,12 +3661,12 @@ model MaintenanceWorkOrder {
   downtimeSegments DowntimeSegment[]
   costTransactions OperationalCostTransaction[]
 
-  executions MaintenanceTask[]
-
-  @@index([productionLineId])
-  @@index([costCenterId])
+  executions            MaintenanceTask[]
+  technicianAssignments MaintenanceWorkOrderAssignment[]
 
   @@unique([branchId, workOrderNumber])
+  @@index([productionLineId])
+  @@index([costCenterId])
   @@index([companyId])
   @@index([branchId])
   @@index([status])
@@ -3683,6 +3688,8 @@ model MaintenanceWorkOrder {
 model MaintenanceWorkOrderPart {
   id               String               @id @default(cuid())
   workOrderId      String
+  warehouseId      String?              @db.NVarChar(1000)
+  warehouse        Warehouse?           @relation(fields: [warehouseId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   workOrder        MaintenanceWorkOrder @relation(fields: [workOrderId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   sparePartId      String?
   sparePart        SparePart?           @relation(fields: [sparePartId], references: [id], onDelete: NoAction, onUpdate: NoAction)
@@ -3704,6 +3711,7 @@ model MaintenanceWorkOrderPart {
   executionPartUsages MaintenanceExecutionPartUsage[]
 
   @@index([workOrderId])
+  @@index([warehouseId])
   @@index([sparePartId])
   @@index([productId])
   @@index([stockIssueStatus])
@@ -4004,44 +4012,45 @@ model OperationType {
 model CostCenter {
   // B2 inverse relations only; existing physical contract unchanged.
   overheadAllocationLines OperationalOverheadAllocationLine[]
-  id                     String                            @id @default(cuid())
-  code                   String
-  name                   String
-  description            String?
-  type                   String
-  parentId               String?
-  parent                 CostCenter?                       @relation("CostCenterHierarchy", fields: [parentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  children               CostCenter[]                      @relation("CostCenterHierarchy")
-  companyId              String
-  company                Company                           @relation(fields: [companyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  branchId               String?
-  branch                 Branch?                           @relation(fields: [branchId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  administrationId       String?
-  administration         Administration?                   @relation(fields: [administrationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  departmentId           String?
-  department             Department?                       @relation(fields: [departmentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  effectiveFrom          DateTime?
-  effectiveTo            DateTime?
-  isPrimary              Boolean                           @default(false)
-  status                 String                            @default("ACTIVE")
-  createdAt              DateTime                          @default(now())
-  updatedAt              DateTime                          @updatedAt
-  deletedAt              DateTime?
-  productionLines        ProductionLine[]
-  machines               Machine[]
-  maintenanceRequests    MaintenanceRequest[]
-  productionProducts     ProductionProductDefinition[]
-  productionOrders       ProductionOrder[]
-  qualityPlans           ProductionQualityPlan[]
-  inspections            ProductionInspection[]
-  costRates              OperationalCostRate[]
-  standardCostSnapshots  OperationalStandardCostSnapshot[]
-  costTransactions       OperationalCostTransaction[]
-  operationalAssignments OperationalCostCenterAssignment[]
+  id                      String                              @id @default(cuid())
+  code                    String
+  name                    String
+  description             String?
+  type                    String
+  parentId                String?
+  parent                  CostCenter?                         @relation("CostCenterHierarchy", fields: [parentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  children                CostCenter[]                        @relation("CostCenterHierarchy")
+  companyId               String
+  company                 Company                             @relation(fields: [companyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  branchId                String?
+  branch                  Branch?                             @relation(fields: [branchId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  administrationId        String?
+  administration          Administration?                     @relation(fields: [administrationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  departmentId            String?
+  department              Department?                         @relation(fields: [departmentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  effectiveFrom           DateTime?
+  effectiveTo             DateTime?
+  isPrimary               Boolean                             @default(false)
+  status                  String                              @default("ACTIVE")
+  createdAt               DateTime                            @default(now())
+  updatedAt               DateTime                            @updatedAt
+  deletedAt               DateTime?
+  productionLines         ProductionLine[]
+  machines                Machine[]
+  maintenanceRequests     MaintenanceRequest[]
+  productionProducts      ProductionProductDefinition[]
+  productionOrders        ProductionOrder[]
+  qualityPlans            ProductionQualityPlan[]
+  inspections             ProductionInspection[]
+  costRates               OperationalCostRate[]
+  standardCostSnapshots   OperationalStandardCostSnapshot[]
+  costTransactions        OperationalCostTransaction[]
+  operationalAssignments  OperationalCostCenterAssignment[]
 
   maintenanceExecutions MaintenanceTask[]
 
   scopedMaintenanceWorkOrders MaintenanceWorkOrder[]
+  operationalOverheadEntries  OperationalOverheadEntry[]
 
   @@unique([companyId, code])
   @@index([code])
@@ -4056,7 +4065,6 @@ model CostCenter {
   @@index([companyId, status])
   @@index([companyId, parentId, status])
   @@map("cost_centers")
-  operationalOverheadEntries OperationalOverheadEntry[]
 }
 
 // ── Operational Cost Center Assignment (Phase 2 Batch 2A) ─────
@@ -4523,18 +4531,18 @@ model PreventiveSparePartPlanItem {
 
 model ProductionRun {
   // B2 inverse relations only; existing physical contract unchanged.
-  overheadAllocationLines OperationalOverheadAllocationLine[]
-  id                                String                      @id @default(cuid())
+  overheadAllocationLines           OperationalOverheadAllocationLine[]
+  id                                String                              @id @default(cuid())
   companyId                         String
-  company                           Company                     @relation(fields: [companyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  company                           Company                             @relation(fields: [companyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   branchId                          String
-  branch                            Branch                      @relation(fields: [branchId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  branch                            Branch                              @relation(fields: [branchId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   runNumber                         String
   clientRequestId                   String
   productionOrderId                 String
-  productionOrder                   ProductionOrder             @relation(fields: [productionOrderId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  status                            String                      @default("READY")
-  lockVersion                       Int                         @default(0)
+  productionOrder                   ProductionOrder                     @relation(fields: [productionOrderId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  status                            String                              @default("READY")
+  lockVersion                       Int                                 @default(0)
   notes                             String?
   shiftId                           String?
   shiftCodeSnapshot                 String?
@@ -4548,31 +4556,31 @@ model ProductionRun {
   operationalPersonId               String?
   operationalPersonCodeSnapshot     String?
   operationalPersonNameSnapshot     String?
-  assignmentResolutionSource        String                      @default("RESOURCE")
+  assignmentResolutionSource        String                              @default("RESOURCE")
   assignmentResolutionNote          String?
   productionUnitId                  String
-  productionUnit                    ProductionUnit              @relation(fields: [productionUnitId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "production_runs_unit_fkey")
+  productionUnit                    ProductionUnit                      @relation(fields: [productionUnitId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "production_runs_unit_fkey")
   productionLineId                  String
-  productionLine                    ProductionLine              @relation(fields: [productionLineId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "production_runs_line_fkey")
+  productionLine                    ProductionLine                      @relation(fields: [productionLineId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "production_runs_line_fkey")
   machineId                         String?
-  machine                           Machine?                    @relation(fields: [machineId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "production_runs_machine_fkey")
+  machine                           Machine?                            @relation(fields: [machineId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "production_runs_machine_fkey")
   productionProductDefinitionId     String
-  productionProductDefinition       ProductionProductDefinition @relation(fields: [productionProductDefinitionId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "production_runs_product_fkey")
+  productionProductDefinition       ProductionProductDefinition         @relation(fields: [productionProductDefinitionId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "production_runs_product_fkey")
   productionVersionId               String
   productionPackagingId             String?
   costCenterId                      String
   issueWarehouseId                  String?
   receiptWarehouseId                String?
   orderNumberSnapshot               String
-  plannedQuantitySnapshot           Decimal                     @db.Decimal(18, 4)
+  plannedQuantitySnapshot           Decimal                             @db.Decimal(18, 4)
   quantityUnitSnapshot              String
   capacityStandardCodeSnapshot      String
   capacityStandardRevisionSnapshot  Int
-  standardRateSnapshot              Decimal                     @db.Decimal(18, 4)
+  standardRateSnapshot              Decimal                             @db.Decimal(18, 4)
   outputUnitSnapshot                String
   timeBasisSnapshot                 String
-  targetEfficiencyPercentSnapshot   Decimal                     @db.Decimal(7, 4)
-  expectedYieldPercentSnapshot      Decimal                     @db.Decimal(7, 4)
+  targetEfficiencyPercentSnapshot   Decimal                             @db.Decimal(7, 4)
+  expectedYieldPercentSnapshot      Decimal                             @db.Decimal(7, 4)
   snapshotFrozenAtSnapshot          DateTime?
   startedById                       String?
   startedAt                         DateTime?
@@ -4584,8 +4592,8 @@ model ProductionRun {
   abortReason                       String?
   createdById                       String
   updatedById                       String
-  createdAt                         DateTime                    @default(now())
-  updatedAt                         DateTime                    @updatedAt
+  createdAt                         DateTime                            @default(now())
+  updatedAt                         DateTime                            @updatedAt
   deletedAt                         DateTime?
 
   costClosedAt   DateTime?
@@ -4651,21 +4659,21 @@ model ProductionRunCostSnapshot {
   // B2 source-description reconciliation only; existing physical contract unchanged.
   overheadAllocationLines OperationalOverheadAllocationLine[]
   // Native-width source reconciliation: historical and live parent already NVARCHAR(191).
-  id              String        @id(map: "pk_production_run_cost_snapshots") @default(cuid()) @db.NVarChar(191)
-  companyId       String
-  company         Company       @relation(fields: [companyId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_production_run_cost_snapshots_company")
-  branchId        String
-  branch          Branch        @relation(fields: [branchId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_production_run_cost_snapshots_branch")
-  productionRunId String        @unique(map: "uq_production_run_cost_snapshots_run")
-  productionRun   ProductionRun @relation(fields: [productionRunId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_production_run_cost_snapshots_run")
-  finalProductId  String
-  finalProduct    Product       @relation(fields: [finalProductId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_production_run_cost_snapshots_product")
+  id                      String                              @id(map: "pk_production_run_cost_snapshots") @default(cuid()) @db.NVarChar(191)
+  companyId               String
+  company                 Company                             @relation(fields: [companyId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_production_run_cost_snapshots_company")
+  branchId                String
+  branch                  Branch                              @relation(fields: [branchId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_production_run_cost_snapshots_branch")
+  productionRunId         String                              @unique(map: "uq_production_run_cost_snapshots_run")
+  productionRun           ProductionRun                       @relation(fields: [productionRunId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_production_run_cost_snapshots_run")
+  finalProductId          String
+  finalProduct            Product                             @relation(fields: [finalProductId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_production_run_cost_snapshots_product")
 
   finalGoodQuantity Decimal @db.Decimal(18, 4)
   netMaterialValue  Decimal @db.Decimal(19, 4)
-  currencyCode      String @db.NVarChar(10)
+  currencyCode      String  @db.NVarChar(10)
   // No physical SQL default; the sole valuation-close create path writes the frozen value explicitly.
-  costBasis         String @db.NVarChar(100)
+  costBasis         String  @db.NVarChar(100)
 
   closedAt    DateTime @default(dbgenerated("GETUTCDATE()"), map: "df_production_run_cost_snapshots_closed_at") @db.DateTime2
   closedById  String?
@@ -5238,8 +5246,8 @@ model FinishedGoodsIssue {
   createdById   String
   postedById    String?
   cancelledById String?
-  createdAt     DateTime           @default(now())
-  updatedAt     DateTime           @updatedAt
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 
   /// Set on a compensating reversal issue (sourceType REVERSE) that offsets a
   /// POSTED issue. Immutable once created; the original issue is never mutated.
@@ -5340,8 +5348,8 @@ model SparePartIssue {
   createdById   String
   postedById    String?
   cancelledById String?
-  createdAt     DateTime           @default(now())
-  updatedAt     DateTime           @updatedAt
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 
   lines SparePartIssueLine[]
 
@@ -6454,30 +6462,29 @@ model SupervisorAssignment {
   @@map("supervisor_assignments")
 }
 
-
 // COST-R2D-B1: source and period evidence only. No allocation or ledger posting.
 model OperationalOverheadPeriod {
   // B2 inverse relations only; existing physical contract unchanged.
-  allocation OperationalOverheadPeriodAllocation?
+  allocation      OperationalOverheadPeriodAllocation?
   allocationLines OperationalOverheadAllocationLine[]
-  id          String    @id(map: "pk_operational_overhead_periods") @default(cuid()) @db.NVarChar(200)
-  companyId   String
-  companyKey String @db.NVarChar(200)
-  company     Company   @relation(fields: [companyId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_operational_overhead_periods_company")
-  branchId    String
-  branchKey String @db.NVarChar(200)
-  branch      Branch    @relation(fields: [branchId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_operational_overhead_periods_branch")
-  code        String    @db.NVarChar(100)
-  periodFrom  DateTime @db.DateTime2
-  periodTo    DateTime @db.DateTime2
-  status      String    @default("DRAFT", map: "df_operational_overhead_periods_status") @db.NVarChar(20)
-  createdAt   DateTime  @default(dbgenerated("GETUTCDATE()"), map: "df_operational_overhead_periods_created_at") @db.DateTime2
-  updatedAt   DateTime  @updatedAt @db.DateTime2
-  createdById String
-  updatedById String
-  closedAt    DateTime? @db.DateTime2
-  closedById  String?
-  deletedAt   DateTime? @db.DateTime2
+  id              String                               @id(map: "pk_operational_overhead_periods") @default(cuid()) @db.NVarChar(200)
+  companyId       String
+  companyKey      String                               @db.NVarChar(200)
+  company         Company                              @relation(fields: [companyId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_operational_overhead_periods_company")
+  branchId        String
+  branchKey       String                               @db.NVarChar(200)
+  branch          Branch                               @relation(fields: [branchId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_operational_overhead_periods_branch")
+  code            String                               @db.NVarChar(100)
+  periodFrom      DateTime                             @db.DateTime2
+  periodTo        DateTime                             @db.DateTime2
+  status          String                               @default("DRAFT", map: "df_operational_overhead_periods_status") @db.NVarChar(20)
+  createdAt       DateTime                             @default(dbgenerated("GETUTCDATE()"), map: "df_operational_overhead_periods_created_at") @db.DateTime2
+  updatedAt       DateTime                             @updatedAt @db.DateTime2
+  createdById     String
+  updatedById     String
+  closedAt        DateTime?                            @db.DateTime2
+  closedById      String?
+  deletedAt       DateTime?                            @db.DateTime2
 
   entries OperationalOverheadEntry[]
 
@@ -6489,36 +6496,36 @@ model OperationalOverheadPeriod {
 
 model OperationalOverheadEntry {
   // B2 inverse relations only; existing physical contract unchanged.
-  allocationSource OperationalOverheadAllocationSource?
-  id                        String                    @id(map: "pk_operational_overhead_entries") @default(cuid()) @db.NVarChar(200)
+  allocationSource          OperationalOverheadAllocationSource?
+  id                        String                               @id(map: "pk_operational_overhead_entries") @default(cuid()) @db.NVarChar(200)
   companyId                 String
-  companyKey String @db.NVarChar(200)
-  company                   Company                   @relation(fields: [companyId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_operational_overhead_entries_company")
+  companyKey                String                               @db.NVarChar(200)
+  company                   Company                              @relation(fields: [companyId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_operational_overhead_entries_company")
   branchId                  String
-  branchKey String @db.NVarChar(200)
-  branch                    Branch                    @relation(fields: [branchId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_operational_overhead_entries_branch")
-  periodId                  String @db.NVarChar(200)
-  period                    OperationalOverheadPeriod @relation(fields: [periodId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_operational_overhead_entries_period")
-  reference                 String                    @db.NVarChar(100)
-  overheadCategory          String                    @db.NVarChar(30)
-  costPurpose               String                    @db.NVarChar(30)
-  description               String                    @db.NVarChar(2000)
-  amount                    Decimal                   @db.Decimal(19, 4)
-  currencyCode              String                    @db.NVarChar(3)
-  incurredAt                DateTime @db.DateTime2
+  branchKey                 String                               @db.NVarChar(200)
+  branch                    Branch                               @relation(fields: [branchId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_operational_overhead_entries_branch")
+  periodId                  String                               @db.NVarChar(200)
+  period                    OperationalOverheadPeriod            @relation(fields: [periodId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_operational_overhead_entries_period")
+  reference                 String                               @db.NVarChar(100)
+  overheadCategory          String                               @db.NVarChar(30)
+  costPurpose               String                               @db.NVarChar(30)
+  description               String                               @db.NVarChar(2000)
+  amount                    Decimal                              @db.Decimal(19, 4)
+  currencyCode              String                               @db.NVarChar(3)
+  incurredAt                DateTime                             @db.DateTime2
   sourceCostCenterId        String
-  sourceCostCenterKey String @db.NVarChar(200)
-  sourceCostCenter          CostCenter                @relation(fields: [sourceCostCenterId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_operational_overhead_entries_costcenter")
-  status                    String                    @default("DRAFT", map: "df_operational_overhead_entries_status") @db.NVarChar(20)
-  finalizedAt               DateTime? @db.DateTime2
+  sourceCostCenterKey       String                               @db.NVarChar(200)
+  sourceCostCenter          CostCenter                           @relation(fields: [sourceCostCenterId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_operational_overhead_entries_costcenter")
+  status                    String                               @default("DRAFT", map: "df_operational_overhead_entries_status") @db.NVarChar(20)
+  finalizedAt               DateTime?                            @db.DateTime2
   finalizedById             String?
-  notes                     String?                   @db.NVarChar(2000)
-  externalDocumentReference String?                   @db.NVarChar(200)
+  notes                     String?                              @db.NVarChar(2000)
+  externalDocumentReference String?                              @db.NVarChar(200)
   createdById               String
   updatedById               String
-  createdAt                 DateTime                  @default(dbgenerated("GETUTCDATE()"), map: "df_operational_overhead_entries_created_at") @db.DateTime2
-  updatedAt                 DateTime                  @updatedAt @db.DateTime2
-  deletedAt                 DateTime? @db.DateTime2
+  createdAt                 DateTime                             @default(dbgenerated("GETUTCDATE()"), map: "df_operational_overhead_entries_created_at") @db.DateTime2
+  updatedAt                 DateTime                             @updatedAt @db.DateTime2
+  deletedAt                 DateTime?                            @db.DateTime2
 
   // FK sources remain authoritative; trusted exact mirrors provide bounded search keys.
   @@index([periodId, status], map: "ix_operational_overhead_entries_period")
@@ -6532,30 +6539,31 @@ model OperationalOverheadEntry {
 // COST-R2D-B2: allocation evidence only; no ledger or capitalization.
 
 model OperationalOverheadPeriodAllocation {
-  id String @id(map: "ohoa_pk") @default(cuid()) @db.NVarChar(200)
-  companyId String @db.NVarChar(1000)
-  companyKey String @db.NVarChar(200)
-  branchId String @db.NVarChar(1000)
-  branchKey String @db.NVarChar(200)
-  periodId String @db.NVarChar(200)
-  version Int @default(1, map: "ohoa_version_df")
-  status String @default("DRAFT", map: "ohoa_status_df") @db.NVarChar(10)
-  clientRequestId String @db.NVarChar(200)
-  notes String? @db.NVarChar(2000)
-  currencyCode String @db.NVarChar(3)
-  periodFrom DateTime @db.DateTime2
-  periodTo DateTime @db.DateTime2
-  createdAt DateTime @default(dbgenerated("GETUTCDATE()"), map: "ohoa_created_df") @db.DateTime2
-  updatedAt DateTime @updatedAt @db.DateTime2
-  createdById String @db.NVarChar(1000)
-  updatedById String @db.NVarChar(1000)
-  finalizedAt DateTime? @db.DateTime2
-  finalizedById String? @db.NVarChar(1000)
-  company Company @relation(fields: [companyId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "ohoa_company_fk")
-  branch Branch @relation(fields: [branchId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "ohoa_branch_fk")
-  period OperationalOverheadPeriod @relation(fields: [periodId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "ohoa_period_fk")
-  lines OperationalOverheadAllocationLine[]
-  sources OperationalOverheadAllocationSource[]
+  id              String                                @id(map: "ohoa_pk") @default(cuid()) @db.NVarChar(200)
+  companyId       String                                @db.NVarChar(1000)
+  companyKey      String                                @db.NVarChar(200)
+  branchId        String                                @db.NVarChar(1000)
+  branchKey       String                                @db.NVarChar(200)
+  periodId        String                                @db.NVarChar(200)
+  version         Int                                   @default(1, map: "ohoa_version_df")
+  status          String                                @default("DRAFT", map: "ohoa_status_df") @db.NVarChar(10)
+  clientRequestId String                                @db.NVarChar(200)
+  notes           String?                               @db.NVarChar(2000)
+  currencyCode    String                                @db.NVarChar(3)
+  periodFrom      DateTime                              @db.DateTime2
+  periodTo        DateTime                              @db.DateTime2
+  createdAt       DateTime                              @default(dbgenerated("GETUTCDATE()"), map: "ohoa_created_df") @db.DateTime2
+  updatedAt       DateTime                              @updatedAt @db.DateTime2
+  createdById     String                                @db.NVarChar(1000)
+  updatedById     String                                @db.NVarChar(1000)
+  finalizedAt     DateTime?                             @db.DateTime2
+  finalizedById   String?                               @db.NVarChar(1000)
+  company         Company                               @relation(fields: [companyId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "ohoa_company_fk")
+  branch          Branch                                @relation(fields: [branchId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "ohoa_branch_fk")
+  period          OperationalOverheadPeriod             @relation(fields: [periodId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "ohoa_period_fk")
+  lines           OperationalOverheadAllocationLine[]
+  sources         OperationalOverheadAllocationSource[]
+
   @@unique([periodId], map: "ohoa_period_uq")
   @@unique([companyKey, branchKey, clientRequestId], map: "ohoa_request_uq")
   @@index([companyKey, branchKey, status, createdAt], map: "ohoa_scope_ix")
@@ -6563,53 +6571,82 @@ model OperationalOverheadPeriodAllocation {
 }
 
 model OperationalOverheadAllocationLine {
-  id String @id(map: "ohol_pk") @default(cuid()) @db.NVarChar(200)
-  companyId String @db.NVarChar(1000)
-  companyKey String @db.NVarChar(200)
-  branchId String @db.NVarChar(1000)
-  branchKey String @db.NVarChar(200)
-  allocationId String @db.NVarChar(200)
-  periodId String @db.NVarChar(200)
-  productionRunId String @db.NVarChar(1000)
-  productionRunKey String @db.NVarChar(200)
-  costSnapshotId String @db.NVarChar(191)
-  destinationCostCenterId String @db.NVarChar(1000)
-  destinationCostCenterKey String @db.NVarChar(200)
-  costPurpose String @db.NVarChar(30)
-  driverType String @db.NVarChar(40)
-  driverQuantity Decimal @db.Decimal(18,4)
-  driverUnit String @db.NVarChar(1000)
-  poolAmount Decimal @db.Decimal(38,4)
-  totalDriver Decimal @db.Decimal(38,4)
-  allocatedAmount Decimal @db.Decimal(19,4)
-  currencyCode String @db.NVarChar(3)
-  runCostClosedAt DateTime @db.DateTime2
-  runNumberSnapshot String @db.NVarChar(1000)
-  costCenterCodeSnapshot String @db.NVarChar(1000)
-  createdAt DateTime @default(dbgenerated("GETUTCDATE()"), map: "ohol_created_df") @db.DateTime2
-  company Company @relation(fields: [companyId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "ohol_company_fk")
-  branch Branch @relation(fields: [branchId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "ohol_branch_fk")
-  allocation OperationalOverheadPeriodAllocation @relation(fields: [allocationId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "ohol_allocation_fk")
-  period OperationalOverheadPeriod @relation(fields: [periodId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "ohol_period_fk")
-  productionRun ProductionRun @relation(fields: [productionRunId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "ohol_productionRun_fk")
-  costSnapshot ProductionRunCostSnapshot @relation(fields: [costSnapshotId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "ohol_costSnapshot_fk")
-  destinationCostCenter CostCenter @relation(fields: [destinationCostCenterId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "ohol_destinationCostCenter_fk")
+  id                       String                              @id(map: "ohol_pk") @default(cuid()) @db.NVarChar(200)
+  companyId                String                              @db.NVarChar(1000)
+  companyKey               String                              @db.NVarChar(200)
+  branchId                 String                              @db.NVarChar(1000)
+  branchKey                String                              @db.NVarChar(200)
+  allocationId             String                              @db.NVarChar(200)
+  periodId                 String                              @db.NVarChar(200)
+  productionRunId          String                              @db.NVarChar(1000)
+  productionRunKey         String                              @db.NVarChar(200)
+  costSnapshotId           String                              @db.NVarChar(191)
+  destinationCostCenterId  String                              @db.NVarChar(1000)
+  destinationCostCenterKey String                              @db.NVarChar(200)
+  costPurpose              String                              @db.NVarChar(30)
+  driverType               String                              @db.NVarChar(40)
+  driverQuantity           Decimal                             @db.Decimal(18, 4)
+  driverUnit               String                              @db.NVarChar(1000)
+  poolAmount               Decimal                             @db.Decimal(38, 4)
+  totalDriver              Decimal                             @db.Decimal(38, 4)
+  allocatedAmount          Decimal                             @db.Decimal(19, 4)
+  currencyCode             String                              @db.NVarChar(3)
+  runCostClosedAt          DateTime                            @db.DateTime2
+  runNumberSnapshot        String                              @db.NVarChar(1000)
+  costCenterCodeSnapshot   String                              @db.NVarChar(1000)
+  createdAt                DateTime                            @default(dbgenerated("GETUTCDATE()"), map: "ohol_created_df") @db.DateTime2
+  company                  Company                             @relation(fields: [companyId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "ohol_company_fk")
+  branch                   Branch                              @relation(fields: [branchId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "ohol_branch_fk")
+  allocation               OperationalOverheadPeriodAllocation @relation(fields: [allocationId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "ohol_allocation_fk")
+  period                   OperationalOverheadPeriod           @relation(fields: [periodId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "ohol_period_fk")
+  productionRun            ProductionRun                       @relation(fields: [productionRunId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "ohol_productionRun_fk")
+  costSnapshot             ProductionRunCostSnapshot           @relation(fields: [costSnapshotId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "ohol_costSnapshot_fk")
+  destinationCostCenter    CostCenter                          @relation(fields: [destinationCostCenterId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "ohol_destinationCostCenter_fk")
+
   @@unique([allocationId, productionRunKey, costPurpose], map: "ohol_target_purpose_uq")
   @@map("operational_overhead_allocation_lines")
 }
 
 model OperationalOverheadAllocationSource {
-  sourceEntryId String @id(map: "ohos_pk") @db.NVarChar(200)
-  companyId String @db.NVarChar(1000)
-  companyKey String @db.NVarChar(200)
-  branchId String @db.NVarChar(1000)
-  branchKey String @db.NVarChar(200)
-  allocationId String @db.NVarChar(200)
-  createdAt DateTime @default(dbgenerated("GETUTCDATE()"), map: "ohos_created_df") @db.DateTime2
-  company Company @relation(fields: [companyId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "ohos_company_fk")
-  branch Branch @relation(fields: [branchId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "ohos_branch_fk")
-  allocation OperationalOverheadPeriodAllocation @relation(fields: [allocationId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "ohos_allocation_fk")
-  sourceEntry OperationalOverheadEntry @relation(fields: [sourceEntryId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "ohos_sourceEntry_fk")
+  sourceEntryId String                              @id(map: "ohos_pk") @db.NVarChar(200)
+  companyId     String                              @db.NVarChar(1000)
+  companyKey    String                              @db.NVarChar(200)
+  branchId      String                              @db.NVarChar(1000)
+  branchKey     String                              @db.NVarChar(200)
+  allocationId  String                              @db.NVarChar(200)
+  createdAt     DateTime                            @default(dbgenerated("GETUTCDATE()"), map: "ohos_created_df") @db.DateTime2
+  company       Company                             @relation(fields: [companyId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "ohos_company_fk")
+  branch        Branch                              @relation(fields: [branchId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "ohos_branch_fk")
+  allocation    OperationalOverheadPeriodAllocation @relation(fields: [allocationId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "ohos_allocation_fk")
+  sourceEntry   OperationalOverheadEntry            @relation(fields: [sourceEntryId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "ohos_sourceEntry_fk")
+
   @@index([allocationId, sourceEntryId], map: "ohos_allocation_ix")
   @@map("operational_overhead_allocation_sources")
+}
+
+// Additive planning assignments. Legacy assignedToId and execution sessions remain independent.
+// Active uniqueness is enforced by the filtered SQL index where cancelledAt IS NULL.
+model MaintenanceWorkOrderAssignment {
+  id                     String               @id @default(cuid()) @db.NVarChar(1000)
+  companyId              String               @db.NVarChar(1000)
+  company                Company              @relation(fields: [companyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  branchId               String               @db.NVarChar(1000)
+  branch                 Branch               @relation(fields: [branchId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  workOrderId            String               @db.NVarChar(1000)
+  workOrder              MaintenanceWorkOrder @relation(fields: [workOrderId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  maintenancePersonnelId String               @db.NVarChar(1000)
+  maintenancePersonnel   MaintenancePersonnel @relation(fields: [maintenancePersonnelId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  assignedById           String               @db.NVarChar(1000)
+  assignedBy             User                 @relation("WorkOrderAssignmentActor", fields: [assignedById], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  cancelledById          String?              @db.NVarChar(1000)
+  cancelledBy            User?                @relation("WorkOrderAssignmentCancelActor", fields: [cancelledById], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  assignedAt             DateTime             @default(now())
+  cancelledAt            DateTime?
+  notes                  String?
+
+  @@index([companyId, branchId, workOrderId, cancelledAt])
+  @@index([maintenancePersonnelId])
+  @@index([assignedById])
+  @@index([cancelledById])
+  @@map("maintenance_work_order_assignments")
 }

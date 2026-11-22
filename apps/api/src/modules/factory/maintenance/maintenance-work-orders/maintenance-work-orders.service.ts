@@ -75,6 +75,7 @@ export class MaintenanceWorkOrdersService {
     parts: {
       orderBy: { createdAt: 'asc' as const },
       include: {
+        warehouse: { select: { id: true, code: true, name: true } },
         sparePart: { select: { id: true, code: true, name: true } },
         product: { select: { id: true, code: true, name: true } },
         lastIssueBy: { select: { id: true, name: true } },
@@ -415,29 +416,37 @@ export class MaintenanceWorkOrdersService {
     }
   }
 
-  private async resolvePartProduct(dto: CreateWorkOrderPartDto, ctx: ActiveOperationalContext) {
-    let sparePartId = dto.sparePartId ?? null;
-    let productId = dto.productId ?? null;
-    if (sparePartId) {
-      const sparePart = await this.prisma.sparePart.findUnique({ where: { id: sparePartId } });
-      if (!sparePart) {
-        throw this.validationError('sparePartId', 'validation.invalidReference', 'Spare part not found');
-      }
-      if (sparePart.productId) productId = sparePart.productId;
-      else if (!productId) {
-        throw this.validationError('productId', 'validation.invalidReference', 'Spare part has no linked product. Provide productId explicitly.');
-      }
+  private async resolvePartProduct(dto: { sparePartId?: string | null; productId?: string | null; warehouseId?: string | null; unit?: string | null }, ctx: ActiveOperationalContext, client: any = this.prisma) {
+    if (!dto.sparePartId) throw this.validationError('sparePartId', 'validation.required', 'Select a canonical spare part');
+    const spare = await client.sparePart.findFirst({ where: { id: dto.sparePartId, status: 'ACTIVE', deletedAt: null } });
+    if (!spare?.productId) throw this.validationError('sparePartId', 'validation.invalidReference', 'Active spare part with linked inventory product required');
+    if (dto.productId && dto.productId !== spare.productId) throw this.validationError('productId', 'validation.invalidReference', 'Product must match the selected spare part');
+    const product = await client.product.findFirst({ where: { id: spare.productId, status: 'ACTIVE', deletedAt: null, itemType: 'SPARE_PART' } });
+    if (!product) throw this.validationError('sparePartId', 'validation.invalidReference', 'Linked product must be an active maintenance spare part');
+    if (!dto.warehouseId) throw this.validationError('warehouseId', 'validation.required', 'Select the warehouse for this planned part');
+    const warehouse = await client.warehouse.findFirst({ where: { id: dto.warehouseId, companyId: ctx.companyId,
+      OR: [{ branchId: ctx.branchId }, { branchId: null }], status: 'ACTIVE', deletedAt: null } });
+    if (!warehouse || FORBIDDEN_WAREHOUSE_TYPES.includes(warehouse.warehouseType || '')) {
+      throw this.validationError('warehouseId', 'validation.invalidReference', 'Active maintenance warehouse in the operational context required');
     }
-    if (!sparePartId && !productId) {
-      throw this.validationError('sparePartId', 'validation.required', 'Either sparePartId or productId is required');
+    // SparePart/Product are intentional shared catalogs. Tenant stock authority is the warehouse.
+    return { sparePartId: spare.id, productId: product.id, warehouseId: warehouse.id, unit: spare.unit || product.unit };
+  }
+
+  async partCandidates(query: { page?: number; limit?: number; search?: string }, ctx: ActiveOperationalContext, id?: string) {
+    if (!ctx?.companyId || !ctx.branchId) throw this.validationError('companyId', 'validation.required', 'Operational context required');
+    const page = Math.max(1, query.page || 1), limit = Math.min(100, Math.max(1, query.limit || 20));
+    const where: any = { status: 'ACTIVE', deletedAt: null, product: { status: 'ACTIVE', deletedAt: null, itemType: 'SPARE_PART' } };
+    if (id) where.id = id;
+    if (query.search) where.OR = ['code', 'name', 'partNumber'].map(key => ({ [key]: { contains: query.search } }));
+    const select = { id: true, code: true, name: true, partNumber: true, unit: true, productId: true, status: true };
+    if (id) {
+      const row = await this.prisma.sparePart.findFirst({ where, select });
+      if (!row) throw this.notFound('Maintenance spare part not found');
+      return row;
     }
-    if (productId) {
-      const product = await this.prisma.product.findUnique({ where: { id: productId } });
-      if (!product) {
-        throw this.validationError('productId', 'validation.invalidReference', 'Product not found');
-      }
-    }
-    return { sparePartId, productId, unit: dto.unit ?? null };
+    const [data, total] = await Promise.all([this.prisma.sparePart.findMany({ where, select, skip: (page - 1) * limit, take: limit, orderBy: { code: 'asc' } }), this.prisma.sparePart.count({ where })]);
+    return { data, meta: { page, limit, total, totalPages: Math.ceil(total / limit) } };
   }
 
   async create(dto: CreateMaintenanceWorkOrderDto, user: CurrentUserType, ctx: ActiveOperationalContext) {
@@ -481,7 +490,8 @@ export class MaintenanceWorkOrdersService {
       this.assertOwnedUser(dto.supervisorId, 'supervisorId', ctx),
     ]);
 
-    const executionScope = await resolveExecutionScope(this.prisma, { ...dto, ...resolvedLink }, ctx);
+    return this.prisma.$transaction(async tx => {
+    const executionScope = await resolveExecutionScope(tx, { ...dto, ...resolvedLink }, ctx);
     const parts = dto.parts && dto.parts.length > 0 ? dto.parts : [];
     // R2-D (Option 1): a request-linked work order never carries parallel part
     // lines. Spare parts are the request's required parts; the work order plans
@@ -495,12 +505,12 @@ export class MaintenanceWorkOrdersService {
     }
     const resolvedParts = [];
     for (const p of parts) {
-      resolvedParts.push(await this.resolvePartProduct(p, ctx));
+      resolvedParts.push(await this.resolvePartProduct(p, ctx, tx));
     }
 
-    const workOrderNumber = await this.numberingService.generateNumberAtomic('MAINTENANCE_WORK_ORDER');
+    const workOrderNumber = await this.numberingService.generateNumberAtomicWithClient('MAINTENANCE_WORK_ORDER', tx);
 
-    const wo = await this.prisma.maintenanceWorkOrder.create({
+    const wo = await tx.maintenanceWorkOrder.create({
       data: {
         companyId: ctx.companyId,
         branchId: ctx.branchId,
@@ -527,6 +537,7 @@ export class MaintenanceWorkOrdersService {
               create: resolvedParts.map((p, i) => ({
                 sparePartId: p.sparePartId,
                 productId: p.productId,
+                warehouseId: p.warehouseId,
                 quantity: parts[i].quantity,
                 unit: p.unit ?? parts[i].unit ?? null,
                 unitCost: parts[i].unitCost != null ? parts[i].unitCost : null,
@@ -539,7 +550,7 @@ export class MaintenanceWorkOrdersService {
       include: this.includeDetail,
     });
 
-    await this.audit.log(user.id, 'CREATE', 'MaintenanceWorkOrder', wo.id, {
+    await this.audit.logWithClient(tx, { userId: user.id, action: 'CREATE', entity: 'MaintenanceWorkOrder', entityId: wo.id, details: {
       workOrderNumber: wo.workOrderNumber,
       title: wo.title,
       type: wo.type,
@@ -552,9 +563,11 @@ export class MaintenanceWorkOrdersService {
       source,
       sourceRequestId: sourceRequestId ?? null,
       partsCount: resolvedParts.length,
-    });
+      actor: { userId: user.id },
+    } });
 
     return wo;
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
   }
 
   async findAll(query: {
@@ -904,113 +917,59 @@ export class MaintenanceWorkOrdersService {
     return Math.round((partsCost + entriesCost) * 100) / 100;
   }
 
+  private async lockPlannedOrder(tx: any, id: string, ctx: ActiveOperationalContext) {
+    await tx.$queryRaw(Prisma.sql`SELECT [id] FROM [dbo].[maintenance_work_orders] WITH (UPDLOCK,HOLDLOCK) WHERE [id]=${id} AND [companyId]=${ctx.companyId} AND [branchId]=${ctx.branchId}`);
+    const order = await this.findOwned(id, ctx, tx);
+    if (!['DRAFT', 'PLANNED'].includes(order.status)) throw this.validationError('status', 'validation.invalidStatusTransition', 'Only draft or planned work order parts can change');
+    return order;
+  }
+
   async addPart(workOrderId: string, dto: AddWorkOrderPartDto, user: CurrentUserType, ctx: ActiveOperationalContext) {
-    const wo = await this.findOwned(workOrderId, ctx);
-    // R2-D (Option 1): request-linked work orders must not create a parallel part
-    // truth. Spare parts belong on the maintenance request.
-    if (wo.requestId) {
-      throw this.validationError(
-        'sparePartId',
-        'validation.invalidStatusTransition',
-        'This work order is linked to a maintenance request. Add required parts on the request instead.',
-      );
-    }
-    if (!['DRAFT', 'PLANNED'].includes(wo.status)) {
-      throw this.validationError('status', 'validation.invalidStatusTransition',
-        `Cannot add parts to a work order in status '${wo.status}'`);
-    }
-
-    const resolved = await this.resolvePartProduct(dto, ctx);
-
-    const part = await this.prisma.maintenanceWorkOrderPart.create({
-      data: {
-        workOrderId,
-        sparePartId: resolved.sparePartId,
-        productId: resolved.productId,
-        quantity: dto.quantity,
-        unit: resolved.unit ?? dto.unit ?? null,
-        unitCost: dto.unitCost != null ? dto.unitCost : null,
-        totalCost: dto.unitCost != null ? dto.quantity * dto.unitCost : null,
-        notes: dto.notes ?? null,
-      },
-      include: {
-        sparePart: { select: { id: true, code: true, name: true } },
-        product: { select: { id: true, code: true, name: true } },
-      },
-    });
-
-    await this.audit.log(user.id, 'CREATE', 'MaintenanceWorkOrderPart', part.id, {
-      workOrderId,
-      sparePartId: part.sparePartId,
-      productId: part.productId,
-      quantity: part.quantity,
-    });
-
-    return part;
+    return this.prisma.$transaction(async tx => {
+      const order = await this.lockPlannedOrder(tx, workOrderId, ctx);
+      if (order.requestId) throw this.validationError('sparePartId', 'validation.invalidStatusTransition', 'Linked request owns its required parts');
+      const resolved = await this.resolvePartProduct(dto, ctx, tx);
+      const part = await tx.maintenanceWorkOrderPart.create({ data: { workOrderId, ...resolved, quantity: dto.quantity,
+        unitCost: dto.unitCost ?? null, totalCost: dto.unitCost != null ? dto.quantity * dto.unitCost : null, notes: dto.notes ?? null },
+        include: this.includeDetail.parts.include });
+      await this.audit.logWithClientBusiness(tx, { userId: user.id, action: 'CREATE', entity: 'MaintenanceWorkOrderPart', entityId: part.id,
+        ...this.scope(ctx), next: { workOrderId, ...resolved, quantity: dto.quantity }, reason: 'WORK_ORDER_PART_PLANNED' });
+      return part;
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
   }
 
   async updatePart(partId: string, dto: UpdateWorkOrderPartDto, user: CurrentUserType, ctx: ActiveOperationalContext) {
-    const part = await this.prisma.maintenanceWorkOrderPart.findUnique({ where: { id: partId } });
-    if (!part) throw this.notFound('Work order part line not found');
-    const wo = await this.findOwned(part.workOrderId, ctx);
-    if (!['DRAFT', 'PLANNED'].includes(wo.status)) {
-      throw this.validationError('status', 'validation.invalidStatusTransition',
-        `Cannot edit parts once the work order is '${wo.status}'`);
-    }
-    if ((part.issuedQuantity || 0) > 0) {
-      throw this.validationError('quantity', 'validation.invalidStatusTransition',
-        'Cannot edit a part line that has already been issued');
-    }
-
-    const quantity = dto.quantity ?? part.quantity;
-    const unitCost = dto.unitCost !== undefined ? dto.unitCost : part.unitCost != null ? Number(part.unitCost) : null;
-
-    const updated = await this.prisma.maintenanceWorkOrderPart.update({
-      where: { id: partId },
-      data: {
-        quantity: dto.quantity,
-        unit: dto.unit,
-        unitCost: dto.unitCost !== undefined ? dto.unitCost : undefined,
-        totalCost: unitCost != null && dto.quantity !== undefined ? quantity * unitCost : unitCost != null ? quantity * unitCost : undefined,
-        notes: dto.notes,
-      },
-      include: {
-        sparePart: { select: { id: true, code: true, name: true } },
-        product: { select: { id: true, code: true, name: true } },
-      },
-    });
-
-    await this.audit.log(user.id, 'UPDATE', 'MaintenanceWorkOrderPart', part.id, {
-      workOrderId: part.workOrderId,
-      quantity: updated.quantity,
-      unitCost: updated.unitCost,
-    });
-
-    return updated;
+    return this.prisma.$transaction(async tx => {
+      const part = await tx.maintenanceWorkOrderPart.findFirst({ where: { id: partId, workOrder: { ...this.scope(ctx), deletedAt: null } } });
+      if (!part) throw this.notFound('Work order part line not found');
+      await this.lockPlannedOrder(tx, part.workOrderId, ctx);
+      if ((part.issuedQuantity || 0) > 0) throw this.validationError('quantity', 'validation.invalidStatusTransition', 'Issued part line cannot change');
+      const identityChanged = dto.sparePartId !== undefined || dto.productId !== undefined || dto.warehouseId !== undefined;
+      const resolved: { sparePartId?: string; productId?: string; warehouseId?: string; unit?: string | null } = identityChanged || part.sparePartId && part.warehouseId
+        ? await this.resolvePartProduct({ sparePartId: dto.sparePartId ?? part.sparePartId,
+          productId: dto.productId !== undefined ? dto.productId : dto.sparePartId ? undefined : part.productId,
+          warehouseId: dto.warehouseId ?? part.warehouseId }, ctx, tx) : {};
+      const quantity = dto.quantity ?? part.quantity, unitCost = dto.unitCost !== undefined ? dto.unitCost : part.unitCost == null ? null : Number(part.unitCost);
+      const updated = await tx.maintenanceWorkOrderPart.update({ where: { id: part.id }, data: { ...resolved, quantity: dto.quantity,
+        unit: resolved.unit ?? dto.unit, unitCost: dto.unitCost, totalCost: unitCost == null ? null : quantity * unitCost, notes: dto.notes }, include: this.includeDetail.parts.include });
+      await this.audit.logWithClientBusiness(tx, { userId: user.id, action: 'UPDATE', entity: 'MaintenanceWorkOrderPart', entityId: part.id,
+        ...this.scope(ctx), previous: { sparePartId: part.sparePartId, productId: part.productId, warehouseId: part.warehouseId, quantity: part.quantity },
+        next: { ...resolved, quantity }, reason: 'WORK_ORDER_PART_PLAN_UPDATED' });
+      return updated;
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
   }
 
   async removePart(partId: string, user: CurrentUserType, ctx: ActiveOperationalContext) {
-    const part = await this.prisma.maintenanceWorkOrderPart.findUnique({ where: { id: partId } });
-    if (!part) throw this.notFound('Work order part line not found');
-    const wo = await this.findOwned(part.workOrderId, ctx);
-    if (!['DRAFT', 'PLANNED'].includes(wo.status)) {
-      throw this.validationError('status', 'validation.invalidStatusTransition',
-        `Cannot remove parts once the work order is '${wo.status}'`);
-    }
-    if ((part.issuedQuantity || 0) > 0) {
-      throw this.validationError('quantity', 'validation.invalidStatusTransition',
-        'Cannot remove a part line that has already been issued');
-    }
-
-    await this.prisma.maintenanceWorkOrderPart.delete({ where: { id: partId } });
-
-    await this.audit.log(user.id, 'DELETE', 'MaintenanceWorkOrderPart', part.id, {
-      workOrderId: part.workOrderId,
-      sparePartId: part.sparePartId,
-      productId: part.productId,
-    });
-
-    return { message: 'Work order part line deleted successfully' };
+    return this.prisma.$transaction(async tx => {
+      const part = await tx.maintenanceWorkOrderPart.findFirst({ where: { id: partId, workOrder: { ...this.scope(ctx), deletedAt: null } } });
+      if (!part) throw this.notFound('Work order part line not found');
+      await this.lockPlannedOrder(tx, part.workOrderId, ctx);
+      if ((part.issuedQuantity || 0) > 0) throw this.validationError('quantity', 'validation.invalidStatusTransition', 'Issued part line cannot change');
+      await tx.maintenanceWorkOrderPart.delete({ where: { id: part.id } });
+      await this.audit.logWithClientBusiness(tx, { userId: user.id, action: 'DELETE', entity: 'MaintenanceWorkOrderPart', entityId: part.id,
+        ...this.scope(ctx), previous: { workOrderId: part.workOrderId, sparePartId: part.sparePartId, productId: part.productId, warehouseId: part.warehouseId }, reason: 'WORK_ORDER_PART_PLAN_REMOVED' });
+      return { message: 'Work order part line deleted successfully' };
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
   }
 
   async issueParts(workOrderId: string, dto: IssueWorkOrderPartsDto, user: CurrentUserType, ctx: ActiveOperationalContext) {

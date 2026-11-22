@@ -771,6 +771,7 @@ export interface MaintenanceWorkOrderPart {
   workOrderId: string;
   sparePartId?: string | null;
   productId?: string | null;
+  warehouseId?: string | null;
   quantity: number;
   unit?: string | null;
   unitCost?: number | null;
@@ -782,7 +783,8 @@ export interface MaintenanceWorkOrderPart {
   lastIssueById?: string | null;
   createdAt: string;
   updatedAt: string;
-  sparePart?: { id: string; code: string; name: string };
+  warehouse?: { id: string; code: string; name: string };
+  sparePart?: { id: string; code: string; name: string; partNumber?: string | null };
   product?: { id: string; code: string; name: string };
   lastIssueBy?: { id: string; name: string };
 }

@@ -2,17 +2,21 @@ import { IsString, IsOptional, IsIn, IsNumber, Min, IsNotEmpty, IsArray } from '
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class AddWorkOrderPartDto {
-  @ApiPropertyOptional({ description: 'Spare part id. productId is derived from the spare part when omitted.' })
-  @IsOptional()
+  @ApiProperty({ description: 'Canonical spare part; inventory product is derived server-side.' })
   @IsString()
   @IsNotEmpty()
-  sparePartId?: string;
+  sparePartId: string;
 
   @ApiPropertyOptional({ description: 'Product id (inventory item). Required when sparePartId is omitted.' })
   @IsOptional()
   @IsString()
   @IsNotEmpty()
   productId?: string;
+
+  @ApiProperty()
+  @IsString()
+  @IsNotEmpty()
+  warehouseId: string;
 
   @ApiProperty({ example: 1 })
   @IsNumber({ allowNaN: false, allowInfinity: false })
@@ -37,6 +41,12 @@ export class AddWorkOrderPartDto {
 }
 
 export class UpdateWorkOrderPartDto {
+  @ApiPropertyOptional() @IsOptional() @IsString() @IsNotEmpty()
+  sparePartId?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() @IsNotEmpty()
+  productId?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() @IsNotEmpty()
+  warehouseId?: string;
   @ApiPropertyOptional()
   @IsOptional()
   @IsNumber({ allowNaN: false, allowInfinity: false })

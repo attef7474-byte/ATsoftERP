@@ -12,7 +12,7 @@ import { MaintenanceWorkOrder, PaginationMeta } from '../../../../lib/admin-type
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import { Button, Input, Textarea, Card, Pagination, LoadingState, Modal, ConfirmDialog, Select } from '../../../../components/admin/ui';
 import { GridColumn, GridAction } from '../../../../components/admin/admin-data-grid';
-import { F9Lookup, machineAdapter, machineComponentAdapter, productionLineAdapter, costCenterAdapter, warehouseAdapter, userAdapter, sparePartAdapter, productAdapter } from '../../../../components/f9';
+import { F9Lookup, machineAdapter, machineComponentAdapter, productionLineAdapter, costCenterAdapter, warehouseAdapter, userAdapter, workOrderSparePartAdapter } from '../../../../components/f9';
 import { CmmsStatusBadge } from '../../../../components/maintenance/CmmsStatusBadge';
 import { CmmsPriorityBadge } from '../../../../components/maintenance/CmmsPriorityBadge';
 import { useRegisterAdminActions, useStableHandlers, ActionAddIcon, ActionEditIcon, ActionRefreshIcon, ActionDeleteIcon } from '../../../../components/admin/admin-action-bar';
@@ -204,16 +204,10 @@ export default function MaintenanceWorkOrdersPage() {
       if (currentForm.machineComponentId) payload.machineComponentId = currentForm.machineComponentId;
       if (currentForm.productionLineId) payload.productionLineId = currentForm.productionLineId;
       if (currentForm.workLocation.trim()) payload.workLocation = currentForm.workLocation.trim();
-      if (currentForm.costCenterId) payload.costCenterId = currentForm.costCenterId;
-      if (currentForm.warehouseId) payload.warehouseId = currentForm.warehouseId;
       if (currentForm.assignedToId) payload.assignedToId = currentForm.assignedToId;
       if (currentForm.supervisorId) payload.supervisorId = currentForm.supervisorId;
       if (currentForm.plannedStartAt) payload.plannedStartAt = new Date(currentForm.plannedStartAt).toISOString();
       if (currentForm.plannedEndAt) payload.plannedEndAt = new Date(currentForm.plannedEndAt).toISOString();
-      if (currentForm.estimatedCost.trim()) {
-        const value = Number(currentForm.estimatedCost);
-        if (!Number.isNaN(value) && value >= 0) payload.estimatedCost = value;
-      }
       if (currentForm.notes.trim()) payload.notes = currentForm.notes.trim();
       return payload;
     },
@@ -533,8 +527,6 @@ export default function MaintenanceWorkOrdersPage() {
             <F9Lookup label={t('maintenance.machineComponent')} value={form.machineComponentId} onChange={(v) => setForm({ ...form, machineComponentId: v })} adapter={machineComponentAdapter} filters={{ machineId: form.machineId }} disabled={!form.machineId} error={validationErrors.machineComponentId} />
           </div>}
           <Input label={t('maintenance.workLocation')} value={form.workLocation} onChange={(e) => setForm({ ...form, workLocation: e.target.value })} />
-          <F9Lookup label={t('maintenance.costCenter')} value={form.costCenterId} onChange={(v) => setForm({ ...form, costCenterId: v })} adapter={costCenterAdapter} />
-          <F9Lookup label={t('maintenance.workOrderWarehouse')} name="warehouseId" value={form.warehouseId} onChange={(v) => { setForm({ ...form, warehouseId: v }); setValidationErrors(prev => ({ ...prev, warehouseId: '' })); }} adapter={warehouseAdapter} error={validationErrors.warehouseId} />
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <F9Lookup label={t('maintenance.workOrderAssignedTo')} name="assignedToId" value={form.assignedToId} onChange={(v) => { setForm({ ...form, assignedToId: v }); setValidationErrors(prev => ({ ...prev, assignedToId: '' })); }} adapter={userAdapter} error={validationErrors.assignedToId} />
             <F9Lookup label={t('maintenance.workOrderSupervisor')} name="supervisorId" value={form.supervisorId} onChange={(v) => { setForm({ ...form, supervisorId: v }); setValidationErrors(prev => ({ ...prev, supervisorId: '' })); }} adapter={userAdapter} error={validationErrors.supervisorId} />
@@ -542,7 +534,6 @@ export default function MaintenanceWorkOrdersPage() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <Input label={t('maintenance.workOrderPlannedStart')} name="plannedStartAt" type="datetime-local" value={form.plannedStartAt} onChange={(e) => { setForm({ ...form, plannedStartAt: e.target.value }); setValidationErrors(prev => ({ ...prev, plannedStartAt: '' })); }} error={validationErrors.plannedStartAt} />
             <Input label={t('maintenance.workOrderPlannedEnd')} name="plannedEndAt" type="datetime-local" value={form.plannedEndAt} onChange={(e) => { setForm({ ...form, plannedEndAt: e.target.value }); setValidationErrors(prev => ({ ...prev, plannedEndAt: '' })); }} error={validationErrors.plannedEndAt} />
-            <Input label={t('maintenance.workOrderEstimatedCost')} name="estimatedCost" type="number" min="0" step="0.01" value={form.estimatedCost} onChange={(e) => { setForm({ ...form, estimatedCost: e.target.value }); setValidationErrors(prev => ({ ...prev, estimatedCost: '' })); }} error={validationErrors.estimatedCost} />
           </div>
           {!editItem && <section aria-labelledby="planned-parts-heading" className="space-y-3 border-t pt-4">
             <h3 id="planned-parts-heading" className="font-medium">{t('maintenance.plannedParts')}</h3>
@@ -557,14 +548,13 @@ export default function MaintenanceWorkOrdersPage() {
               return <fieldset key={part.clientKey} disabled={saving} className="space-y-3 border rounded-lg p-3">
                 <legend className="px-1 text-sm">{t('maintenance.plannedParts')} {index + 1}</legend>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  <F9Lookup id={part.clientKey + '-sparePart'} name={field('sparePartId')} label={t('maintenance.sparePartLabel')} value={part.sparePartId} adapter={sparePartAdapter} disabled={saving} filters={{ status: 'ACTIVE' }}
+                  <F9Lookup id={part.clientKey + '-sparePart'} name={field('sparePartId')} label={t('maintenance.sparePartLabel')} value={part.sparePartId} adapter={workOrderSparePartAdapter} disabled={saving} filters={{ status: 'ACTIVE' }}
                     onChange={sparePartId => update({ sparePartId, productId: '', unit: '' })}
                     onItemSelect={item => update({ sparePartId: item.id, productId: item.productId || '', unit: safeString(item.unit) })}
                     error={validationErrors[field('sparePartId')]} />
-                  <F9Lookup id={part.clientKey + '-product'} name={field('productId')} label={t('maintenance.inventoryProduct')} value={part.productId} adapter={productAdapter} disabled={saving} filters={{ status: 'ACTIVE' }}
-                    onChange={productId => update({ productId, unit: '' })}
-                    onItemSelect={item => update({ productId: item.id, unit: safeString(item.unit) })}
-                    error={validationErrors[field('productId')]} />
+                  <F9Lookup id={part.clientKey + '-warehouse'} name={field('warehouseId')} label={t('maintenance.workOrderWarehouse')} value={part.warehouseId} adapter={warehouseAdapter} disabled={saving} filters={{ status: 'ACTIVE' }}
+                    onChange={warehouseId => update({ warehouseId })}
+                    error={validationErrors[field('warehouseId')]} />
                   <Input id={part.clientKey + '-quantity'} name={field('quantity')} label={t('maintenance.partQuantity')} type="number" min="0.0001" step="0.0001" required value={part.quantity} onChange={event => update({ quantity: event.target.value })} error={validationErrors[field('quantity')]} />
                   <Input id={part.clientKey + '-unit'} label={t('maintenance.unit')} value={part.unit} disabled />
                   <Input id={part.clientKey + '-unitCost'} name={field('unitCost')} label={t('maintenance.partUnitCost')} type="number" min="0" step="0.01" value={part.unitCost} onChange={event => update({ unitCost: event.target.value })} error={validationErrors[field('unitCost')]} />
@@ -576,7 +566,7 @@ export default function MaintenanceWorkOrdersPage() {
                 }}>{t('actions.remove')}</Button>
               </fieldset>;
             })}
-            <Button variant="secondary" disabled={saving} onClick={() => setForm(current => ({ ...current, parts: [...current.parts, { clientKey: crypto.randomUUID(), sparePartId: '', productId: '', quantity: '1', unit: '', unitCost: '', notes: '' }] }))}>{t('maintenance.addPart')}</Button>
+            <Button variant="secondary" disabled={saving} onClick={() => setForm(current => ({ ...current, parts: [...current.parts, { clientKey: crypto.randomUUID(), sparePartId: '', productId: '', warehouseId: '', quantity: '1', unit: '', unitCost: '', notes: '' }] }))}>{t('maintenance.addPart')}</Button>
           </section>}
           <Textarea label={t('maintenance.workOrderNotes')} name="notes" value={form.notes} onChange={(e) => { setForm({ ...form, notes: e.target.value }); setValidationErrors(prev => ({ ...prev, notes: '' })); }} error={validationErrors.notes} />
           <div className="flex justify-end gap-3 pt-4">
