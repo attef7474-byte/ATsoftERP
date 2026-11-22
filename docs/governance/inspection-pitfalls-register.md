@@ -237,3 +237,13 @@ Applied: P01, P02, P05, P09, P10, P12, P16, P17, P20, P22, P23, P31, P36, P37, P
 | PERSONNEL-P10-04 | A program-added spec contained one CRLF line among LF lines, failing the mixed-EOL scan. | Normalize the file to LF with byte-level verification before release; rerun `git diff --check` and mixed-EOL scan on the exact release tree. | ACTIVE CHECK |
 
 Applied in Phase 10: P01, P02, P05, P09, P10, P12, P16, P20, P22, P23, P31, P36, P37, P44, P48, PERSONNEL-P1-04, 05, PERSONNEL-P34-01, 04, 06 and PERSONNEL-P10-01–04. Phase 10 uses a distinct verified backup clone, exact reviewed migrations applied once, no applied-migration edits, and a separate clean worktree for final main integration.
+
+## Personnel Phase 10 production cutover preventive checks — 2026-11-23
+
+| ID | Problem / symptom | Preventive check | Status |
+| --- | --- | --- | --- |
+| PERSONNEL-P10-05 | Staging a release by copying the raw monorepo (`apps/api`, `apps/web`) left no `api/` or `web/` at the deploy root; NSSM then failed with SCM 7024 "The system cannot find the path specified" and both app services stayed stopped. | Use the canonical flattened deploy layout (`api/`, `web/`, `prisma/`, `scripts/`, root `node_modules/`). Before repointing or restarting services, assert every `AppDirectory` plus the configured entry files (`api/src/main.js`, `web/node_modules/next/dist/bin/next`) exist on disk. | ACTIVE CHECK |
+| PERSONNEL-P10-06 | A production browser proof filtered API responses with a case-sensitive prefix (`https://DELL/api/v1`), but Playwright normalizes hostnames to lowercase, so 0 responses were captured and the "no failed API responses" assertion passed vacuously. | Match API responses case-insensitively (e.g. lowercase the URL and test `/api/v1/`) and assert a non-zero expected response count (e.g. 151 per locale) so a broken filter cannot produce a false PASS. | ACTIVE CHECK |
+| PERSONNEL-P10-07 | `nssm restart` stopped both services then returned "Unexpected status SERVICE_STOPPED in response to START control" (exit 1); SCM auto-retry started them later in an inconsistent state (Web briefly Paused). | Do not use `nssm restart` for cutover. Do an explicit `nssm stop` then `nssm start` per service, wait, and assert State=Running with listeners on 3000/4000 before declaring the cutover complete. | ACTIVE CHECK |
+
+Applied in production cutover: PERSONNEL-P10-05–07 in addition to P10-01–04. Production migration used a Windows-integrated sysadmin login; runtime DML login retained `db_datareader`/`db_datawriter`. Deployed manifest pinned to `89f7b5dbf942e24b32a30264a894319e0ec28fec`.

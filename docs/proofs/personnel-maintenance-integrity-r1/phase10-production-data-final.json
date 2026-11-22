@@ -1,0 +1,27 @@
+{
+  "phase": "after_cutover_final",
+  "database": "ATsoftERP_DB",
+  "capturedAtUtc": "2026-11-22T23:33:19.3951036Z",
+  "secrets": "REDACTED",
+  "counts": {
+    "operational_people": 86,
+    "operational_person_assignments": 54,
+    "maintenance_personnel": 57,
+    "maintenance_requests": 22,
+    "maintenance_work_orders": 8,
+    "maintenance_work_order_parts": 2,
+    "maintenance_tasks": 15,
+    "maintenance_execution_sessions": 14,
+    "maintenance_schedules": 6,
+    "maintenance_checklist_items": 1,
+    "maintenance_checklist_executions": 5,
+    "maintenance_checklist_execution_items": 4,
+    "downtime_logs": 5,
+    "inventory_movements": 125,
+    "audit_logs": 5753
+  },
+  "ledger": {
+    "applied": 103,
+    "pending_program": 3
+  }
+}

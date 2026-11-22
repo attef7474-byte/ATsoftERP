@@ -1,6 +1,6 @@
 # Phase 10 closeout — Full regression + production closeout
 
-Status: RELEASE_CANDIDATE (production steps pending)
+Status: COMPLETE (production migrated, deployed, and verified)
 Program: `PERSONNEL + MAINTENANCE CORRECTION PROGRAM`
 Branch used for final integration: `phase10/main-integration-20261123`
 Feature branch: `fix/personnel-maintenance-integrity-r1-integrated`
@@ -125,7 +125,28 @@ Decision: ELIGIBLE FOR MERGE TO MAIN.
 
 ## 11. Production closeout
 
-Status: PENDING. This section is completed only after the final `FINAL_MAIN_SHA` is known, the mandatory fresh backup is verified, migrations are applied with a DDL-capable login, the exact SHA is deployed, and health/browser/data/Git proofs are recorded. Clone proof is not Production proof.
+Status: COMPLETE. Clone proof is not Production proof; every item below was executed against `ATsoftERP_DB` and the live HTTPS endpoints.
+
+| Item | Value |
+| --- | --- |
+| `FINAL_MAIN_SHA` deployed | `89f7b5dbf942e24b32a30264a894319e0ec28fec` |
+| `origin/main` after push | `89f7b5dbf942e24b32a30264a894319e0ec28fec` |
+| Feature branch remote (unchanged) | `9040d4f3a2a65f9714344cc13755de2e0842b003` |
+| Release directory / manifest | `C:\ATsoftERP\App\phase10-89f7b5db`; manifest commit matches `FINAL_MAIN_SHA` |
+| Migration ledger | 100 -> 103; each of the three target migrations has exactly one instance |
+| `LOST_ROWS` / `ORPHAN_ROWS` / `UNINTENDED_HISTORY_DELETION` | 0 / 0 / 0 |
+| HTTPS proof | `https://DELL/api/v1/health` 200; web root 200 |
+| Services | `ATsoftERP_API`, `ATsoftERP_Web`, `ATsoftERP_Caddy` Running/Automatic; listeners 3000/4000 |
+
+Mandatory fresh backup: `C:\ATsoftERP\Backups\ATsoftERP_DB_20261123_021405.bak`, `COPY_ONLY`, 100188160 bytes, `RESTORE VERIFYONLY WITH CHECKSUM` PASS (evidence: `phase10-production-backup-verification.json`). It was taken immediately before migration.
+
+Migration was executed with `npx prisma migrate deploy` under a Windows-integrated sysadmin identity because the runtime login `atsofterp_dev` is DML-only (`db_datareader`/`db_datawriter` on all tables including the new ones). Verified objects: assignment table, `warehouseId`, `startedById`, `isActive`, `unitSnapshot`, `NEW_FKS=8`, `NEW_INDEXES=7`, `INACTIVE_TEMPLATE_ITEMS=0`, `EXECS_MISSING_STARTEDBY=0`.
+
+Pre/post snapshots (`phase10-production-data-before.json`, `-after.json`, `-final.json`) are identical for all 15 tracked tables except `audit_logs`: 5752 -> 5753, the single delta being the authenticated `LOGIN` produced by the read-only browser proof. No operational data was written.
+
+Deployment used the canonical flattened layout (`api/`, `web/`, `prisma/`, `scripts/`, root `node_modules/`). The runtime `.env` was copied with matching SHA256 (never printed), and Web was rebuilt with `NODE_ENV=production` and no `NEXT_PUBLIC_API_URL` (0 proof-URL hits, 62 `/api/v1` hits). NSSM `AppDirectory` was repointed for the two app services and the `current` symlink was updated; only `ATsoftERP_API` and `ATsoftERP_Web` were restarted — `ATsoftERP_Caddy` was left untouched. The staging-layout, case-sensitive-proof-filter, and `nssm restart` race issues encountered during cutover were corrected and appended to the inspection register as PERSONNEL-P10-05–07.
+
+Production browser proof (`phase10-production-browser-proof.json`) passed against HTTPS: EN/LTR and AR/RTL, 15 routes each, 151 API responses per locale, 0 unexpected responses, 0 page errors, 0 raw keys/fallbacks, 6 screenshots. It is read-only (no operational mutations) and uses an env-derived JWT whose secret is loaded in-process and never logged. The disposable clone `ATsoftERP_DB_PHASE10B_2629` was dropped after evidence capture.
 
 ## 12. Known limitations and pre-existing findings
 
@@ -133,8 +154,9 @@ Status: PENDING. This section is completed only after the final `FINAL_MAIN_SHA`
 - The 30 repeated-`=` proof-report separator lines pre-date this task and are not conflict markers.
 - Web build has a pre-existing `No ESLint configuration detected` warning.
 - Production migration must not use the runtime-only `atsofterp_dev` login unless it is granted DDL rights; the clone proof used a Windows-integrated sysadmin identity.
-- The browser proof used SUPER_ADMIN in a controlled disposable clone for broad page coverage; tenant-isolation and least-privilege behavior is proven by the dedicated permission/IDOR test suites and prior phase proofs, not by this admin smoke run.
+- The browser proof used an env-derived JWT for an administrator actor (first in the controlled disposable clone, then read-only against Production HTTPS) for broad page coverage; tenant-isolation and least-privilege behavior is proven by the dedicated permission/IDOR test suites and prior phase proofs, not by this admin smoke run.
+- The production browser proof generated one authenticated `LOGIN` audit row (5752 -> 5753). It performed no operational writes; all business-table counts are unchanged.
 
 ## 13. Applied ACTIVE CHECKs
 
-Applied from the inspection register: P01, P02, P05, P09, P10, P12, P16, P20, P22, P23, P31, P36, P37, P44, P48, PERSONNEL-P1-04/05, PERSONNEL-P34-01/04/06, PERSONNEL-P9-05, and the newly added PERSONNEL-P10-01–04. Detailed entries are in `docs/governance/inspection-pitfalls-register.md`.
+Applied from the inspection register: P01, P02, P05, P08, P09, P10, P12, P16, P20, P22, P23, P31, P33–P35, P36, P37, P44, P48, PERSONNEL-P1-01/04/05, PERSONNEL-P34-01/04/06, PERSONNEL-P9-05, PERSONNEL-P10-01–04, and the newly appended production-cutover checks PERSONNEL-P10-05–07. Detailed entries are in `docs/governance/inspection-pitfalls-register.md`.

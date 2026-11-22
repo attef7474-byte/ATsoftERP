@@ -1,0 +1,8 @@
+{
+  "status": "PASS",
+  "method": "RESTORE VERIFYONLY WITH CHECKSUM",
+  "backupPath": "C:\\ATsoftERP\\Backups\\ATsoftERP_DB_20261123_021405.bak",
+  "backupLengthBytes": 100188160,
+  "backupLastWriteUtc": "2026-11-22T23:14:06.1016305Z",
+  "verifiedAtUtc": "2026-11-22T23:14:22.5003119Z"
+}

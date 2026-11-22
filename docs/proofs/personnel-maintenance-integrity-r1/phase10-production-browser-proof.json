@@ -1,0 +1,254 @@
+{
+  "status": "PASS",
+  "generatedAt": "2026-11-22T23:32:14.641Z",
+  "environment": "PRODUCTION",
+  "baseUrl": "https://DELL",
+  "apiPrefix": "https://DELL/api/v1",
+  "database": "ATsoftERP_DB",
+  "productionMutations": "NONE",
+  "authMode": "ENV_DERIVED_JWT (SUPER_ADMIN actor, read-only GET proof)",
+  "secrets": "REDACTED",
+  "screenshots": [
+    ".tmp/phase10-proof/production-browser/production-en-schedules.png",
+    ".tmp/phase10-proof/production-browser/production-en-work-orders.png",
+    ".tmp/phase10-proof/production-browser/production-en-upcoming.png",
+    ".tmp/phase10-proof/production-browser/production-ar-schedules.png",
+    ".tmp/phase10-proof/production-browser/production-ar-work-orders.png",
+    ".tmp/phase10-proof/production-browser/production-ar-upcoming.png"
+  ],
+  "locales": [
+    {
+      "locale": "en",
+      "dir": "ltr",
+      "routesChecked": 15,
+      "checks": [
+        {
+          "route": "/admin/core/persons",
+          "label": "Phase 1 person registry",
+          "result": "PASS",
+          "dir": "ltr",
+          "lang": "en"
+        },
+        {
+          "route": "/admin/core/person-assignments",
+          "label": "Phase 1 placement history",
+          "result": "PASS",
+          "dir": "ltr",
+          "lang": "en"
+        },
+        {
+          "route": "/admin/maintenance/personnel",
+          "label": "Phase 2 maintenance personnel",
+          "result": "PASS",
+          "dir": "ltr",
+          "lang": "en"
+        },
+        {
+          "route": "/admin/maintenance/requests",
+          "label": "Phase 3/4 requests",
+          "result": "PASS",
+          "dir": "ltr",
+          "lang": "en"
+        },
+        {
+          "route": "/admin/maintenance/work-orders",
+          "label": "Phase 3/6 work orders",
+          "result": "PASS",
+          "dir": "ltr",
+          "lang": "en"
+        },
+        {
+          "route": "/admin/maintenance/tasks",
+          "label": "Phase 5/6 execution",
+          "result": "PASS",
+          "dir": "ltr",
+          "lang": "en"
+        },
+        {
+          "route": "/admin/maintenance/schedules",
+          "label": "Phase 7/8 schedules + checklist editor",
+          "result": "PASS",
+          "dir": "ltr",
+          "lang": "en"
+        },
+        {
+          "route": "/admin/maintenance/preventive/upcoming",
+          "label": "Phase 9 upcoming",
+          "result": "PASS",
+          "dir": "ltr",
+          "lang": "en"
+        },
+        {
+          "route": "/admin/maintenance/preventive/overdue",
+          "label": "Phase 9 overdue",
+          "result": "PASS",
+          "dir": "ltr",
+          "lang": "en"
+        },
+        {
+          "route": "/admin/maintenance/preventive/calendar",
+          "label": "Phase 9 calendar",
+          "result": "PASS",
+          "dir": "ltr",
+          "lang": "en"
+        },
+        {
+          "route": "/admin/reports/maintenance/schedules",
+          "label": "Phase 9 schedule report",
+          "result": "PASS",
+          "dir": "ltr",
+          "lang": "en"
+        },
+        {
+          "route": "/admin/maintenance/requests/cmrvb4crw0003no951pwj2x1n",
+          "label": "Phase 3/4 request detail",
+          "result": "PASS",
+          "dir": "ltr",
+          "lang": "en"
+        },
+        {
+          "route": "/admin/maintenance/work-orders/cmsc6qige0002fw95l1r73qef",
+          "label": "Phase 5/6 work order detail",
+          "result": "PASS",
+          "dir": "ltr",
+          "lang": "en"
+        },
+        {
+          "route": "/admin/maintenance/schedules/cms17t91s000g5g956rcqw2wa",
+          "label": "Phase 7/8 schedule detail",
+          "result": "PASS",
+          "dir": "ltr",
+          "lang": "en"
+        },
+        {
+          "route": "/admin/maintenance/schedules/cms17t91s000g5g956rcqw2wa/execute",
+          "label": "Phase 7/8 execution context",
+          "result": "PASS",
+          "dir": "ltr",
+          "lang": "en"
+        }
+      ],
+      "apiResponses": 151,
+      "failedApiResponses": [],
+      "pageErrors": [],
+      "result": "PASS"
+    },
+    {
+      "locale": "ar",
+      "dir": "rtl",
+      "routesChecked": 15,
+      "checks": [
+        {
+          "route": "/admin/core/persons",
+          "label": "Phase 1 person registry",
+          "result": "PASS",
+          "dir": "rtl",
+          "lang": "ar"
+        },
+        {
+          "route": "/admin/core/person-assignments",
+          "label": "Phase 1 placement history",
+          "result": "PASS",
+          "dir": "rtl",
+          "lang": "ar"
+        },
+        {
+          "route": "/admin/maintenance/personnel",
+          "label": "Phase 2 maintenance personnel",
+          "result": "PASS",
+          "dir": "rtl",
+          "lang": "ar"
+        },
+        {
+          "route": "/admin/maintenance/requests",
+          "label": "Phase 3/4 requests",
+          "result": "PASS",
+          "dir": "rtl",
+          "lang": "ar"
+        },
+        {
+          "route": "/admin/maintenance/work-orders",
+          "label": "Phase 3/6 work orders",
+          "result": "PASS",
+          "dir": "rtl",
+          "lang": "ar"
+        },
+        {
+          "route": "/admin/maintenance/tasks",
+          "label": "Phase 5/6 execution",
+          "result": "PASS",
+          "dir": "rtl",
+          "lang": "ar"
+        },
+        {
+          "route": "/admin/maintenance/schedules",
+          "label": "Phase 7/8 schedules + checklist editor",
+          "result": "PASS",
+          "dir": "rtl",
+          "lang": "ar"
+        },
+        {
+          "route": "/admin/maintenance/preventive/upcoming",
+          "label": "Phase 9 upcoming",
+          "result": "PASS",
+          "dir": "rtl",
+          "lang": "ar"
+        },
+        {
+          "route": "/admin/maintenance/preventive/overdue",
+          "label": "Phase 9 overdue",
+          "result": "PASS",
+          "dir": "rtl",
+          "lang": "ar"
+        },
+        {
+          "route": "/admin/maintenance/preventive/calendar",
+          "label": "Phase 9 calendar",
+          "result": "PASS",
+          "dir": "rtl",
+          "lang": "ar"
+        },
+        {
+          "route": "/admin/reports/maintenance/schedules",
+          "label": "Phase 9 schedule report",
+          "result": "PASS",
+          "dir": "rtl",
+          "lang": "ar"
+        },
+        {
+          "route": "/admin/maintenance/requests/cmrvb4crw0003no951pwj2x1n",
+          "label": "Phase 3/4 request detail",
+          "result": "PASS",
+          "dir": "rtl",
+          "lang": "ar"
+        },
+        {
+          "route": "/admin/maintenance/work-orders/cmsc6qige0002fw95l1r73qef",
+          "label": "Phase 5/6 work order detail",
+          "result": "PASS",
+          "dir": "rtl",
+          "lang": "ar"
+        },
+        {
+          "route": "/admin/maintenance/schedules/cms17t91s000g5g956rcqw2wa",
+          "label": "Phase 7/8 schedule detail",
+          "result": "PASS",
+          "dir": "rtl",
+          "lang": "ar"
+        },
+        {
+          "route": "/admin/maintenance/schedules/cms17t91s000g5g956rcqw2wa/execute",
+          "label": "Phase 7/8 execution context",
+          "result": "PASS",
+          "dir": "rtl",
+          "lang": "ar"
+        }
+      ],
+      "apiResponses": 151,
+      "failedApiResponses": [],
+      "pageErrors": [],
+      "result": "PASS"
+    }
+  ],
+  "observedAtUtc": "2026-11-22T23:32:57.072Z"
+}

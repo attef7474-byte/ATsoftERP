@@ -1,7 +1,7 @@
 {
   "phase": 10,
   "title": "Full Regression + Production Closeout",
-  "status": "RELEASE_CANDIDATE",
+  "status": "COMPLETE",
   "generatedAt": "2026-11-22T23:08:23.0134597Z",
   "secrets": "REDACTED",
   "git": {
@@ -145,7 +145,7 @@
       "orphanRows": 0,
       "unintendedHistoryDeletion": 0
     },
-    "disposableCloneDisposition": "PENDING_DROP_AFTER_PRODUCTION_VERIFICATION"
+    "disposableCloneDisposition": "DROPPED_AFTER_PRODUCTION_VERIFICATION (ATsoftERP_DB_PHASE10B_2629)"
   },
   "technicalGate": {
     "tree": "phase10/main-integration-20261123 @ 9040d4f3a2a65f9714344cc13755de2e0842b003",
@@ -241,12 +241,84 @@
     "decision": "ELIGIBLE FOR MERGE TO MAIN"
   },
   "production": {
-    "status": "PENDING",
-    "backup": "PENDING",
-    "migration": "NOT_RUN",
-    "deployment": "NOT_RUN",
-    "browserProof": "NOT_RUN",
-    "finalDataProof": "NOT_RUN",
-    "finalGitProof": "NOT_RUN"
+    "status": "COMPLETE",
+    "database": "ATsoftERP_DB",
+    "finalMainSha": "89f7b5dbf942e24b32a30264a894319e0ec28fec",
+    "deployedManifestSha": "89f7b5dbf942e24b32a30264a894319e0ec28fec",
+    "originMainAfterPush": "89f7b5dbf942e24b32a30264a894319e0ec28fec",
+    "backup": {
+      "path": "C:\\ATsoftERP\\Backups\\ATsoftERP_DB_20261123_021405.bak",
+      "copyOnly": true,
+      "bytes": 100188160,
+      "verification": "RESTORE VERIFYONLY WITH CHECKSUM PASS",
+      "artifact": "phase10-production-backup-verification.json"
+    },
+    "migration": {
+      "result": "PASS",
+      "loginMode": "Windows-integrated sysadmin identity (runtime atsofterp_dev is DML-only)",
+      "ledgerBefore": 100,
+      "ledgerAfter": 103,
+      "targetMigrationsEachAppliedOnce": 3,
+      "objects": {
+        "workOrderAssignmentsTable": 1,
+        "workOrderPartsWarehouseColumn": 1,
+        "checklistExecutionStartedByIdColumn": 1,
+        "checklistItemIsActiveColumn": 1,
+        "checklistExecutionItemUnitSnapshotColumn": 1,
+        "inactiveTemplateItems": 0,
+        "executionsMissingStartedBy": 0,
+        "newForeignKeys": 8,
+        "newIndexes": 7
+      }
+    },
+    "deployment": {
+      "result": "PASS",
+      "releaseDirectory": "C:\\ATsoftERP\\App\\phase10-89f7b5db",
+      "layout": "canonical flattened (api, web, prisma, scripts, root node_modules)",
+      "runtimeEnv": "copied with SHA256 match; secrets never printed",
+      "webBuild": "NODE_ENV=production, no NEXT_PUBLIC_API_URL; 0 proof-URL hits, 62 /api/v1 hits",
+      "nssm": "ATsoftERP_API and ATsoftERP_Web AppDirectory repointed to staged api/web",
+      "symlink": "current -> C:\\ATsoftERP\\App\\phase10-89f7b5db",
+      "servicesRestarted": ["ATsoftERP_API", "ATsoftERP_Web"],
+      "servicesNotRestarted": ["ATsoftERP_Caddy"],
+      "correctiveRegisterEntries": ["PERSONNEL-P10-05", "PERSONNEL-P10-06", "PERSONNEL-P10-07"]
+    },
+    "browserProof": {
+      "result": "PASS",
+      "artifact": "phase10-production-browser-proof.json",
+      "environment": "PRODUCTION HTTPS (https://DELL)",
+      "baseUrl": "https://DELL",
+      "productionMutations": "NONE (one authenticated LOGIN audit row only)",
+      "authMode": "ENV_DERIVED_JWT (secret loaded in-process, never logged)",
+      "enLtr": { "routesChecked": 15, "apiResponses": 151, "unexpectedApiResponses": 0, "pageErrors": 0, "rawKeys": 0, "fallbacks": 0 },
+      "arRtl": { "routesChecked": 15, "apiResponses": 151, "unexpectedApiResponses": 0, "pageErrors": 0, "rawKeys": 0, "fallbacks": 0 },
+      "screenshots": 6
+    },
+    "finalDataProof": {
+      "result": "PASS",
+      "artifact": "phase10-production-data-final.json",
+      "ledger": 103,
+      "targetMigrationsEachAppliedOnce": 3,
+      "businessTableCountsUnchanged": true,
+      "auditLogsBefore": 5752,
+      "auditLogsAfter": 5753,
+      "auditDeltaExplanation": "single authenticated LOGIN from the read-only browser proof",
+      "lostRows": 0,
+      "orphanRows": 0,
+      "unintendedHistoryDeletion": 0
+    },
+    "finalGitProof": {
+      "result": "PASS",
+      "head": "89f7b5dbf942e24b32a30264a894319e0ec28fec",
+      "originMain": "89f7b5dbf942e24b32a30264a894319e0ec28fec",
+      "featureRemote": "9040d4f3a2a65f9714344cc13755de2e0842b003",
+      "historyRewriteOperations": "NONE"
+    },
+    "health": {
+      "api": "https://DELL/api/v1/health -> 200",
+      "web": "https://DELL/ -> 200",
+      "services": "ATsoftERP_API / ATsoftERP_Web / ATsoftERP_Caddy Running/Automatic",
+      "listeners": "3000 and 4000"
+    }
   }
 }
