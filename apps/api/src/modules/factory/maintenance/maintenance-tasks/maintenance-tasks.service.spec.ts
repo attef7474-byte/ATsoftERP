@@ -28,15 +28,25 @@ function fixture(extra: any = {}) {
       updateMany: jest.fn().mockResolvedValue({ count: 1 }),
     },
     maintenanceExecutionPartUsage: { findUnique: jest.fn().mockResolvedValue(null), create: jest.fn().mockImplementation(async ({ data }: any) => ({ id: 'usage', ...data })) },
+    maintenanceWorkOrderAssignment: {
+      findFirst: jest.fn().mockResolvedValue({ id: 'team-assignment' }),
+      findMany: jest.fn().mockResolvedValue([{ workOrderId: 'w1' }]),
+    },
     downtimeLog: { findMany: jest.fn().mockResolvedValue([]) },
   };
   const prisma = { ...tx, $transaction: jest.fn(async (fn: any) => fn(tx)) };
-  const audit: any = { logWithClient: jest.fn().mockResolvedValue({}) };
+  const audit: any = { logWithClientBusiness: jest.fn().mockResolvedValue({}) };
   const requests: any = { startWithClient: jest.fn(), completeWithClient: jest.fn(), notifyCommittedExecutionTransition: jest.fn() };
   const orders: any = { startExecutionWithClient: jest.fn(), completeWithClient: jest.fn() };
   const stock: any = { issueExecutionPartInTx: jest.fn().mockResolvedValue({ movement: { id: 'movement' }, productId: 'p1' }) };
   const downtime: any = { startOrReuseInTx: jest.fn(), closeInTx: jest.fn().mockResolvedValue({ id: 'd1' }) };
-  return { service: new MaintenanceTasksService(prisma as any, audit, requests, orders, stock, downtime), prisma, tx, audit, requests, orders, stock, downtime, task: () => task };
+  const technicians: any = {
+    byUser: jest.fn().mockImplementation(async (id: string) =>
+      ['u1', 'u2', 'u3'].includes(id)
+        ? { userId: id, maintenancePersonnelId: `mp-${id}`, operationalPersonId: `op-${id}`, code: id, name: id, role: 'TECHNICIAN', specialty: null, placement: null }
+        : null),
+  };
+  return { service: new MaintenanceTasksService(prisma as any, audit, requests, orders, stock, downtime, technicians), prisma, tx, audit, requests, orders, stock, downtime, technicians, task: () => task };
 }
 
 describe('maintenance execution source and scope contracts', () => {
@@ -63,7 +73,7 @@ describe('MaintenanceTasksService execution orchestration', () => {
   it('creates DIRECT GENERAL without fake parents and records authenticated creator and tenant', async () => {
     const f = fixture(); await f.service.create({ sourceType: 'DIRECT', scopeType: 'GENERAL', description: 'General repair' }, actor, ctx);
     expect(f.tx.maintenanceTask.create).toHaveBeenCalledWith({ data: expect.objectContaining({ requestId: null, workOrderId: null, machineId: null, companyId: 'c1', branchId: 'b1', createdById: actor, title: 'General repair' }) });
-    expect(f.audit.logWithClient.mock.calls[0][0]).toBe(f.tx);
+    expect(f.audit.logWithClientBusiness.mock.calls[0][0]).toBe(f.tx);
   });
   it.each(['COMPLETED', 'CANCELLED', 'CLOSED'])('rejects new executions on terminal request %s', async status => {
     const f = fixture(); f.tx.maintenanceRequest.findFirst.mockResolvedValue({ status });
@@ -78,7 +88,7 @@ describe('MaintenanceTasksService execution orchestration', () => {
   });
   it.each(['findOne', 'start', 'complete', 'cancel'])('foreign execution is 404 for %s', async method => {
     const f = fixture({ companyId: 'c2', branchId: 'b2' });
-    const action = method === 'findOne' ? f.service.findOne('t1', ctx) : (f.service as any)[method]('t1', actor, ctx);
+    const action = method === 'findOne' ? f.service.findOne('t1', actor, ctx) : (f.service as any)[method]('t1', actor, ctx);
     await expect(action).rejects.toMatchObject({ response: { messageKey: 'maintenance.taskNotFound' } });
     expect(f.tx.maintenanceTask.update).not.toHaveBeenCalled();
     expect(f.stock.issueExecutionPartInTx).not.toHaveBeenCalled();
@@ -272,5 +282,90 @@ describe('MaintenanceTasksService single-active-execution invariant', () => {
     await f.service.registerHistorical({ sourceType: 'DIRECT', scopeType: 'GENERAL', description: 'work', startedAt: '2026-10-01T08:00Z', completedAt: '2026-10-01T09:00Z', participantUserIds: ['u1'], workPerformed: 'done' }, actor, ctx);
     expect(f.task().status).toBe('DONE');
     expect(f.tx.maintenanceTask.findMany).not.toHaveBeenCalled();
+  });
+});
+
+describe('Phase 6 canonical multi-technician execution authorization', () => {
+  it('my-tasks includes assigned, active team, session and supervisor paths but excludes unrelated users', async () => {
+    const f = fixture({ sourceType: 'WORK_ORDER', workOrderId: 'w1' });
+    f.tx.userRole.findMany.mockResolvedValue([]);
+    await f.service.myTasks('u1', {}, ctx);
+    const allowedWhere = f.tx.maintenanceTask.findMany.mock.calls[0][0].where;
+    expect(allowedWhere.companyId).toBe('c1');
+    const visibilityOr = allowedWhere.AND.find((clause: any) => Array.isArray(clause.OR) && clause.OR.some((r: any) => r.assignedToId))?.OR || allowedWhere.OR;
+    expect(visibilityOr).toEqual(expect.arrayContaining([
+      { assignedToId: 'u1' },
+      { sessions: { some: { technicianUserId: 'u1' } } },
+      { workOrder: { companyId: 'c1', branchId: 'b1', supervisorId: 'u1' } },
+      { workOrderId: { in: ['w1'] } },
+    ]));
+    const branchClause = allowedWhere.AND.find((clause: any) => Array.isArray(clause.OR) && clause.OR.some((r: any) => Object.prototype.hasOwnProperty.call(r, 'branchId')));
+    expect(branchClause?.OR).toEqual([{ branchId: 'b1' }, { branchId: null }]);
+
+    const denied = fixture({ sourceType: 'WORK_ORDER', workOrderId: 'w1' });
+    denied.tx.userRole.findMany.mockResolvedValue([]);
+    denied.technicians.byUser.mockResolvedValue(null);
+    denied.tx.maintenanceWorkOrderAssignment.findMany.mockResolvedValue([]);
+    await denied.service.myTasks('u4', {}, ctx);
+    const deniedWhere = denied.tx.maintenanceTask.findMany.mock.calls[0][0].where;
+    const deniedVisibility = deniedWhere.AND.find((clause: any) => Array.isArray(clause.OR) && clause.OR.some((r: any) => r.assignedToId))?.OR || deniedWhere.OR;
+    expect(deniedVisibility).toEqual([
+      { assignedToId: 'u4' },
+      { sessions: { some: { technicianUserId: 'u4' } } },
+      { workOrder: { companyId: 'c1', branchId: 'b1', supervisorId: 'u4' } },
+    ]);
+    const deniedBranch = deniedWhere.AND.find((clause: any) => Array.isArray(clause.OR) && clause.OR.some((r: any) => Object.prototype.hasOwnProperty.call(r, 'branchId')));
+    expect(deniedBranch?.OR).toEqual([{ branchId: 'b1' }, { branchId: null }]);
+  });
+
+  it('A starts through the canonical service and creates one active session', async () => {
+    const f = fixture({ status: 'PENDING', sourceType: 'WORK_ORDER', workOrderId: 'w1' });
+    f.tx.maintenanceWorkOrder.findFirst.mockResolvedValue({ id: 'w1', status: 'PLANNED', scopeType: 'GENERAL', description: 'Order work' });
+    await f.service.start('t1', 'u1', ctx, { participantUserIds: ['u1'] });
+    expect(f.task().status).toBe('IN_PROGRESS');
+    expect(f.orders.startExecutionWithClient).toHaveBeenCalledWith(f.tx, 'w1', 'u1', ctx, expect.any(Date));
+    expect(f.tx.maintenanceExecutionSession.create).toHaveBeenCalledWith({ data: expect.objectContaining({ executionId: 't1', technicianUserId: 'u1' }) });
+  });
+
+  it('B joins the same task and D cannot join by supplying a technicianUserId', async () => {
+    const b = fixture({ status: 'IN_PROGRESS', sourceType: 'WORK_ORDER', workOrderId: 'w1',
+      sessions: [{ id: 'sA', technicianUserId: 'u1', startedAt: new Date(), endedAt: null }] });
+    b.tx.userRole.findMany.mockResolvedValue([]);
+    await b.service.join('t1', { technicianUserId: 'u2' }, 'u2', ctx);
+    expect(b.tx.maintenanceExecutionSession.create).toHaveBeenCalledWith({ data: expect.objectContaining({ technicianUserId: 'u2', endedAt: undefined }) });
+    expect(b.task().status).toBe('IN_PROGRESS');
+
+    const d = fixture({ status: 'IN_PROGRESS', sourceType: 'WORK_ORDER', workOrderId: 'w1' });
+    d.tx.userRole.findMany.mockResolvedValue([]);
+    d.tx.user.findFirst.mockImplementation(async ({ where }: any) => ['u1', 'u2', 'u3', 'u4'].includes(where.id) ? { id: where.id, name: where.id } : null);
+    await expect(d.service.join('t1', { technicianUserId: 'u4' }, 'u4', ctx)).rejects.toMatchObject({ status: 403 });
+    expect(d.tx.maintenanceExecutionSession.create).not.toHaveBeenCalled();
+  });
+
+  it('A leaving keeps B active and the task IN_PROGRESS', async () => {
+    const sessionA = { id: 'sA', technicianUserId: 'u1', startedAt: new Date(), endedAt: null };
+    const sessionB = { id: 'sB', technicianUserId: 'u2', startedAt: new Date(), endedAt: null };
+    const f = fixture({ status: 'IN_PROGRESS', sessions: [sessionA, sessionB] });
+    f.tx.maintenanceExecutionSession.findFirst.mockImplementation(async ({ where }: any) => where.technicianUserId === 'u1' ? sessionA : null);
+    await f.service.leave('t1', { endReason: 'PAUSE' }, 'u1', ctx);
+    expect(f.tx.maintenanceExecutionSession.update).toHaveBeenCalledWith({ where: { id: 'sA' }, data: expect.objectContaining({ endReason: 'PAUSE' }) });
+    expect(f.tx.maintenanceExecutionSession.updateMany).not.toHaveBeenCalled();
+    expect(sessionB.endedAt).toBeNull();
+    expect(f.task().status).toBe('IN_PROGRESS');
+  });
+
+  it('canonical completion finishes the task and work order, closes all sessions and records business audit', async () => {
+    const active = [
+      { id: 'sA', technicianUserId: 'u1', startedAt: new Date(), endedAt: null },
+      { id: 'sB', technicianUserId: 'u2', startedAt: new Date(), endedAt: null },
+    ];
+    const f = fixture({ status: 'IN_PROGRESS', sourceType: 'WORK_ORDER', workOrderId: 'w1', sessions: active });
+    f.tx.maintenanceWorkOrder.findFirst.mockResolvedValue({ id: 'w1', status: 'IN_PROGRESS', scopeType: 'GENERAL', description: 'Order work' });
+    f.tx.maintenanceExecutionSession.findMany.mockResolvedValue(active);
+    await f.service.complete('t1', 'u1', ctx, { workPerformed: 'done', confirmEndParticipants: true });
+    expect(f.task().status).toBe('DONE');
+    expect(f.orders.completeWithClient).toHaveBeenCalledWith(f.tx, 'w1', { id: 'u1' }, ctx, f.task().completedAt);
+    expect(f.tx.maintenanceExecutionSession.updateMany).toHaveBeenCalledWith({ where: { executionId: 't1', endedAt: null }, data: expect.objectContaining({ endedAt: f.task().completedAt, endReason: 'COMPLETE' }) });
+    expect(f.audit.logWithClientBusiness).toHaveBeenCalledWith(f.tx, expect.objectContaining({ action: 'COMPLETE', companyId: 'c1', branchId: 'b1' }));
   });
 });

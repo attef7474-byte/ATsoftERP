@@ -5,6 +5,7 @@ export type { MultiLookupItem } from './F9MultiLookup';
 export { UnifiedSearchModal } from './UnifiedSearchModal';
 export { getUnifiedSearchRegistry } from './adapter-registry';
 export type { LookupAdapter, F9Column } from './types';
+export type { WorkOrderTechnicianCandidate } from './lookup-adapters';
 export type { UnifiedSearchEntity } from './adapter-registry';
 export {
   companyAdapter,
@@ -42,6 +43,8 @@ export {
   workOrderSparePartAdapter,
   machineInstalledPartAdapter,
   maintenancePersonnelAdapter,
+  workOrderTechnicianAdapter,
+  workOrderTechnicianLabel,
   stockTransferAdapter,
   operationalReceiptAdapter,
   maintenanceWorkOrderAdapter,

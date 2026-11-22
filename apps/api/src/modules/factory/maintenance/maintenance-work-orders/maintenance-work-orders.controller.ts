@@ -2,7 +2,7 @@ import { Controller, Get, Post, Patch, Delete, Body, Param, Query, UseGuards } f
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { MaintenanceWorkOrdersService } from './maintenance-work-orders.service';
 import { WorkOrderAssignmentsService } from './work-order-assignments.service';
-import { WorkOrderAssignmentDto } from './dto/work-order-assignment.dto';
+import { ReconcileWorkOrderAssignmentsDto, WorkOrderAssignmentDto } from './dto/work-order-assignment.dto';
 import { CreateMaintenanceWorkOrderDto } from './dto/create-maintenance-work-order.dto';
 import { CreateWorkOrderFromRequestDto } from './dto/create-work-order-from-request.dto';
 import { UpdateMaintenanceWorkOrderDto } from './dto/update-maintenance-work-order.dto';
@@ -24,10 +24,28 @@ import { ActiveOperationalContext } from '../../../../common/operational-context
 export class MaintenanceWorkOrdersController {
   constructor(private service: MaintenanceWorkOrdersService, private assignments: WorkOrderAssignmentsService) {}
 
+  @Get('technician-candidates')
+  @Permissions('maintenance-work-order:read')
+  technicianCandidates(@Query() query: { page?: string; limit?: string; search?: string }, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.assignments.candidates({ page: Number(query.page), limit: Number(query.limit), search: query.search }, ctx);
+  }
+
+  @Get('technician-candidates/:maintenancePersonnelId')
+  @Permissions('maintenance-work-order:read')
+  technicianCandidate(@Param('maintenancePersonnelId') maintenancePersonnelId: string, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.assignments.candidate(maintenancePersonnelId, ctx);
+  }
+
   @Get(':id/assignments')
   @Permissions('maintenance-work-order:read')
   listAssignments(@Param('id') id: string, @Query() query: { page?: string; limit?: string }, @CurrentActiveContext() ctx: ActiveOperationalContext) {
     return this.assignments.list(id, { page: Number(query.page), limit: Number(query.limit) }, ctx);
+  }
+
+  @Patch(':id/assignments/reconcile')
+  @Permissions('maintenance-work-order:update')
+  reconcileAssignments(@Param('id') id: string, @Body() dto: ReconcileWorkOrderAssignmentsDto, @CurrentUser('id') actorId: string, @CurrentActiveContext() ctx: ActiveOperationalContext) {
+    return this.assignments.reconcile(id, dto, actorId, ctx);
   }
 
   @Post(':id/assignments')

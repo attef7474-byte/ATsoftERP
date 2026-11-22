@@ -1,0 +1,222 @@
+{
+  "phase": "Phase 5/6",
+  "status": "PASS",
+  "startedAt": "2026-11-22T02:13:54.825Z",
+  "database": "ATsoftERP_PERSONNEL_P34_20261122",
+  "checks": [
+    {
+      "name": "Nest app booted on disposable clone",
+      "status": "PASS",
+      "detail": {
+        "database": "ATsoftERP_PERSONNEL_P34_20261122",
+        "apiPort": 61746
+      }
+    },
+    {
+      "name": "Phase 5/6 fixture actors and canonical maintenance personnel created",
+      "status": "PASS"
+    },
+    {
+      "name": "Phase 5 create work order with 3 canonical technicians",
+      "status": "PASS",
+      "detail": {
+        "woId": "cmwr7dvzz000kzs95co0afzct"
+      }
+    },
+    {
+      "name": "Phase 5 reconcile returned toAdd/toKeep/toEnd",
+      "status": "PASS"
+    },
+    {
+      "name": "Phase 5 history preserved: ended rows kept, re-add creates valid current row",
+      "status": "PASS"
+    },
+    {
+      "name": "Phase 5 re-add later preserves prior history",
+      "status": "PASS"
+    },
+    {
+      "name": "DUPLICATE_ACTIVE_TEAM_ASSIGNMENTS=0",
+      "status": "PASS"
+    },
+    {
+      "name": "Phase 5 tenant isolation and RBAC denials",
+      "status": "PASS"
+    },
+    {
+      "name": "Phase 5 technician candidates are scoped canonical records",
+      "status": "PASS",
+      "detail": {
+        "count": 6
+      }
+    },
+    {
+      "name": "Phase 6 canonical task created for work order",
+      "status": "PASS",
+      "detail": {
+        "taskId": "cmwr7dwlo000yzs95i6lrezeg"
+      }
+    },
+    {
+      "name": "ASSIGNED_TECHNICIAN_QUEUE=PASS (A/B/C visible, D denied)",
+      "status": "PASS"
+    },
+    {
+      "name": "Phase 6 A starts: task/WO IN_PROGRESS, Session A active",
+      "status": "PASS"
+    },
+    {
+      "name": "MULTI_TECHNICIAN_SESSIONS=PASS (B joined, A and B active)",
+      "status": "PASS"
+    },
+    {
+      "name": "EXECUTION_AUTHORIZATION=PASS (D direct join denied)",
+      "status": "PASS"
+    },
+    {
+      "name": "Phase 6 A leave/handoff: B remains active, task IN_PROGRESS",
+      "status": "PASS"
+    },
+    {
+      "name": "WORK_ORDER_EXECUTION_SYNC=PASS (task DONE, WO COMPLETED, sessions historical)",
+      "status": "PASS"
+    },
+    {
+      "name": "AUDIT=PASS (execution lifecycle audited)",
+      "status": "PASS",
+      "detail": {
+        "actions": [
+          "CREATE",
+          "START",
+          "JOIN",
+          "LEAVE",
+          "COMPLETE"
+        ]
+      }
+    },
+    {
+      "name": "Phase 6 invariants checked",
+      "status": "PASS",
+      "detail": {
+        "DUPLICATE_ACTIVE_EXECUTIONS": 0,
+        "DUPLICATE_STOCK_MOVEMENTS": 0,
+        "DUPLICATE_OPEN_DOWNTIME": 0,
+        "UNAUTHORIZED_EXECUTION_SESSIONS": 0,
+        "CROSS_TENANT_TEAM_ASSIGNMENTS": 0,
+        "LOST_HISTORY_ROWS": 0,
+        "DUPLICATE_ACTIVE_TEAM_ASSIGNMENTS": 0
+      }
+    },
+    {
+      "name": "Browser proof work order created",
+      "status": "PASS",
+      "detail": {
+        "browserWoId": "cmwr7dxbc0018zs95g0upju61"
+      }
+    },
+    {
+      "name": "Browser infrastructure started",
+      "status": "PASS",
+      "detail": {
+        "proxy": 3320,
+        "web": 3321
+      }
+    },
+    {
+      "name": "Browser en: work order detail shows authoritative team, edit/reload same record",
+      "status": "PASS"
+    },
+    {
+      "name": "Browser en: tasks page loaded",
+      "status": "PASS"
+    },
+    {
+      "name": "Browser en: no unexpected console/network failures (benign dev-harness noise ignored)",
+      "status": "PASS"
+    },
+    {
+      "name": "Browser ar: work order detail shows authoritative team, edit/reload same record",
+      "status": "PASS"
+    },
+    {
+      "name": "Browser ar: tasks page loaded",
+      "status": "PASS"
+    },
+    {
+      "name": "Browser ar: no unexpected console/network failures (benign dev-harness noise ignored)",
+      "status": "PASS"
+    },
+    {
+      "name": "Global invariants rechecked",
+      "status": "PASS",
+      "detail": {
+        "DUPLICATE_ACTIVE_EXECUTIONS": 0,
+        "DUPLICATE_STOCK_MOVEMENTS": 0,
+        "DUPLICATE_OPEN_DOWNTIME": 0,
+        "UNAUTHORIZED_EXECUTION_SESSIONS": 0,
+        "CROSS_TENANT_TEAM_ASSIGNMENTS": 0,
+        "LOST_HISTORY_ROWS": 0,
+        "DUPLICATE_ACTIVE_TEAM_ASSIGNMENTS": 0
+      }
+    }
+  ],
+  "failures": [],
+  "apiDenials": [
+    {
+      "method": "GET",
+      "path": "/maintenance-work-orders/cmwr7dvzz000kzs95co0afzct",
+      "status": 404,
+      "userId": "cmwr7dvtr000jzs954zdafmyw",
+      "companyId": "cmum3jqh8001mf495zaankx05"
+    },
+    {
+      "method": "PATCH",
+      "path": "/maintenance-work-orders/cmwr7dvzz000kzs95co0afzct/assignments/reconcile",
+      "status": 404,
+      "userId": "cmwr7dvtr000jzs954zdafmyw",
+      "companyId": "cmum3jqh8001mf495zaankx05"
+    },
+    {
+      "method": "GET",
+      "path": "/maintenance-work-orders/technician-candidates",
+      "status": 403,
+      "userId": "cmwr7dvix0005zs95yoz4vqw8",
+      "companyId": "cmrvaph2200009g95oj1o8m1j"
+    },
+    {
+      "method": "PATCH",
+      "path": "/maintenance/tasks/cmwr7dwlo000yzs95i6lrezeg/join",
+      "status": 403,
+      "userId": "cmwr7dvgl0004zs95t4fbkvgb",
+      "companyId": "cmrvaph2200009g95oj1o8m1j"
+    }
+  ],
+  "browsers": [
+    {
+      "locale": "en",
+      "consoleErrors": 0,
+      "failedApi": 0,
+      "benignIgnored": 16,
+      "screenshots": true
+    },
+    {
+      "locale": "ar",
+      "consoleErrors": 0,
+      "failedApi": 0,
+      "benignIgnored": 15,
+      "screenshots": true
+    }
+  ],
+  "invariants": {
+    "DUPLICATE_ACTIVE_EXECUTIONS": 0,
+    "DUPLICATE_STOCK_MOVEMENTS": 0,
+    "DUPLICATE_OPEN_DOWNTIME": 0,
+    "UNAUTHORIZED_EXECUTION_SESSIONS": 0,
+    "CROSS_TENANT_TEAM_ASSIGNMENTS": 0,
+    "LOST_HISTORY_ROWS": 0,
+    "DUPLICATE_ACTIVE_TEAM_ASSIGNMENTS": 0
+  },
+  "fixtureActorsDeactivated": 8,
+  "cleanup": "PASS",
+  "finishedAt": "2026-11-22T02:14:19.096Z"
+}

@@ -108,6 +108,7 @@ describe('MaintenanceWorkOrdersService', () => {
   let audit: any;
   let productionCost: any;
   let costCenterResolver: any;
+  let assignments: any;
   let service: MaintenanceWorkOrdersService;
 
   beforeEach(() => {
@@ -168,6 +169,11 @@ describe('MaintenanceWorkOrdersService', () => {
       reverseLedgerEntry: jest.fn(),
     };
     costCenterResolver = { resolveWithClient: jest.fn() };
+    assignments = {
+      activeTeamInclude: jest.fn().mockReturnValue({ technicianAssignments: { where: {}, select: {} } }),
+      projectTeam: jest.fn((record: any) => ({ ...record, technicianPersonnelIds: record.technicianPersonnelIds || [], activeTechnicians: record.activeTechnicians || [] })),
+      reconcileWithClient: jest.fn().mockResolvedValue(null),
+    };
     service = new MaintenanceWorkOrdersService(
       prisma as PrismaService,
       audit as AuditService,
@@ -177,6 +183,7 @@ describe('MaintenanceWorkOrdersService', () => {
       costCenterResolver,
       new MaintenanceStockIssueService(prisma, audit, numbering, {} as any, {} as any,
         { findActivePolicyForWarehouse: jest.fn().mockResolvedValue(null) } as any, productionCost),
+      assignments,
     );
   });
 

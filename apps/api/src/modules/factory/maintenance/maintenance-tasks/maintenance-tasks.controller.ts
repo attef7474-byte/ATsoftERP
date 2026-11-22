@@ -131,7 +131,7 @@ export class MaintenanceTasksController {
   @Get(':id')
   @Permissions('maintenance-task:read')
   @ApiOperation({ summary: 'Get maintenance task by ID' })
-  findOne(@Param('id') id: string, @CurrentActiveContext() ctx: ActiveOperationalContext) { return this.service.findOne(id, ctx); }
+  findOne(@Param('id') id: string, @CurrentUser('id') userId: string, @CurrentActiveContext() ctx: ActiveOperationalContext) { return this.service.findOne(id, userId, ctx); }
 
   @Patch(':id')
   @Permissions('maintenance-task:update')

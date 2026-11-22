@@ -67,7 +67,9 @@ export function maintenanceWorkOrderDocumentModel(
     { label: t('maintenance.workLocation'), value: data.workLocation },
     { label: t('maintenance.workOrderRequest'), value: data.request ? `[${data.request.requestNumber}] ${data.request.title || ''}`.trim() : undefined },
     { label: t('maintenance.workOrderWarehouse'), value: data.warehouse ? `[${data.warehouse.code}] ${data.warehouse.name}` : undefined },
-    { label: t('maintenance.workOrderAssignedTo'), value: data.assignedTo?.name },
+    { label: t('maintenance.workOrderTechnicians'), value: (Array.isArray((data as any).activeTechnicians) && (data as any).activeTechnicians.length > 0)
+        ? (data as any).activeTechnicians.map((tech: any) => tech.code ? `[${tech.code}] ${tech.name}` : tech.name).filter(Boolean).join(', ')
+        : data.assignedTo?.name },
     { label: t('maintenance.workOrderSupervisor'), value: data.supervisor?.name },
     { label: t('common.createdBy'), value: data.createdBy?.name },
     { label: t('maintenance.workOrderPlannedStart'), value: fmt.dateTime(data.plannedStartAt) },

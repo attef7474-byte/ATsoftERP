@@ -3,6 +3,7 @@ import { Module } from '@nestjs/common';
 import { MaintenanceWorkOrdersController } from './maintenance-work-orders.controller';
 import { MaintenanceWorkOrdersService } from './maintenance-work-orders.service';
 import { WorkOrderAssignmentsService } from './work-order-assignments.service';
+import { MaintenanceTechnicianAuthorityService } from './maintenance-technician-authority.service';
 import { AuditModule } from '../../../../common/audit/audit.module';
 import { InventoryValuationModule } from '../../inventory-valuation/inventory-valuation.module';
 import { InventoryValuationEngineService } from '../../inventory-valuation/inventory-valuation-engine.service';
@@ -12,7 +13,7 @@ import { CostCentersModule } from '../cost-centers/cost-centers.module';
 @Module({
   imports: [MaintenanceStockIssueModule, AuditModule, InventoryValuationModule, ProductionCostModule, CostCentersModule],
   controllers: [MaintenanceWorkOrdersController],
-  providers: [MaintenanceWorkOrdersService, WorkOrderAssignmentsService, InventoryValuationEngineService],
-  exports: [MaintenanceWorkOrdersService],
+  providers: [MaintenanceWorkOrdersService, WorkOrderAssignmentsService, MaintenanceTechnicianAuthorityService, InventoryValuationEngineService],
+  exports: [MaintenanceWorkOrdersService, WorkOrderAssignmentsService, MaintenanceTechnicianAuthorityService],
 })
 export class MaintenanceWorkOrdersModule {}

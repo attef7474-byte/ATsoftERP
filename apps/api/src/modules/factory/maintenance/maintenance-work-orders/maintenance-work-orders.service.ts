@@ -24,6 +24,7 @@ import {
 } from '../../production-cost/production-cost.constants';
 import { OperationalCostCenterResolver } from '../cost-centers/operational-cost-center-resolver.service';
 import { assertMachineComponentBelongsToMachine } from '../../../../common/operational-context/tenant-guards';
+import { WorkOrderAssignmentsService } from './work-order-assignments.service';
 
 const FORBIDDEN_WAREHOUSE_TYPES = ['PRODUCT', 'RAW_MATERIAL'];
 
@@ -37,6 +38,7 @@ export class MaintenanceWorkOrdersService {
     private productionCost: ProductionCostService,
     private costCenterResolver: OperationalCostCenterResolver,
     private stockIssue: MaintenanceStockIssueService,
+    private assignments: WorkOrderAssignmentsService,
   ) {}
 
 
@@ -87,10 +89,14 @@ export class MaintenanceWorkOrdersService {
     },
   };
 
+  private detailInclude(ctx: ActiveOperationalContext) {
+    return { ...this.includeDetail, ...this.assignments.activeTeamInclude(ctx) };
+  }
+
   private async findOwned(id: string, ctx: ActiveOperationalContext, client: any = this.prisma) {
     const wo = await client.maintenanceWorkOrder.findUnique({
       where: { id, companyId: ctx.companyId, branchId: ctx.branchId, deletedAt: null },
-      include: this.includeDetail,
+      include: this.detailInclude(ctx),
     });
     if (!wo || !this.owns(wo, ctx)) {
       throw this.notFound('Maintenance work order not found');
@@ -547,9 +553,23 @@ export class MaintenanceWorkOrdersService {
             }
           : undefined,
       },
-      include: this.includeDetail,
+      include: this.detailInclude(ctx),
     });
 
+    const reconciliation = await this.assignments.reconcileWithClient(
+      tx,
+      wo.id,
+      dto.technicianPersonnelIds,
+      user.id,
+      ctx,
+      'WORK_ORDER_TEAM_INITIAL',
+    );
+
+    const projected = {
+      ...wo,
+      technicianPersonnelIds: reconciliation?.technicianPersonnelIds ?? [],
+      activeTechnicians: reconciliation?.activeTechnicians ?? [],
+    };
     await this.audit.logWithClient(tx, { userId: user.id, action: 'CREATE', entity: 'MaintenanceWorkOrder', entityId: wo.id, details: {
       workOrderNumber: wo.workOrderNumber,
       title: wo.title,
@@ -563,10 +583,12 @@ export class MaintenanceWorkOrdersService {
       source,
       sourceRequestId: sourceRequestId ?? null,
       partsCount: resolvedParts.length,
+      technicianPersonnelIds: projected.technicianPersonnelIds,
+      teamReconciliation: reconciliation,
       actor: { userId: user.id },
     } });
 
-    return wo;
+    return projected;
     }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
   }
 
@@ -604,16 +626,20 @@ export class MaintenanceWorkOrdersService {
           assignedTo: { select: { id: true, name: true } },
           request: { select: { id: true, requestNumber: true, title: true } },
           _count: { select: { parts: true, costEntries: true } },
+          ...this.assignments.activeTeamInclude(ctx),
         },
       }),
       this.prisma.maintenanceWorkOrder.count({ where }),
     ]);
 
-    return { data, meta: { page, limit, total, totalPages: Math.ceil(total / limit) } };
+    return {
+      data: data.map(order => this.assignments.projectTeam(order)),
+      meta: { page, limit, total, totalPages: Math.ceil(total / limit) },
+    };
   }
 
   async findOne(id: string, ctx: ActiveOperationalContext) {
-    return this.findOwned(id, ctx);
+    return this.assignments.projectTeam(await this.findOwned(id, ctx));
   }
 
   async update(id: string, dto: UpdateMaintenanceWorkOrderDto, user: CurrentUserType, ctx: ActiveOperationalContext) {
@@ -709,12 +735,28 @@ export class MaintenanceWorkOrdersService {
         estimatedCost: dto.estimatedCost !== undefined ? dto.estimatedCost : undefined,
         notes: dto.notes !== undefined ? dto.notes ?? null : undefined,
       },
-      include: this.includeDetail,
+      include: this.detailInclude(ctx),
     });
 
+    const reconciliation = await this.assignments.reconcileWithClient(
+      tx,
+      id,
+      dto.technicianPersonnelIds,
+      user.id,
+      ctx,
+      'WORK_ORDER_TEAM_RECONCILED',
+    );
+    const fresh = reconciliation ? this.assignments.projectTeam(await this.findOwned(id, ctx, tx)) : this.assignments.projectTeam(updated);
+
     await this.audit.logWithClient(tx, { userId: user.id, action: 'UPDATE', entity: 'MaintenanceWorkOrder', entityId: id,
-      details: { workOrderNumber: wo.workOrderNumber, companyId: ctx.companyId, branchId: ctx.branchId } });
-    return updated;    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+      details: {
+        workOrderNumber: wo.workOrderNumber,
+        companyId: ctx.companyId,
+        branchId: ctx.branchId,
+        technicianPersonnelIds: fresh.technicianPersonnelIds,
+        teamReconciliation: reconciliation,
+      } });
+    return fresh;    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
 
   }
 
@@ -758,7 +800,7 @@ export class MaintenanceWorkOrdersService {
     const updated = await this.prisma.maintenanceWorkOrder.update({
       where: { id },
       data,
-      include: this.includeDetail,
+      include: this.detailInclude(ctx),
     });
 
     await this.audit.log(user.id, 'STATUS_TRANSITION', 'MaintenanceWorkOrder', wo.id, {
@@ -770,7 +812,7 @@ export class MaintenanceWorkOrdersService {
       branchId: wo.branchId,
     });
 
-    return updated;
+    return this.assignments.projectTeam(updated);
   }
 
   private async completeWorkOrder(id: string, user: CurrentUserType, ctx: ActiveOperationalContext) {
@@ -806,6 +848,7 @@ export class MaintenanceWorkOrdersService {
           where: { id, companyId: ctx.companyId, branchId: ctx.branchId, deletedAt: null },
           include: {
             ...this.includeDetail,
+            ...this.assignments.activeTeamInclude(ctx),
             machine: {
               select: {
                 id: true,
@@ -880,7 +923,7 @@ export class MaintenanceWorkOrdersService {
         const updated = await tx.maintenanceWorkOrder.update({
           where: { id: workOrder.id },
           data: { status: 'COMPLETED', completedAt, actualCost },
-          include: this.includeDetail,
+          include: this.detailInclude(ctx),
         });
 
         await this.audit.logWithClient(tx, {
@@ -898,7 +941,7 @@ export class MaintenanceWorkOrdersService {
             maintenanceExternalServicePrimaryCount: externalServiceEntries.length,
           },
         });
-        return updated;
+        return this.assignments.projectTeam(updated);
   }
 
   private async computeActualCost(client: any, workOrderId: string): Promise<number> {

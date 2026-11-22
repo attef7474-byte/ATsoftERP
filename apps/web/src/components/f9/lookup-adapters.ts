@@ -2,6 +2,18 @@ import { LookupAdapter } from './types';
 import { getClientLocale } from '../../lib/i18n/locale-shared';
 import type { Company, Branch, Administration, Department, OrganizationalUnit, Warehouse, ProductCategory, Product, Unit, MachineCategory, Machine, User, Role, MaintenanceRequest, MaintenanceTask, MaintenanceSchedule, InventoryCount, InventoryMovement, InventoryAdjustment, WarehouseLocation, BarcodeLabel, SystemSetting, NumberSequence, Notification, AuditLog, MachinePart, DowntimeLog, OperationType, CostCenter, ProductionLine, MachineComponent, SparePart, MaintenancePersonnel, StockTransfer, OperationalReceipt, MaintenanceWorkOrder, ProductionUnit, ProductionProductDefinition, ProductionOrder, ProductionRun, ProductionShift, ProductionShiftTemplate, ProductionShiftCalendar, ProductionShiftAssignment, ProductionOperationalAssignment, OperationalPerson, OperationalLossReason, DowntimeSegment, ProductionMeasurementPoint, ProductionMaterialDocument, ProductionFinishedGoodsReceipt, ProductionInspection, ProductionQualityPlan, ProductionCostRate, ProductionCostSnapshot, JobTitle, OperationalPersonAssignment, MachineInstalledPart } from '../../lib/admin-types';
 
+export interface WorkOrderTechnicianCandidate {
+  id: string;
+  userId: string;
+  maintenancePersonnelId: string;
+  operationalPersonId: string;
+  code: string;
+  name: string;
+  role: string;
+  specialty: string | null;
+  placement: string | null;
+}
+
 const COST_CENTER_TYPE_LABELS: Record<'ar' | 'en', Record<string, string>> = {
   ar: {
     PRODUCTION: 'إنتاج',
@@ -475,6 +487,25 @@ export const maintenancePersonnelAdapter: LookupAdapter<MaintenancePersonnel> = 
     { key: 'role', header: 'Role' },
     { key: 'specialty', header: 'Specialty', render: (p) => p.specialty || '-' },
     { key: 'isActive', header: 'Active', render: (p) => p.isActive ? 'Yes' : 'No' },
+  ],
+};
+
+export function workOrderTechnicianLabel(technician: Pick<WorkOrderTechnicianCandidate, 'code' | 'name' | 'role' | 'specialty' | 'placement'>): string {
+  const details = [technician.role, technician.specialty, technician.placement].filter(Boolean).join(' / ');
+  return details ? `[${technician.code}] ${technician.name} — ${details}` : `[${technician.code}] ${technician.name}`;
+}
+
+/** Scoped canonical technician candidates only; never a broad user lookup. */
+export const workOrderTechnicianAdapter: LookupAdapter<WorkOrderTechnicianCandidate> = {
+  endpoint: '/maintenance-work-orders/technician-candidates',
+  displayLabel: workOrderTechnicianLabel,
+  searchFields: ['code', 'name', 'role', 'specialty', 'placement'],
+  columns: [
+    { key: 'code', header: 'Code', headerKey: 'maintenance.workOrderTechnicianCode' },
+    { key: 'name', header: 'Name', headerKey: 'maintenance.workOrderTechnicianName' },
+    { key: 'role', header: 'Role', headerKey: 'maintenance.workOrderTechnicianRole' },
+    { key: 'specialty', header: 'Specialty', headerKey: 'maintenance.workOrderTechnicianSpecialty', render: (technician) => technician.specialty || '-' },
+    { key: 'placement', header: 'Current Placement', headerKey: 'maintenance.workOrderTechnicianPlacement', render: (technician) => technician.placement || '-' },
   ],
 };
 

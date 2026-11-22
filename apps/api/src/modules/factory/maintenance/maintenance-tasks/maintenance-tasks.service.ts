@@ -4,6 +4,7 @@ import { createHash } from 'crypto';
 import { PrismaService } from '../../../../common/prisma/prisma.service';
 import { AuditService } from '../../../../common/audit/audit.service';
 import { ActiveOperationalContext } from '../../../../common/operational-context/operational-context.types';
+import { MaintenanceTechnicianAuthorityService } from '../maintenance-work-orders/maintenance-technician-authority.service';
 import { CreateMaintenanceTaskDto } from './dto/create-maintenance-task.dto';
 import { UpdateMaintenanceTaskDto } from './dto/update-maintenance-task.dto';
 import { ExecutionStartDto, ExecutionJoinDto, ExecutionLeaveDto, ExecutionHandoffDto, ExecutionCompleteDto, ExecutionPartInputDto, RegisterHistoricalExecutionDto } from './dto/execution-action.dto';
@@ -33,6 +34,7 @@ export class MaintenanceTasksService {
     private workOrders: MaintenanceWorkOrdersService,
     private stockIssue: MaintenanceStockIssueService,
     private downtime: DowntimeLogsService,
+    private technicians: MaintenanceTechnicianAuthorityService,
   ) {}
 
   private scope(ctx: ActiveOperationalContext) {
@@ -75,9 +77,24 @@ export class MaintenanceTasksService {
     });
   }
 
-  private auditInTx(tx: any, userId: string, action: string, task: any, extra: any = {}) {
-    return this.audit.logWithClient(tx, { userId, action, entity: 'MaintenanceTask', entityId: task.id,
-      details: { companyId: task.companyId, branchId: task.branchId, sourceType: task.sourceType, requestId: task.requestId, workOrderId: task.workOrderId, ...extra } });
+  private auditInTx(tx: any, userId: string, action: string, task: any, ctx: ActiveOperationalContext, extra: any = {}) {
+    return this.audit.logWithClientBusiness(tx, {
+      userId,
+      action,
+      entity: 'MaintenanceTask',
+      entityId: task.id,
+      companyId: ctx?.companyId || task.companyId,
+      branchId: ctx?.branchId ?? task.branchId ?? null,
+      previous: extra.previous ?? null,
+      next: { status: task.status, ...extra },
+      reason: extra.reason ?? `MAINTENANCE_EXECUTION_${action}`,
+      metadata: {
+        sourceType: task.sourceType,
+        requestId: task.requestId ?? null,
+        workOrderId: task.workOrderId ?? null,
+        actor: { userId },
+      },
+    });
   }
 
   private participantScope(ctx: ActiveOperationalContext) {
@@ -125,11 +142,75 @@ export class MaintenanceTasksService {
     if (!user) throw new NotFoundException({ messageKey: 'maintenance.assignedUserNotFound' });
   }
 
-  private async requirePermission(tx: any, userId: string, permission: string) {
+  private async hasPermission(tx: any, userId: string, permission: string) {
     const roles = await tx.userRole.findMany({ where: { userId }, include: { role: { include: { permissions: { include: { permission: true } } } } } });
-    const allowed = roles.some((link: any) => link.role.status === 'ACTIVE' && !link.role.deletedAt
+    return roles.some((link: any) => link.role.status === 'ACTIVE' && !link.role.deletedAt
       && (link.role.code === 'SUPER_ADMIN' || link.role.permissions.some((p: any) => p.permission.key === permission && p.permission.status === 'ACTIVE')));
-    if (!allowed) throw new ForbiddenException({ messageKey: 'common.forbidden' });
+  }
+
+  private async requirePermission(tx: any, userId: string, permission: string) {
+    if (!(await this.hasPermission(tx, userId, permission))) {
+      throw new ForbiddenException({ messageKey: 'common.forbidden' });
+    }
+  }
+
+  /** Elevated planner/supervisor capability reuses the existing assignment permission. */
+  private isElevated(tx: any, userId: string) {
+    return this.hasPermission(tx, userId, 'maintenance-task:assign');
+  }
+
+  /**
+   * Active work-order team membership is derived only through the canonical
+   * User -> OperationalPerson -> current assignment -> MaintenancePersonnel chain.
+   */
+  private async isActiveWorkOrderTeamMember(tx: any, workOrderId: string | null | undefined, userId: string, ctx: ActiveOperationalContext) {
+    if (!workOrderId || !userId) return false;
+    const technician = await this.technicians.byUser(userId, ctx, tx);
+    if (!technician) return false;
+    const assignment = await tx.maintenanceWorkOrderAssignment.findFirst({
+      where: {
+        workOrderId,
+        maintenancePersonnelId: technician.maintenancePersonnelId,
+        companyId: ctx.companyId,
+        branchId: ctx.branchId,
+        cancelledAt: null,
+      },
+      select: { id: true },
+    });
+    return !!assignment;
+  }
+
+  /** Authorization always derives from the authenticated actor, never from request-body ids. */
+  private async hasCanonicalTechnicianChain(tx: any, userId: string, ctx: ActiveOperationalContext) {
+    return !!(await this.technicians.byUser(userId, ctx, tx));
+  }
+
+  private async assertTaskAccess(tx: any, task: any, actorId: string, ctx: ActiveOperationalContext) {
+    if (await this.isElevated(tx, actorId)) return;
+    if (task.workOrder?.supervisorId === actorId) return;
+    if (await this.isActiveWorkOrderTeamMember(tx, task.workOrderId, actorId, ctx)) return;
+    const legacyMatch = task.assignedToId === actorId || task.createdById === actorId
+      || (task.sessions || []).some((session: any) => session.technicianUserId === actorId);
+    if (legacyMatch && await this.hasCanonicalTechnicianChain(tx, actorId, ctx)) return;
+    throw new ForbiddenException({ messageKey: 'common.forbidden' });
+  }
+
+  /** A non-elevated actor may only open a session for themselves or their active team. */
+  private async assertParticipantTarget(tx: any, task: any, actorId: string, targetUserId: string, ctx: ActiveOperationalContext) {
+    if (await this.isElevated(tx, actorId)) return;
+    if (task.workOrder?.supervisorId === actorId) return;
+    if (targetUserId === actorId) {
+      if (await this.isActiveWorkOrderTeamMember(tx, task.workOrderId, actorId, ctx)) return;
+      if (await this.hasCanonicalTechnicianChain(tx, actorId, ctx)) return;
+      throw new ForbiddenException({ messageKey: 'common.forbidden' });
+    }
+    // Acting on another user: actor must be authorized, target must be an active canonical team member.
+    if (!(await this.isActiveWorkOrderTeamMember(tx, task.workOrderId, actorId, ctx))
+      && !(await this.hasCanonicalTechnicianChain(tx, actorId, ctx))) {
+      throw new ForbiddenException({ messageKey: 'common.forbidden' });
+    }
+    if (await this.isActiveWorkOrderTeamMember(tx, task.workOrderId, targetUserId, ctx)) return;
+    throw new ForbiddenException({ messageKey: 'common.forbidden' });
   }
 
   private async source(tx: any, input: any, ctx: ActiveOperationalContext, requireExecutable = true): Promise<any> {
@@ -209,7 +290,7 @@ export class MaintenanceTasksService {
       companyId: ctx.companyId, branchId: ctx.branchId, createdById: userId, assignedToId,
       description, title: description.slice(0, 160), notes: dto.notes, status: 'PENDING',
     } });
-    await this.auditInTx(tx, userId, 'CREATE', task);
+    await this.auditInTx(tx, userId, 'CREATE', task, ctx, { previous: null });
     return task;
   }
 
@@ -230,26 +311,32 @@ export class MaintenanceTasksService {
     return { data: await this.withMetrics(this.prisma, data), meta: { page, limit, total, totalPages: Math.ceil(total / limit) } };
   }
 
-  async findOne(id: string, ctx: ActiveOperationalContext) {
-    return this.owned(this.prisma, id, ctx);
+  async findOne(id: string, userId: string, ctx: ActiveOperationalContext) {
+    const task = await this.owned(this.prisma, id, ctx);
+    await this.assertTaskAccess(this.prisma, task, userId, ctx);
+    return task;
   }
 
   async update(id: string, dto: UpdateMaintenanceTaskDto, userId: string, ctx: ActiveOperationalContext) {
     return this.transaction(async tx => {
       const task = await this.owned(tx, id, ctx, true);
+      await this.assertTaskAccess(tx, task, userId, ctx);
       await this.source(tx, task, ctx);
       if (['DONE', 'CANCELLED'].includes(task.status)) throw executionError('maintenance.cannotUpdateTerminalTask');
       for (const key of ['sourceType', 'requestId', 'workOrderId', 'scopeType', 'machineId', 'productionLineId', 'machineComponentId', 'costCenterId'] as const) {
         if (dto[key] !== undefined && dto[key] !== task[key]) throw executionError('maintenance.executionSourceImmutable');
       }
-      if (dto.assignedToId) await this.validateParticipant(tx, dto.assignedToId, ctx, userId);
+      if (dto.assignedToId) {
+        await this.assertParticipantTarget(tx, task, userId, dto.assignedToId, ctx);
+        await this.validateParticipant(tx, dto.assignedToId, ctx, userId);
+      }
       const description = dto.description === undefined ? task.description : dto.description.trim();
       if (!description) throw executionError('maintenance.executionDescriptionRequired');
       const updated = await tx.maintenanceTask.update({ where: { id }, data: {
         description, title: description.slice(0, 160), notes: dto.notes,
         assignedToId: dto.assignedToId, workLocation: dto.workLocation,
       } });
-      await this.auditInTx(tx, userId, 'UPDATE', updated);
+      await this.auditInTx(tx, userId, 'UPDATE', updated, ctx, { previous: { assignedToId: task.assignedToId, description: task.description } });
       return updated;
     });
   }
@@ -275,19 +362,23 @@ export class MaintenanceTasksService {
   async start(id: string, userId: string, ctx: ActiveOperationalContext, dto: ExecutionStartDto = {}) {
     const result = await this.transaction(async tx => {
       const task = await this.owned(tx, id, ctx, true);
+      await this.assertTaskAccess(tx, task, userId, ctx);
       if (task.status !== 'PENDING') throw executionError('maintenance.onlyPendingCanStart');
       await this.source(tx, task, ctx);
       await this.assertNoActiveExecution(tx, task, ctx, task.id);
       const at = new Date();
-      await this.beginSource(tx, task, userId, ctx, at);
       const participants = dto.participantUserIds?.length ? [...new Set(dto.participantUserIds)] : [task.assignedToId || userId];
+      const elevated = await this.isElevated(tx, userId) || task.workOrder?.supervisorId === userId;
+      if (!elevated && !participants.includes(userId)) participants.unshift(userId);
+      for (const technician of participants) await this.assertParticipantTarget(tx, task, userId, technician, ctx);
+      await this.beginSource(tx, task, userId, ctx, at);
       for (const technician of participants.sort()) await this.addSession(tx, task, technician, userId, ctx, at);
       if (dto.machineStopped) {
         if (!task.machineId) throw executionError('maintenance.executionInvalidScope');
         await this.downtime.startOrReuseInTx(tx, { machineId: task.machineId, requestId: task.requestId, executionId: id, reason: task.description || task.title, startTime: at }, userId, ctx);
       }
       const updated = await tx.maintenanceTask.update({ where: { id }, data: { status: 'IN_PROGRESS', startedAt: at } });
-      await this.auditInTx(tx, userId, 'START', updated, { participantUserIds: participants, startedAt: at });
+      await this.auditInTx(tx, userId, 'START', updated, ctx, { previous: { status: 'PENDING' }, participantUserIds: participants, startedAt: at });
       return this.owned(tx, id, ctx);
     });
     if (result.requestId) await this.requests.notifyCommittedExecutionTransition(result.requestId, 'START', result.startedAt, ctx);
@@ -297,12 +388,13 @@ export class MaintenanceTasksService {
   async join(id: string, dto: ExecutionJoinDto, userId: string, ctx: ActiveOperationalContext) {
     return this.transaction(async tx => {
       const task = await this.owned(tx, id, ctx, true);
+      await this.assertTaskAccess(tx, task, userId, ctx);
       if (task.status !== 'IN_PROGRESS') throw executionError('maintenance.onlyInProgressTaskCanComplete');
       await this.source(tx, task, ctx);
       const technician = dto.technicianUserId || userId;
-      if (technician !== userId && task.assignedToId !== userId && task.createdById !== userId) await this.requirePermission(tx, userId, 'maintenance-task:assign');
+      await this.assertParticipantTarget(tx, task, userId, technician, ctx);
       const session = await this.addSession(tx, task, technician, userId, ctx, new Date());
-      await this.auditInTx(tx, userId, 'JOIN', task, { sessionId: session.id, technicianUserId: technician });
+      await this.auditInTx(tx, userId, 'JOIN', task, ctx, { sessionId: session.id, technicianUserId: technician });
       return session;
     });
   }
@@ -310,18 +402,22 @@ export class MaintenanceTasksService {
   private async endParticipation(id: string, dto: ExecutionLeaveDto | ExecutionHandoffDto, userId: string, ctx: ActiveOperationalContext, handoff: boolean) {
     return this.transaction(async tx => {
       const task = await this.owned(tx, id, ctx, true);
+      await this.assertTaskAccess(tx, task, userId, ctx);
       if (task.status !== 'IN_PROGRESS') throw executionError('maintenance.onlyInProgressTaskCanComplete');
       if (handoff && (!dto.workPerformed?.trim() || !dto.remainingWork?.trim())) throw executionError('maintenance.executionHandoffDetailsRequired');
       const session = await tx.maintenanceExecutionSession.findFirst({ where: { executionId: id, technicianUserId: userId, endedAt: null } });
       if (!session) throw executionError('maintenance.executionNoActiveParticipation');
       const successor = handoff ? (dto as ExecutionHandoffDto).handoffToUserId : undefined;
-      if (successor) await this.validateParticipant(tx, successor, ctx, userId);
+      if (successor) {
+        await this.assertParticipantTarget(tx, task, userId, successor, ctx);
+        await this.validateParticipant(tx, successor, ctx, userId);
+      }
       const updated = await tx.maintenanceExecutionSession.update({ where: { id: session.id }, data: {
         endedAt: new Date(), endReason: handoff ? 'HANDOFF' : (dto as ExecutionLeaveDto).endReason || 'LEAVE',
         workPerformed: dto.workPerformed?.trim(), remainingWork: dto.remainingWork?.trim(), notes: dto.notes, handoffToUserId: successor,
       } });
       if (successor && task.assignedToId === userId) await tx.maintenanceTask.update({ where: { id }, data: { assignedToId: successor } });
-      await this.auditInTx(tx, userId, handoff ? 'HANDOFF' : 'LEAVE', task, { sessionId: session.id, handoffToUserId: successor });
+      await this.auditInTx(tx, userId, handoff ? 'HANDOFF' : 'LEAVE', task, ctx, { sessionId: session.id, handoffToUserId: successor });
       return updated;
     });
   }
@@ -353,13 +449,14 @@ export class MaintenanceTasksService {
       inventoryMovementId: issued.movement.id, recordedByUserId: userId, usedAt, requiredPartId: issued.requiredPartId,
       workOrderPartId: issued.workOrderPartId, installedPartId: issued.installedPartId, replacementHistoryId: issued.replacementHistoryId, notes: input.notes,
     } });
-    await this.auditInTx(tx, userId, 'PART_ISSUE', task, { partUsageId: usage.id, movementId: issued.movement.id });
+    await this.auditInTx(tx, userId, 'PART_ISSUE', task, ctx, { partUsageId: usage.id, movementId: issued.movement.id });
     return usage;
   }
 
   async issuePart(id: string, input: ExecutionPartInputDto, userId: string, ctx: ActiveOperationalContext) {
     return this.transaction(async tx => {
       const task = await this.owned(tx, id, ctx, true);
+      await this.assertTaskAccess(tx, task, userId, ctx);
       if (task.status !== 'IN_PROGRESS') throw executionError('maintenance.onlyInProgressTaskCanComplete');
       await this.source(tx, task, ctx);
       return this.issuePartInTx(tx, task, input, userId, ctx, new Date());
@@ -369,9 +466,10 @@ export class MaintenanceTasksService {
   async returnToService(id: string, userId: string, ctx: ActiveOperationalContext) {
     return this.transaction(async tx => {
       const task = await this.owned(tx, id, ctx, true);
+      await this.assertTaskAccess(tx, task, userId, ctx);
       if (!task.machineId || task.status === 'CANCELLED') throw executionError('maintenance.executionInvalidScope');
       const log = await this.downtime.closeInTx(tx, { machineId: task.machineId, requestId: task.requestId, executionId: id, endTime: new Date() }, userId, ctx);
-      await this.auditInTx(tx, userId, 'RETURN_TO_SERVICE', task, { downtimeLogId: log?.id });
+      await this.auditInTx(tx, userId, 'RETURN_TO_SERVICE', task, ctx, { downtimeLogId: log?.id });
       return log;
     });
   }
@@ -409,13 +507,17 @@ export class MaintenanceTasksService {
     } });
     const updated = await tx.maintenanceTask.update({ where: { id: task.id }, data: { status: 'DONE', completedAt: at, notes: dto.notes ?? task.notes } });
     await this.finishSource(tx, updated, userId, ctx, at);
-    await this.auditInTx(tx, userId, 'COMPLETE', updated, { completedAt: at, endedSessionIds: active.map((session: any) => session.id), workPerformed: dto.workPerformed });
+    await this.auditInTx(tx, userId, 'COMPLETE', updated, ctx, { completedAt: at, endedSessionIds: active.map((session: any) => session.id), workPerformed: dto.workPerformed });
     const result = await this.owned(tx, task.id, ctx);
     return { ...result, metrics: executionMetrics(result, at) };
   }
 
   async complete(id: string, userId: string, ctx: ActiveOperationalContext, dto: ExecutionCompleteDto = {}) {
-    const result = await this.transaction(async tx => this.completeInTx(tx, await this.owned(tx, id, ctx, true), dto, userId, ctx, new Date()));
+    const result = await this.transaction(async tx => {
+      const task = await this.owned(tx, id, ctx, true);
+      await this.assertTaskAccess(tx, task, userId, ctx);
+      return this.completeInTx(tx, task, dto, userId, ctx, new Date());
+    });
     if (result.requestId) await this.requests.notifyCommittedExecutionTransition(result.requestId, 'COMPLETE', result.completedAt, ctx);
     return result;
   }
@@ -430,14 +532,17 @@ export class MaintenanceTasksService {
       // execution: it is exempt from the single-active guard because it commits DONE.
       const task = await this.createInTx(tx, dto, userId, ctx, false);
       await this.beginSource(tx, task, userId, ctx, startedAt);
-      for (const technician of [...new Set(dto.participantUserIds)].sort()) await this.addSession(tx, task, technician, userId, ctx, startedAt, completedAt, dto.workPerformed.trim());
+      for (const technician of [...new Set(dto.participantUserIds)].sort()) {
+        await this.assertParticipantTarget(tx, task, userId, technician, ctx);
+        await this.addSession(tx, task, technician, userId, ctx, startedAt, completedAt, dto.workPerformed.trim());
+      }
       if (downtimeAt) {
         if (!task.machineId || !dto.machineReturnedToService) throw executionError('maintenance.executionInvalidChronology');
         await this.downtime.startOrReuseInTx(tx, { machineId: task.machineId, requestId: task.requestId, executionId: task.id, reason: task.description || task.title, startTime: downtimeAt }, userId, ctx);
       }
       await tx.maintenanceTask.update({ where: { id: task.id }, data: { status: 'IN_PROGRESS', startedAt } });
       const result = await this.completeInTx(tx, await this.owned(tx, task.id, ctx), { ...dto, confirmEndParticipants: true }, userId, ctx, completedAt);
-      await this.auditInTx(tx, userId, 'REGISTER_HISTORICAL', result, { startedAt, completedAt });
+      await this.auditInTx(tx, userId, 'REGISTER_HISTORICAL', result, ctx, { startedAt, completedAt });
       return result;
     });
   }
@@ -445,22 +550,58 @@ export class MaintenanceTasksService {
   async cancel(id: string, userId: string, ctx: ActiveOperationalContext) {
     return this.transaction(async tx => {
       const task = await this.owned(tx, id, ctx, true);
+      await this.assertTaskAccess(tx, task, userId, ctx);
       if (!['PENDING', 'IN_PROGRESS'].includes(task.status)) throw executionError('maintenance.onlyPendingInProgressCanCancelTask');
       const at = new Date();
       await tx.maintenanceExecutionSession.updateMany({ where: { executionId: id, endedAt: null }, data: { endedAt: at, endReason: 'PAUSE' } });
       const updated = await tx.maintenanceTask.update({ where: { id }, data: { status: 'CANCELLED', cancelledAt: at } });
-      await this.auditInTx(tx, userId, 'CANCEL', updated);
+      await this.auditInTx(tx, userId, 'CANCEL', updated, ctx, { previous: { status: 'IN_PROGRESS' } });
       return updated;
     });
   }
 
   async remove(id: string, userId: string, ctx: ActiveOperationalContext) {
-    const task = await this.findOne(id, ctx);
+    const task = await this.findOne(id, userId, ctx);
     if (task.status !== 'PENDING') throw executionError('maintenance.executionHistoryCannotDelete');
     return this.cancel(id, userId, ctx);
   }
 
-  myTasks(userId: string, query: { page?: number; limit?: number; status?: string }, ctx: ActiveOperationalContext) { return this.findAll({ ...query, assignedToId: userId }, ctx); }
+  /**
+   * Queue visibility is intentionally narrower than the general task list:
+   * assigned user, active work-order team member, session participant,
+   * explicit work-order supervisor, and elevated planner roles only.
+   */
+  async myTasks(userId: string, query: { page?: number; limit?: number; status?: string }, ctx: ActiveOperationalContext) {
+    if (await this.isElevated(this.prisma, userId)) return this.findAll({ ...query }, ctx);
+    const { OR: branchScope, ...tenantScope } = this.scope(ctx);
+    const page = Math.max(1, query.page || 1), limit = Math.min(100, query.limit || 10);
+    const technician = await this.technicians.byUser(userId, ctx);
+    const activeAssignments = technician
+      ? await this.prisma.maintenanceWorkOrderAssignment.findMany({
+          where: {
+            maintenancePersonnelId: technician.maintenancePersonnelId,
+            companyId: ctx.companyId,
+            branchId: ctx.branchId,
+            cancelledAt: null,
+            workOrder: { companyId: ctx.companyId, branchId: ctx.branchId, deletedAt: null },
+          },
+          select: { workOrderId: true },
+        })
+      : [];
+    const or: any[] = [
+      { assignedToId: userId },
+      { sessions: { some: { technicianUserId: userId } } },
+      { workOrder: { companyId: ctx.companyId, branchId: ctx.branchId, supervisorId: userId } },
+    ];
+    if (activeAssignments.length) or.push({ workOrderId: { in: activeAssignments.map(row => row.workOrderId) } });
+    const where: any = { ...tenantScope, AND: [...(branchScope ? [{ OR: branchScope }] : []), { OR: or }] };
+    if (query.status) where.status = query.status;
+    const [data, total] = await Promise.all([
+      this.prisma.maintenanceTask.findMany({ where, skip: (page - 1) * limit, take: limit, orderBy: { createdAt: 'desc' }, include: detail }),
+      this.prisma.maintenanceTask.count({ where }),
+    ]);
+    return { data: await this.withMetrics(this.prisma, data), meta: { page, limit, total, totalPages: Math.ceil(total / limit) } };
+  }
   async byRequest(requestId: string, query: { page?: number; limit?: number }, ctx: ActiveOperationalContext) {
     const request = await this.prisma.maintenanceRequest.findFirst({ where: { id: requestId, deletedAt: null, machine: this.scope(ctx) }, select: { id: true } });
     if (!request) throw new NotFoundException({ messageKey: 'maintenance.requestNotFound' });

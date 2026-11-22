@@ -12,7 +12,7 @@ import { MaintenanceWorkOrder, PaginationMeta } from '../../../../lib/admin-type
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import { Button, Input, Textarea, Card, Pagination, LoadingState, Modal, ConfirmDialog, Select } from '../../../../components/admin/ui';
 import { GridColumn, GridAction } from '../../../../components/admin/admin-data-grid';
-import { F9Lookup, machineAdapter, machineComponentAdapter, productionLineAdapter, costCenterAdapter, warehouseAdapter, userAdapter, workOrderSparePartAdapter } from '../../../../components/f9';
+import { F9Lookup, F9MultiLookup, machineAdapter, machineComponentAdapter, productionLineAdapter, costCenterAdapter, warehouseAdapter, userAdapter, workOrderSparePartAdapter, workOrderTechnicianAdapter, workOrderTechnicianLabel, type MultiLookupItem } from '../../../../components/f9';
 import { CmmsStatusBadge } from '../../../../components/maintenance/CmmsStatusBadge';
 import { CmmsPriorityBadge } from '../../../../components/maintenance/CmmsPriorityBadge';
 import { useRegisterAdminActions, useStableHandlers, ActionAddIcon, ActionEditIcon, ActionRefreshIcon, ActionDeleteIcon } from '../../../../components/admin/admin-action-bar';
@@ -37,7 +37,8 @@ interface WorkOrderForm {
   workLocation: string;
   costCenterId: string;
   warehouseId: string;
-  assignedToId: string;
+  technicianPersonnelIds: string[];
+  technicianItems: MultiLookupItem[];
   supervisorId: string;
   plannedStartAt: string;
   plannedEndAt: string;
@@ -58,7 +59,7 @@ interface WorkOrderPayload {
   workLocation?: string;
   costCenterId?: string;
   warehouseId?: string;
-  assignedToId?: string;
+  technicianPersonnelIds: string[];
   supervisorId?: string;
   plannedStartAt?: string;
   plannedEndAt?: string;
@@ -69,7 +70,7 @@ interface WorkOrderPayload {
 const EMPTY_WO_FORM: WorkOrderForm = {
   title: '', description: '', type: 'CORRECTIVE', priority: 'MEDIUM',
   machineId: '', machineComponentId: '', scopeType: 'MACHINE', productionLineId: '', workLocation: '', costCenterId: '', warehouseId: '',
-  assignedToId: '', supervisorId: '', plannedStartAt: '', plannedEndAt: '', parts: [],
+  technicianPersonnelIds: [], technicianItems: [], supervisorId: '', plannedStartAt: '', plannedEndAt: '', parts: [],
   estimatedCost: '', notes: '',
 };
 const INITIAL_META: PaginationMeta = { page: 1, limit: 10, total: 0, totalPages: 0 };
@@ -174,28 +175,35 @@ export default function MaintenanceWorkOrdersPage() {
     createRequest: (payload) => api.post('/maintenance-work-orders', payload),
     updateRequest: (id, payload) => api.patch(`/maintenance-work-orders/${id}`, payload),
     deleteRequest: (id) => api.delete(`/maintenance-work-orders/${id}`),
-    mapRecordToForm: (detail) => ({
-      parts: [], // Saved-order parts remain managed through their dedicated endpoints.
-      title: safeString(detail.title),
-      description: safeString(detail.description),
-      type: safeString(detail.type) || 'CORRECTIVE',
-      priority: safeString(detail.priority) || 'MEDIUM',
-      machineId: safeString(detail.machineId),
-      machineComponentId: safeString(detail.machineComponentId),
-      scopeType: detail.scopeType || (detail.machineId ? 'MACHINE' : 'GENERAL'),
-      productionLineId: safeString(detail.productionLineId),
-      workLocation: safeString(detail.workLocation),
-      costCenterId: safeString(detail.costCenterId),
-      warehouseId: safeString(detail.warehouseId),
-      assignedToId: safeString(detail.assignedToId),
-      supervisorId: safeString(detail.supervisorId),
-      plannedStartAt: detail.plannedStartAt ? toLocalInput(detail.plannedStartAt) : '',
-      plannedEndAt: detail.plannedEndAt ? toLocalInput(detail.plannedEndAt) : '',
-      estimatedCost: detail.estimatedCost != null ? String(detail.estimatedCost) : '',
-      notes: safeString(detail.notes),
-    }),
+    mapRecordToForm: (detail) => {
+      const activeTechnicians = Array.isArray((detail as any).activeTechnicians) ? (detail as any).activeTechnicians : [];
+      const technicianPersonnelIds = Array.isArray((detail as any).technicianPersonnelIds)
+        ? (detail as any).technicianPersonnelIds.map(String)
+        : activeTechnicians.map((technician: any) => String(technician.id));
+      return {
+        parts: [], // Saved-order parts remain managed through their dedicated endpoints.
+        title: safeString(detail.title),
+        description: safeString(detail.description),
+        type: safeString(detail.type) || 'CORRECTIVE',
+        priority: safeString(detail.priority) || 'MEDIUM',
+        machineId: safeString(detail.machineId),
+        machineComponentId: safeString(detail.machineComponentId),
+        scopeType: detail.scopeType || (detail.machineId ? 'MACHINE' : 'GENERAL'),
+        productionLineId: safeString(detail.productionLineId),
+        workLocation: safeString(detail.workLocation),
+        costCenterId: safeString(detail.costCenterId),
+        warehouseId: safeString(detail.warehouseId),
+        technicianPersonnelIds,
+        technicianItems: activeTechnicians.map((technician: any) => ({ id: String(technician.id), label: workOrderTechnicianLabel(technician) })),
+        supervisorId: safeString(detail.supervisorId),
+        plannedStartAt: detail.plannedStartAt ? toLocalInput(detail.plannedStartAt) : '',
+        plannedEndAt: detail.plannedEndAt ? toLocalInput(detail.plannedEndAt) : '',
+        estimatedCost: detail.estimatedCost != null ? String(detail.estimatedCost) : '',
+        notes: safeString(detail.notes),
+      };
+    },
     mapFormToPayload: (currentForm, context) => {
-      const payload: WorkOrderPayload = { scopeType: currentForm.scopeType, ...plannedPartsPayload(currentForm.parts, context.mode) };
+      const payload: WorkOrderPayload = { scopeType: currentForm.scopeType, technicianPersonnelIds: currentForm.technicianPersonnelIds, ...plannedPartsPayload(currentForm.parts, context.mode) };
       if (editItem) payload.title = currentForm.title.trim();
       if (currentForm.description.trim()) payload.description = currentForm.description.trim();
       payload.type = currentForm.type || 'CORRECTIVE';
@@ -204,7 +212,6 @@ export default function MaintenanceWorkOrdersPage() {
       if (currentForm.machineComponentId) payload.machineComponentId = currentForm.machineComponentId;
       if (currentForm.productionLineId) payload.productionLineId = currentForm.productionLineId;
       if (currentForm.workLocation.trim()) payload.workLocation = currentForm.workLocation.trim();
-      if (currentForm.assignedToId) payload.assignedToId = currentForm.assignedToId;
       if (currentForm.supervisorId) payload.supervisorId = currentForm.supervisorId;
       if (currentForm.plannedStartAt) payload.plannedStartAt = new Date(currentForm.plannedStartAt).toISOString();
       if (currentForm.plannedEndAt) payload.plannedEndAt = new Date(currentForm.plannedEndAt).toISOString();
@@ -253,6 +260,10 @@ export default function MaintenanceWorkOrdersPage() {
       if (operation === 'delete') setSelectedId('');
     },
   });
+
+  const handleTechnicianItemsChange = useCallback((items: MultiLookupItem[]) => {
+    setForm((previous: WorkOrderForm) => ({ ...previous, technicianItems: items }));
+  }, [setForm]);
 
   const paginationMeta = meta ?? INITIAL_META;
 
@@ -315,7 +326,7 @@ export default function MaintenanceWorkOrdersPage() {
     ], render: (d) => <CmmsStatusBadge status={d.status} /> },
     { key: 'machine', header: t('maintenance.workOrderMachine'), sortable: true, render: (d) => d.machine ? `[${d.machine.code}] ${d.machine.name}` : '-' },
     { key: 'requestId', header: t('maintenance.workOrderRequest'), filterable: true, render: (d) => d.request ? `[${d.request.requestNumber}] ${d.request.title || ''}`.trim() : '-' },
-    { key: 'assignedTo', header: t('maintenance.workOrderAssignedTo'), sortable: true, render: (d) => d.assignedTo?.name || '-' },
+    { key: 'activeTechnicians', header: t('maintenance.workOrderTechnicians'), sortable: false, render: (d: any) => Array.isArray(d.activeTechnicians) && d.activeTechnicians.length > 0 ? d.activeTechnicians.map((x: any) => workOrderTechnicianLabel(x)).join('; ') : (d.assignedTo?.name || '-') },
     { key: 'estimatedCost', header: t('maintenance.workOrderEstimatedCost'), sortable: true, render: (d) => d.estimatedCost != null ? Number(d.estimatedCost).toLocaleString() : '-' },
     { key: 'partsCount', header: t('maintenance.workOrderParts'), sortable: true, render: (d) => d._count?.parts ?? 0 },
   ];
@@ -374,6 +385,8 @@ export default function MaintenanceWorkOrdersPage() {
     { id: 'costs', label: t('maintenance.workOrderCostEntries'), icon: costsIcon },
   ];
 
+  const selectedActiveTechnicians: any[] = Array.isArray(selectedWO?.activeTechnicians) ? selectedWO.activeTechnicians : [];
+
   const drawerSections: DrawerSection[] = [
     {
       id: 'overview',
@@ -406,7 +419,15 @@ export default function MaintenanceWorkOrdersPage() {
               <span className="text-sm font-medium text-gray-900">{selectedWO.machine ? `[${selectedWO.machine.code}] ${selectedWO.machine.name}` : '-'}</span>
             </div>
             <div className="flex justify-between items-center">
-              <span className="text-sm text-gray-500">{t('maintenance.workOrderAssignedTo')}</span>
+              <span className="text-sm text-gray-500">{t('maintenance.workOrderTechnicians')}</span>
+              <span className="text-sm font-medium text-gray-900 text-right">
+                {selectedActiveTechnicians.length > 0
+                  ? selectedActiveTechnicians.map((technician: any) => workOrderTechnicianLabel(technician)).join('; ')
+                  : '-'}
+              </span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-sm text-gray-500">{t('maintenance.workOrderLegacyAssignee')}</span>
               <span className="text-sm font-medium text-gray-900">{selectedWO.assignedTo?.name || '-'}</span>
             </div>
             <div className="flex justify-between items-center">
@@ -528,9 +549,18 @@ export default function MaintenanceWorkOrdersPage() {
           </div>}
           <Input label={t('maintenance.workLocation')} value={form.workLocation} onChange={(e) => setForm({ ...form, workLocation: e.target.value })} />
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <F9Lookup label={t('maintenance.workOrderAssignedTo')} name="assignedToId" value={form.assignedToId} onChange={(v) => { setForm({ ...form, assignedToId: v }); setValidationErrors(prev => ({ ...prev, assignedToId: '' })); }} adapter={userAdapter} error={validationErrors.assignedToId} />
             <F9Lookup label={t('maintenance.workOrderSupervisor')} name="supervisorId" value={form.supervisorId} onChange={(v) => { setForm({ ...form, supervisorId: v }); setValidationErrors(prev => ({ ...prev, supervisorId: '' })); }} adapter={userAdapter} error={validationErrors.supervisorId} />
           </div>
+          <F9MultiLookup
+            label={t('maintenance.workOrderTechnicians')}
+            value={form.technicianPersonnelIds}
+            onChange={(ids) => { setForm({ ...form, technicianPersonnelIds: ids }); setValidationErrors(prev => ({ ...prev, technicianPersonnelIds: '' })); }}
+            adapter={workOrderTechnicianAdapter}
+            items={form.technicianItems}
+            onItemsChange={handleTechnicianItemsChange}
+            error={validationErrors.technicianPersonnelIds}
+            description={t('maintenance.workOrderTechniciansHint')}
+          />
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <Input label={t('maintenance.workOrderPlannedStart')} name="plannedStartAt" type="datetime-local" value={form.plannedStartAt} onChange={(e) => { setForm({ ...form, plannedStartAt: e.target.value }); setValidationErrors(prev => ({ ...prev, plannedStartAt: '' })); }} error={validationErrors.plannedStartAt} />
             <Input label={t('maintenance.workOrderPlannedEnd')} name="plannedEndAt" type="datetime-local" value={form.plannedEndAt} onChange={(e) => { setForm({ ...form, plannedEndAt: e.target.value }); setValidationErrors(prev => ({ ...prev, plannedEndAt: '' })); }} error={validationErrors.plannedEndAt} />

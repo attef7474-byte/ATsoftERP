@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsIn, IsNumber, Min, ValidateNested, IsArray, IsNotEmpty, IsDateString } from 'class-validator';
+import { ArrayMaxSize, ArrayUnique, IsString, IsOptional, IsIn, IsNumber, Min, ValidateNested, IsArray, IsNotEmpty, IsDateString } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
@@ -110,6 +110,15 @@ export class CreateMaintenanceWorkOrderDto {
   @IsOptional()
   @IsString()
   supervisorId?: string;
+
+  @ApiPropertyOptional({ description: 'Canonical active MaintenancePersonnel ids for the work-order team.', type: [String], maxItems: 50 })
+  @IsOptional()
+  @IsArray()
+  @ArrayUnique()
+  @ArrayMaxSize(50)
+  @IsString({ each: true })
+  @IsNotEmpty({ each: true })
+  technicianPersonnelIds?: string[];
 
   @ApiPropertyOptional({ example: '2026-08-10T08:00:00.000Z' })
   @IsOptional()

@@ -245,6 +245,11 @@ function buildService(db: MockDb) {
     postLedgerEntryWithinTransaction: jest.fn().mockResolvedValue({ transaction: {}, updatedOriginal: null, replay: false }),
     reverseLedgerEntry: jest.fn(),
   } as any;
+  const assignments = {
+    activeTeamInclude: jest.fn().mockReturnValue({}),
+    projectTeam: jest.fn((record: any) => ({ ...record, technicianPersonnelIds: [], activeTechnicians: [] })),
+    reconcileWithClient: jest.fn().mockResolvedValue(null),
+  };
   const service = new MaintenanceWorkOrdersService(
     db as unknown as PrismaService,
     audit,
@@ -253,6 +258,7 @@ function buildService(db: MockDb) {
     productionCost,
     { resolveWithClient: jest.fn() } as any,
     new MaintenanceStockIssueService(db as any, audit, numbering, {} as any, {} as any, engine, productionCost),
+    assignments as any,
   );
   return { service, audit, numbering, productionCost };
 }
