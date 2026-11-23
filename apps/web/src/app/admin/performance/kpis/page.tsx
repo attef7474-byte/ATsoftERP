@@ -56,7 +56,7 @@ export default function PerformanceKpisPage() {
   }, [selected, showToast, t]);
 
   const fetchEmployees = useCallback(async () => {
-    try { const res = await api.get('/core/operational-people', { params: { page: 1, limit: 100, isActive: 'true' } }) as any; setEmployees(res.data || res.items || []); } catch { /* ignore */ }
+    try { const res = await api.get('/production/operational-people', { params: { page: 1, limit: 100, isActive: 'true' } }) as any; setEmployees(res.data || res.items || []); } catch { /* ignore */ }
   }, []);
 
   useEffect(() => { fetchData(1, ''); fetchEmployees(); }, []); // eslint-disable-line
