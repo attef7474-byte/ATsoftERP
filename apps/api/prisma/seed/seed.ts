@@ -31,6 +31,7 @@ import { BATCH_B_PERMISSIONS } from "./seed-batch-b-permission-keys";
 import { PRODUCT_PERMISSIONS } from "./seed-product-permission-keys";
 import { INVENTORY_VALUATION_PERMISSIONS } from "./seed-inventory-valuation-permission-keys";
 import { PHASE6_GOVERNANCE_PERMISSIONS } from "./seed-phase6-governance-permission-keys";
+import { PERFORMANCE_PERMISSIONS } from "./seed-performance-permission-keys";
 import { seedDefaultLossReasons } from "./seed-production-loss-reasons";
 
 const adapter = new PrismaMssql(process.env.DATABASE_URL!);
@@ -199,6 +200,7 @@ async function main() {
     // Phase 6: 61 legacy keys enforced by controllers but previously unseeded.
     // Declared here so they are grantable and included by the SUPER_ADMIN grant-all loop.
     ...PHASE6_GOVERNANCE_PERMISSIONS,
+    ...PERFORMANCE_PERMISSIONS,
     { key: "user:reset-password", module: "user", action: "reset-password" },
     // R4R: UserActivityController enforces `users.loginHistory.view` on two routes, but the
     // key was declared nowhere in the seed, so those routes were a permanently-denied 403

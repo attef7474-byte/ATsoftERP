@@ -293,6 +293,8 @@ model Company {
   jobTitles                        JobTitle[]
   personAssignments                OperationalPersonAssignment[]
   supervisorAssignments            SupervisorAssignment[]
+  performanceProfiles              PerformanceProfile[]
+  performanceProfileMappings       PerformanceProfileMapping[]
   shiftHandovers                   ShiftHandover[]
   shiftHandoverItems               ShiftHandoverItem[]
   valuationPolicies                InventoryValuationPolicy[]
@@ -6402,6 +6404,7 @@ model JobTitle {
   deletedAt   DateTime?
 
   assignments OperationalPersonAssignment[]
+  performanceProfileMappings PerformanceProfileMapping[]
 
   @@unique([companyId, code])
   @@index([companyId])
@@ -6471,6 +6474,68 @@ model SupervisorAssignment {
   @@map("supervisor_assignments")
 }
 
+// PERFORMANCE-P1: canonical performance profile foundation. Additive only.
+// Profiles define measurement strategy by job/role; they do not store scores.
+model PerformanceProfile {
+  id          String   @id @default(cuid())
+  companyId   String
+  company     Company  @relation(fields: [companyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  code        String   @db.NVarChar(100)
+  name        String   @db.NVarChar(200)
+  nameAr      String?  @db.NVarChar(200)
+  nameEn      String?  @db.NVarChar(200)
+  description String?  @db.NVarChar(1000)
+  category    String   @default("GENERAL") @db.NVarChar(30)
+  isActive    Boolean  @default(true)
+  status      String   @default("ACTIVE") @db.NVarChar(20)
+  createdById String?
+  updatedById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+
+  mappings PerformanceProfileMapping[]
+
+  @@unique([companyId, code])
+  @@index([companyId])
+  @@index([companyId, isActive])
+  @@index([companyId, status])
+  @@index([companyId, category])
+  @@map("performance_profiles")
+}
+
+// PERFORMANCE-P1: effective-dated profile mapping. Authoritative explicit mapping only.
+// targetType: JOB_TITLE | MAINTENANCE_ROLE | OPERATIONAL_CATEGORY
+model PerformanceProfileMapping {
+  id                   String             @id @default(cuid())
+  companyId            String
+  company              Company            @relation(fields: [companyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  performanceProfileId String
+  performanceProfile   PerformanceProfile @relation(fields: [performanceProfileId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  targetType           String             @db.NVarChar(30)
+  jobTitleId           String?
+  jobTitle             JobTitle?          @relation(fields: [jobTitleId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  targetCode           String?            @db.NVarChar(100)
+  priority             Int                @default(100)
+  effectiveFrom        DateTime
+  effectiveTo          DateTime?
+  isActive             Boolean            @default(true)
+  status               String             @default("ACTIVE") @db.NVarChar(20)
+  notes                String?            @db.NVarChar(1000)
+  createdById          String?
+  updatedById          String?
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+  deletedAt            DateTime?
+
+  @@index([companyId])
+  @@index([companyId, performanceProfileId])
+  @@index([companyId, targetType, isActive])
+  @@index([companyId, jobTitleId, effectiveFrom, effectiveTo])
+  @@index([companyId, targetType, targetCode, effectiveFrom, effectiveTo])
+  @@index([performanceProfileId, status])
+  @@map("performance_profile_mappings")
+}
 // COST-R2D-B1: source and period evidence only. No allocation or ledger posting.
 model OperationalOverheadPeriod {
   // B2 inverse relations only; existing physical contract unchanged.

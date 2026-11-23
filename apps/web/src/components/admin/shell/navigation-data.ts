@@ -157,6 +157,7 @@ export const routeGroupMap: Record<string, string> = {
   '/admin/inventory': 'inventory',
   '/admin/production': 'production',
   '/admin/barcodes': 'barcode',
+  '/admin/performance': 'performance',
   '/admin/reports': 'reports',
   '/admin/documents': 'documents',
   '/admin/settings': 'system',
@@ -390,7 +391,19 @@ export const sidebarGroups: SidebarGroup[] = [
     ],
   },
 
-  // 8. Reports & Analytics
+  // 8. Performance Management
+  {
+    id: 'performance', labelKey: 'navigation.performanceManagement', icon: 'report', children: [
+      {
+        id: 'perf-main', labelKey: 'navigation.navSection.performanceMain', items: [
+          { id: 'perf-profiles', labelKey: 'navigation.performanceProfiles', route: '/admin/performance/profiles', permission: 'performance-profile:read' },
+          { id: 'perf-coverage', labelKey: 'navigation.performanceCoverage', route: '/admin/performance/coverage', permission: 'performance-coverage:read' },
+        ],
+      },
+    ],
+  },
+
+  // 9. Reports & Analytics
   {
     id: 'reports', labelKey: 'navigation.reportsAnalytics', icon: 'report', children: [
       {

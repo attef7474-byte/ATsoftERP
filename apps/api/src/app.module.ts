@@ -114,6 +114,7 @@ import { OperationalOverheadModule } from './modules/factory/operational-overhea
 import { OverheadAllocationModule } from './modules/factory/overhead-allocation/overhead-allocation.module';
 import { MasterDataExcelModule } from './modules/factory/master-data-excel/master-data-excel.module';
 import { UnifiedReceiptsModule } from './modules/factory/unified-receipts/unified-receipts.module';
+import { PerformanceModule } from './modules/performance/performance.module';
 
 @Module({
   imports: [
@@ -183,6 +184,7 @@ import { UnifiedReceiptsModule } from './modules/factory/unified-receipts/unifie
     OverheadAllocationModule,
     MasterDataExcelModule,
     UnifiedReceiptsModule,
+    PerformanceModule,
   ],
 })
 export class AppModule {}

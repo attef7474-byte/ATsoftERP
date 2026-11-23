@@ -7,9 +7,9 @@ import { useTranslation } from '@/lib/i18n/use-translation';
 import { useToast } from '@/components/admin/toast-provider';
 import type { OperationalPerson, OperationalPersonAssignment, SupervisorAssignment } from '@/lib/admin-types';
 import { Button, Card, LoadingState, StatusBadge } from '@/components/admin/ui';
-import { ArrowLeft, RefreshCw, UserCheck, Briefcase } from 'lucide-react';
+import { ArrowLeft, RefreshCw, UserCheck, Briefcase, Shield } from 'lucide-react';
 
-type Tab = 'assignments' | 'reporting';
+type Tab = 'assignments' | 'reporting' | 'performance';
 
 export default function PersonDetailPage() {
   const router = useRouter();
@@ -28,6 +28,10 @@ export default function PersonDetailPage() {
 
   const [supervisorAssignments, setSupervisorAssignments] = useState<SupervisorAssignment[]>([]);
   const [supervisorLoading, setSupervisorLoading] = useState(false);
+
+  const [performanceContext, setPerformanceContext] = useState<any | null>(null);
+  const [performanceLoading, setPerformanceLoading] = useState(false);
+  const [performanceError, setPerformanceError] = useState<string | null>(null);
 
   const fetchPerson = useCallback(async () => {
     if (!id) return;
@@ -79,6 +83,30 @@ export default function PersonDetailPage() {
     }
   }, [id, showToast, t]);
 
+  const fetchPerformanceContext = useCallback(async () => {
+    if (!id) return;
+    setPerformanceLoading(true);
+    setPerformanceError(null);
+    try {
+      const res = await api.get(`/performance/employees/${id}/context`) as any;
+      setPerformanceContext(res);
+    } catch (err: any) {
+      const status = err?.response?.status;
+      if (status === 404) {
+        setPerformanceContext(null);
+        setPerformanceError(null);
+      } else if (status === 403) {
+        setPerformanceError(t('errors.noPermission') || 'No permission');
+        setPerformanceContext(null);
+      } else {
+        setPerformanceError(t('errors.loadFailed'));
+        setPerformanceContext(null);
+      }
+    } finally {
+      setPerformanceLoading(false);
+    }
+  }, [id, t]);
+
   useEffect(() => { fetchPerson(); }, [fetchPerson]);
 
   useEffect(() => {
@@ -88,6 +116,10 @@ export default function PersonDetailPage() {
   useEffect(() => {
     if (person && activeTab === 'reporting') fetchSupervisorAssignments();
   }, [person, activeTab, fetchSupervisorAssignments]);
+
+  useEffect(() => {
+    if (person && activeTab === 'performance') fetchPerformanceContext();
+  }, [person, activeTab, fetchPerformanceContext]);
 
   if (loading) return <LoadingState />;
   if (error) return <div className="text-center py-12 text-red-600">{error}</div>;
@@ -190,6 +222,17 @@ export default function PersonDetailPage() {
           >
             <UserCheck className="h-4 w-4" />
             {t('core.reporting') || 'Reporting'}
+          </button>
+          <button
+            onClick={() => setActiveTab('performance')}
+            className={`pb-3 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 ${
+              activeTab === 'performance'
+                ? 'border-blue-600 text-blue-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            }`}
+          >
+            <Shield className="h-4 w-4" />
+            {t('core.performance.context') || 'Performance Context'}
           </button>
         </nav>
       </div>
@@ -301,6 +344,62 @@ export default function PersonDetailPage() {
             )}
           </Card>
         </div>
+      )}
+
+      {activeTab === 'performance' && (
+        <Card>
+          {performanceLoading ? (
+            <LoadingState />
+          ) : performanceError ? (
+            <div className="text-center py-8 text-red-600 text-sm">{performanceError}</div>
+          ) : !performanceContext ? (
+            <div className="text-center py-8">
+              <div className="text-amber-600 font-medium">{t('core.performance.unassigned') || 'Unassigned'}</div>
+              <div className="text-sm text-gray-500 mt-1">{t('core.performance.noAssignment') || 'No current assignment in active context'}</div>
+            </div>
+          ) : (
+            <div className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-sm">
+                <div><span className="text-xs text-gray-500 uppercase tracking-wider">{t('core.performance.employee') || 'Employee'}</span><p className="font-medium text-gray-900 mt-1">{performanceContext.employee?.code} - {performanceContext.employee?.name}</p></div>
+                <div><span className="text-xs text-gray-500 uppercase tracking-wider">{t('core.performance.department') || 'Department'}</span><p className="font-medium text-gray-900 mt-1">{performanceContext.organization?.department?.name || '-'}</p></div>
+                <div><span className="text-xs text-gray-500 uppercase tracking-wider">{t('core.performance.jobTitle') || 'Job Title'}</span><p className="font-medium text-gray-900 mt-1">{performanceContext.organization?.jobTitle?.nameAr || performanceContext.organization?.jobTitle?.name || '-'}</p></div>
+                <div><span className="text-xs text-gray-500 uppercase tracking-wider">{t('core.performance.supervisor') || 'Supervisor'}</span><p className="font-medium text-gray-900 mt-1">{performanceContext.supervisor?.name ? `${performanceContext.supervisor.code} - ${performanceContext.supervisor.name}` : '-'}</p></div>
+                <div><span className="text-xs text-gray-500 uppercase tracking-wider">{t('core.performance.currentProfile') || 'Current Performance Profile'}</span><p className="font-medium text-gray-900 mt-1">{performanceContext.performanceProfile ? (performanceContext.performanceProfile.nameAr || performanceContext.performanceProfile.name) : <span className="text-amber-600">{t('core.performance.unassigned') || 'Unassigned'}</span>}</p></div>
+                <div><span className="text-xs text-gray-500 uppercase tracking-wider">{t('core.performance.resolvedFrom') || 'Resolved from'}</span><p className="font-medium text-gray-900 mt-1">{performanceContext.performanceProfile?.source ? `${t(`core.performance.targetType_${performanceContext.performanceProfile.source.targetType}`) || performanceContext.performanceProfile.source.targetType} (${String(performanceContext.performanceProfile.source.effectiveFrom).slice(0,10)})` : '-'}</p></div>
+              </div>
+
+              {performanceContext.maintenance && (
+                <div className="border rounded-lg p-4">
+                  <h3 className="text-sm font-semibold text-gray-700 mb-3">{t('core.performance.maintenance') || 'Maintenance Role'}</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm mb-4">
+                    <div><span className="text-xs text-gray-500">{t('core.performance.maintenanceRole') || 'Role'}</span><p className="font-medium">{performanceContext.maintenance.role || '-'}</p></div>
+                    <div><span className="text-xs text-gray-500">{t('core.performance.specialty') || 'Specialty'}</span><p className="font-medium">{performanceContext.maintenance.specialty || '-'}</p></div>
+                  </div>
+                  <h4 className="text-xs font-semibold text-gray-600 mb-2 uppercase tracking-wider">{t('core.performance.machineResponsibilities') || 'Machine Responsibilities'}</h4>
+                  {(performanceContext.maintenance.machineResponsibilities || []).length === 0 ? (
+                    <div className="text-sm text-gray-500">{t('core.performance.noResponsibilities') || 'No active responsibilities'}</div>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm"><thead><tr className="border-b"><th className="text-left py-2 px-2">{t('maintenance.machineName')}</th><th className="text-left py-2 px-2">{t('common.code')}</th><th className="text-left py-2 px-2">{t('core.performance.assignmentType')}</th><th className="text-left py-2 px-2">{t('core.performance.effectiveFrom')}</th><th className="text-left py-2 px-2">{t('core.performance.effectiveTo')}</th></tr></thead>
+                      <tbody>{performanceContext.maintenance.machineResponsibilities.map((r: any) => (<tr key={r.id} className="border-b"><td className="py-2 px-2">{r.machine?.name || '-'}</td><td className="py-2 px-2 font-mono text-xs">{r.machine?.code || '-'}</td><td className="py-2 px-2">{r.responsibilityRole || r.scopeType || '-'}</td><td className="py-2 px-2 text-xs">{r.startDate ? String(r.startDate).slice(0,10) : '-'}</td><td className="py-2 px-2 text-xs">{r.endDate ? String(r.endDate).slice(0,10) : t('core.performance.openEnded')}</td></tr>))}</tbody></table>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {performanceContext.production && (
+                <div className="border rounded-lg p-4">
+                  <h3 className="text-sm font-semibold text-gray-700 mb-3">{t('core.performance.productionAssignment') || 'Production Assignment'}</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                    <div><span className="text-xs text-gray-500">{t('common.code')}</span><p className="font-medium">{performanceContext.production.code || '-'}</p></div>
+                    <div><span className="text-xs text-gray-500">Shift</span><p className="font-medium">{performanceContext.production.shift?.name || performanceContext.production.shift?.code || '-'}</p></div>
+                    <div><span className="text-xs text-gray-500">{t('core.performance.effectiveFrom')}</span><p className="font-medium">{performanceContext.production.effectiveFrom ? String(performanceContext.production.effectiveFrom).slice(0,10) : '-'}</p></div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </Card>
       )}
     </div>
   );

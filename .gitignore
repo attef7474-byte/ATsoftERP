@@ -3,6 +3,10 @@ dist/
 .next/
 build/
 coverage/
+!apps/api/src/modules/performance/coverage/
+!apps/api/src/modules/performance/coverage/**
+!apps/web/src/app/admin/performance/coverage/
+!apps/web/src/app/admin/performance/coverage/**
 *.log
 .env
 .env.*
