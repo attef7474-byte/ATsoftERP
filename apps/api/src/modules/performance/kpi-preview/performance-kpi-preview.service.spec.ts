@@ -74,12 +74,12 @@ describe('PerformanceKpiPreviewService', () => {
     expect(res.status).toBe('ATTRIBUTION_AMBIGUOUS');
   });
 
-  it('computes production OEE using canonical formula utilities for identical run/window', async () => {
+  it('computes production OEE using canonical formula utilities and run standardRateSnapshot/timeBasisSnapshot', async () => {
     mockProfileAndKpi({ code: 'PROD_OEE', domain: 'PRODUCTION_EFFICIENCY', measurementUnit: 'PERCENT', direction: 'HIGHER_IS_BETTER', aggregationType: 'RATIO', calculationMode: 'DERIVED_FROM_CANONICAL_ANALYTICS', sourceContractKey: 'production.oee' });
     const from = new Date('2026-01-01T00:00:00.000Z');
     const to = new Date('2026-01-01T08:00:00.000Z');
     const run: any = {
-      id: 'run1', runNumber: 'RUN-1', startedAt: from, endedAt: to, standardRate: new Prisma.Decimal(10), timeBasis: 'HOUR',
+      id: 'run1', runNumber: 'RUN-1', startedAt: from, endedAt: to, standardRateSnapshot: new Prisma.Decimal(10), timeBasisSnapshot: 'HOUR',
       productionOrder: { orderNumber: 'PO-1' }, productionLine: { code: 'L1' },
       sessions: [{ startedAt: from, closedAt: to }],
       downtimeSegments: [{ id: 's1', startedAt: new Date('2026-01-01T01:00:00.000Z'), endedAt: new Date('2026-01-01T01:30:00.000Z'), planned: false, status: 'CLOSED' }],
@@ -95,7 +95,7 @@ describe('PerformanceKpiPreviewService', () => {
 
     const planned = new Prisma.Decimal(480);
     const operating = new Prisma.Decimal(450);
-    const ideal = idealRatePerHour(run.standardRate, run.timeBasis).mul(operating.div(60)).toDecimalPlaces(4);
+    const ideal = idealRatePerHour(run.standardRateSnapshot, run.timeBasisSnapshot).mul(operating.div(60)).toDecimalPlaces(4);
     const totals = deriveRunTotals(run.outputEvents as any, { from, to });
     const total = new Prisma.Decimal(totals.finalOutputTotal);
     const good = new Prisma.Decimal(totals.finalOutputGood);
@@ -104,6 +104,33 @@ describe('PerformanceKpiPreviewService', () => {
     const quality = qualityFactor(good, total);
     const oee = oeeProduct(availability, performance, quality);
     expect(res.rawValue).toBe(Number(Number(oee.percent).toFixed(4)));
+  });
+
+  it('reports missing repair timestamps as exclusions and splits multi-technician repair time evenly', async () => {
+    mockProfileAndKpi({ code: 'MAINT_REPAIR_TIME_AVG', domain: 'MAINTENANCE_EXECUTION', measurementUnit: 'MINUTES', direction: 'LOWER_IS_BETTER', aggregationType: 'AVERAGE', calculationMode: 'FORMULA', sourceContractKey: 'maintenance.repair_time' });
+    prisma.operationalPerson.findFirst.mockResolvedValue({ userId: 'u1' });
+    prisma.downtimeLog.findMany.mockResolvedValue([
+      { id: 'd1', startTime: new Date('2026-01-05T10:00:00Z'), repairStartedAt: new Date('2026-01-05T10:00:00Z'), repairCompletedAt: new Date('2026-01-05T11:00:00Z'), machine: { code: 'M1' }, requestId: 'r1', executionId: 'ex1', execution: { sessions: [{ technicianUserId: 'u1' }, { technicianUserId: 'u2' }] } },
+      { id: 'd2', startTime: new Date('2026-01-06T10:00:00Z'), repairStartedAt: null, repairCompletedAt: new Date('2026-01-06T11:00:00Z'), machine: { code: 'M1' }, requestId: 'r2', executionId: 'ex2', execution: { sessions: [{ technicianUserId: 'u1' }] } },
+    ]);
+    const res = await service.preview({ ...baseDto, kpiCode: 'MAINT_REPAIR_TIME_AVG' } as any, ctx);
+    expect(res.status).toBe('CALCULABLE');
+    expect(res.rawValue).toBe(30);
+    expect(res.excluded.reasons.missingTimestamps).toBe(1);
+    expect(res.excluded.reasons.splitAcrossTechnicians).toBe(1);
+    expect(res.evidence[0].contribution).toMatchObject({ repairMinutes: 30, rawRepairMinutes: 60, technicianCount: 2 });
+  });
+
+  it('splits multi-technician response time evenly and reports raw/technicianCount evidence', async () => {
+    mockProfileAndKpi();
+    prisma.operationalPerson.findFirst.mockResolvedValue({ userId: 'u1' });
+    prisma.downtimeLog.findMany.mockResolvedValue([
+      { id: 'd1', startTime: new Date('2026-01-05T10:00:00Z'), detectedAt: new Date('2026-01-05T10:00:00Z'), responseStartedAt: new Date('2026-01-05T10:20:00Z'), machine: { code: 'M1' }, requestId: 'r1', executionId: 'ex1', execution: { sessions: [{ technicianUserId: 'u1' }, { technicianUserId: 'u2' }] } },
+    ]);
+    const res = await service.preview(baseDto as any, ctx);
+    expect(res.status).toBe('CALCULABLE');
+    expect(res.rawValue).toBe(10);
+    expect(res.evidence[0].contribution).toMatchObject({ responseMinutes: 10, rawResponseMinutes: 20, technicianCount: 2 });
   });
 
   it('rejects preview window over 366 days', async () => {
