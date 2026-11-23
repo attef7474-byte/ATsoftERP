@@ -397,7 +397,9 @@ export const sidebarGroups: SidebarGroup[] = [
       {
         id: 'perf-main', labelKey: 'navigation.navSection.performanceMain', items: [
           { id: 'perf-profiles', labelKey: 'navigation.performanceProfiles', route: '/admin/performance/profiles', permission: 'performance-profile:read' },
+          { id: 'perf-kpis', labelKey: 'navigation.performanceKpis', route: '/admin/performance/kpis', permission: 'performance-kpi:read' },
           { id: 'perf-coverage', labelKey: 'navigation.performanceCoverage', route: '/admin/performance/coverage', permission: 'performance-coverage:read' },
+          { id: 'perf-kpi-coverage', labelKey: 'navigation.performanceKpiCoverage', route: '/admin/performance/kpi-coverage', permission: 'performance-kpi-coverage:read' },
         ],
       },
     ],

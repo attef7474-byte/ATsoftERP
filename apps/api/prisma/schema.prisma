@@ -295,6 +295,8 @@ model Company {
   supervisorAssignments            SupervisorAssignment[]
   performanceProfiles              PerformanceProfile[]
   performanceProfileMappings       PerformanceProfileMapping[]
+  performanceKpiDefinitions        PerformanceKpiDefinition[]
+  performanceProfileKpiEligibilities PerformanceProfileKpiEligibility[]
   shiftHandovers                   ShiftHandover[]
   shiftHandoverItems               ShiftHandoverItem[]
   valuationPolicies                InventoryValuationPolicy[]
@@ -6494,7 +6496,8 @@ model PerformanceProfile {
   updatedAt   DateTime @updatedAt
   deletedAt   DateTime?
 
-  mappings PerformanceProfileMapping[]
+  mappings        PerformanceProfileMapping[]
+  kpiEligibilities PerformanceProfileKpiEligibility[]
 
   @@unique([companyId, code])
   @@index([companyId])
@@ -6536,6 +6539,76 @@ model PerformanceProfileMapping {
   @@index([performanceProfileId, status])
   @@map("performance_profile_mappings")
 }
+
+// PERFORMANCE-P2: central KPI authority. One definition for all domains; no weights/scores.
+model PerformanceKpiDefinition {
+  id                   String   @id @default(cuid())
+  companyId            String
+  company              Company  @relation(fields: [companyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  code                 String   @db.NVarChar(100)
+  name                 String   @db.NVarChar(200)
+  nameAr               String?  @db.NVarChar(200)
+  nameEn               String?  @db.NVarChar(200)
+  description          String?  @db.NVarChar(2000)
+  descriptionAr        String?  @db.NVarChar(2000)
+  descriptionEn        String?  @db.NVarChar(2000)
+  domain               String   @db.NVarChar(50)
+  measurementUnit      String   @db.NVarChar(30)
+  direction            String   @db.NVarChar(30)
+  aggregationType      String   @db.NVarChar(30)
+  calculationMode      String   @db.NVarChar(50)
+  sourceContractKey    String   @db.NVarChar(100)
+  calculationVersion   Int      @default(1)
+  status               String   @default("DRAFT") @db.NVarChar(20)
+  isActive             Boolean  @default(false)
+  effectiveFrom        DateTime?
+  effectiveTo          DateTime?
+  notes                String?  @db.NVarChar(2000)
+  createdById          String?
+  updatedById          String?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+  deletedAt            DateTime?
+
+  profileEligibilities PerformanceProfileKpiEligibility[]
+
+  @@unique([companyId, code])
+  @@index([companyId])
+  @@index([companyId, domain])
+  @@index([companyId, status])
+  @@index([companyId, isActive])
+  @@index([companyId, sourceContractKey])
+  @@map("performance_kpi_definitions")
+}
+
+// PERFORMANCE-P2: maps eligible KPIs to performance profiles. No weight/score fields.
+model PerformanceProfileKpiEligibility {
+  id                     String                  @id @default(cuid())
+  companyId              String
+  company                Company                 @relation(fields: [companyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  performanceProfileId   String
+  performanceProfile     PerformanceProfile      @relation(fields: [performanceProfileId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  kpiDefinitionId        String
+  kpiDefinition          PerformanceKpiDefinition @relation(fields: [kpiDefinitionId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  isRequired             Boolean                 @default(false)
+  isEnabled              Boolean                 @default(true)
+  effectiveFrom          DateTime?
+  effectiveTo            DateTime?
+  notes                  String?                 @db.NVarChar(1000)
+  createdById            String?
+  updatedById            String?
+  createdAt              DateTime                @default(now())
+  updatedAt              DateTime                @updatedAt
+  deletedAt              DateTime?
+
+  @@unique([companyId, performanceProfileId, kpiDefinitionId])
+  @@index([companyId])
+  @@index([companyId, performanceProfileId, isEnabled])
+  @@index([companyId, kpiDefinitionId])
+  @@index([performanceProfileId, isEnabled])
+  @@map("performance_profile_kpi_eligibilities")
+}
+
 // COST-R2D-B1: source and period evidence only. No allocation or ledger posting.
 model OperationalOverheadPeriod {
   // B2 inverse relations only; existing physical contract unchanged.

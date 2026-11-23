@@ -8,6 +8,14 @@ import { PerformanceContextService } from './context/performance-context.service
 import { PerformanceContextController } from './context/performance-context.controller';
 import { PerformanceCoverageService } from './coverage/performance-coverage.service';
 import { PerformanceCoverageController } from './coverage/performance-coverage.controller';
+import { PerformanceKpisService } from './kpis/performance-kpis.service';
+import { PerformanceKpisController } from './kpis/performance-kpis.controller';
+import { PerformanceKpiEligibilityService } from './kpi-eligibility/performance-kpi-eligibility.service';
+import { PerformanceKpiEligibilityController } from './kpi-eligibility/performance-kpi-eligibility.controller';
+import { PerformanceKpiPreviewService } from './kpi-preview/performance-kpi-preview.service';
+import { PerformanceKpiPreviewController } from './kpi-preview/performance-kpi-preview.controller';
+import { PerformanceKpiCoverageService } from './kpi-coverage/performance-kpi-coverage.service';
+import { PerformanceKpiCoverageController } from './kpi-coverage/performance-kpi-coverage.controller';
 
 @Module({
   imports: [AuditModule],
@@ -16,13 +24,21 @@ import { PerformanceCoverageController } from './coverage/performance-coverage.c
     PerformanceProfileMappingsController,
     PerformanceContextController,
     PerformanceCoverageController,
+    PerformanceKpisController,
+    PerformanceKpiEligibilityController,
+    PerformanceKpiPreviewController,
+    PerformanceKpiCoverageController,
   ],
   providers: [
     PerformanceProfilesService,
     PerformanceProfileMappingsService,
     PerformanceContextService,
     PerformanceCoverageService,
+    PerformanceKpisService,
+    PerformanceKpiEligibilityService,
+    PerformanceKpiPreviewService,
+    PerformanceKpiCoverageService,
   ],
-  exports: [PerformanceContextService],
+  exports: [PerformanceContextService, PerformanceKpiPreviewService],
 })
 export class PerformanceModule {}

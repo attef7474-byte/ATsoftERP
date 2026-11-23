@@ -5,7 +5,7 @@ import { api } from '@/lib/api';
 import { useTranslation } from '@/lib/i18n/use-translation';
 import { useToast } from '@/components/admin/toast-provider';
 import { Button, Input, Card, LoadingState, Modal, StatusBadge, Pagination, ConfirmDialog } from '@/components/admin/ui';
-import { Search, Plus, Edit, RefreshCw, Shield, Link2, Power, PowerOff } from 'lucide-react';
+import { Search, Plus, Edit, RefreshCw, Shield, Link2, Power, PowerOff, BarChart3 } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
 
 const CATEGORIES = ['MAINTENANCE','PRODUCTION','WAREHOUSE','QUALITY','PLANNING','SUPERVISION','GENERAL'];
@@ -44,6 +44,15 @@ export default function PerformanceProfilesPage() {
   const [mappingSaving, setMappingSaving] = useState(false);
   const [mappingErrors, setMappingErrors] = useState<Record<string,string>>({});
   const [jobTitles, setJobTitles] = useState<any[]>([]);
+  const [kpiDefs, setKpiDefs] = useState<any[]>([]);
+  const [eligModalOpen, setEligModalOpen] = useState(false);
+  const [editingEligId, setEditingEligId] = useState<string | null>(null);
+  const [eligForm, setEligForm] = useState<any>({ performanceProfileId: '', kpiDefinitionId: '', isRequired: false, isEnabled: true, effectiveFrom: '', effectiveTo: '', notes: '' });
+  const [eligSaving, setEligSaving] = useState(false);
+  const [eligErrors, setEligErrors] = useState<Record<string,string>>({});
+  const canEligCreate = can('performance-profile-kpi-eligibility:create');
+  const canEligUpdate = can('performance-profile-kpi-eligibility:update');
+  const canEligDeactivate = can('performance-profile-kpi-eligibility:deactivate');
 
   const fetchData = useCallback(async (page = 1, q = '') => {
     setLoading(true);
@@ -66,8 +75,14 @@ export default function PerformanceProfilesPage() {
       setJobTitles(res.data || []);
     } catch { /* ignore */ }
   }, []);
+  const fetchKpiDefs = useCallback(async () => {
+    try {
+      const res = await api.get('/performance/kpis', { params: { page: 1, limit: 200 } }) as any;
+      setKpiDefs(res.data || []);
+    } catch { /* ignore */ }
+  }, []);
 
-  useEffect(() => { fetchData(1, ''); fetchJobTitles(); }, []); // eslint-disable-line
+  useEffect(() => { fetchData(1, ''); fetchJobTitles(); fetchKpiDefs(); }, []); // eslint-disable-line
 
   const openCreate = () => { setEditingId(null); setForm(emptyProfile); setErrors({}); setModalOpen(true); };
   const openEdit = (p: any) => { setEditingId(p.id); setForm({ code: p.code, name: p.name, nameAr: p.nameAr || '', nameEn: p.nameEn || '', description: p.description || '', category: p.category || 'GENERAL', isActive: !!p.isActive }); setErrors({}); setModalOpen(true); };
@@ -150,9 +165,55 @@ export default function PerformanceProfilesPage() {
     } catch (err: any) { showToast(err?.response?.data?.message || t('errors.saveFailed'), 'error'); }
   };
 
+  const openAddElig = (profile: any) => {
+    setEditingEligId(null);
+    setEligForm({ performanceProfileId: profile.id, kpiDefinitionId: '', isRequired: false, isEnabled: true, effectiveFrom: '', effectiveTo: '', notes: '' });
+    setEligErrors({});
+    setEligModalOpen(true);
+  };
+  const openEditElig = (profile: any, eRow: any) => {
+    setEditingEligId(eRow.id);
+    setEligForm({ performanceProfileId: profile.id, kpiDefinitionId: eRow.kpiDefinitionId, isRequired: !!eRow.isRequired, isEnabled: !!eRow.isEnabled, effectiveFrom: eRow.effectiveFrom ? String(eRow.effectiveFrom).slice(0,10) : '', effectiveTo: eRow.effectiveTo ? String(eRow.effectiveTo).slice(0,10) : '', notes: eRow.notes || '' });
+    setEligErrors({});
+    setEligModalOpen(true);
+  };
+  const saveElig = async () => {
+    const e: Record<string,string> = {};
+    if (!eligForm.performanceProfileId) e.performanceProfileId = t('validation.required');
+    if (!eligForm.kpiDefinitionId) e.kpiDefinitionId = t('validation.required');
+    setEligErrors(e);
+    if (Object.keys(e).length) return;
+    setEligSaving(true);
+    try {
+      const payload: any = { ...eligForm, effectiveFrom: eligForm.effectiveFrom || null, effectiveTo: eligForm.effectiveTo || null };
+      if (editingEligId) await api.patch(`/performance/kpi-eligibility/${editingEligId}`, { isRequired: payload.isRequired, isEnabled: payload.isEnabled, effectiveFrom: payload.effectiveFrom, effectiveTo: payload.effectiveTo, notes: payload.notes });
+      else await api.post('/performance/kpi-eligibility', payload);
+      showToast(editingEligId ? t('common.successUpdated') : t('common.successCreated'), 'success');
+      setEligModalOpen(false);
+      if (selected) await selectProfile(selected.id);
+    } catch (err: any) {
+      const fe = err?.response?.data?.errors;
+      if (fe?.length) { const m: any = {}; fe.forEach((x: any) => m[x.field] = x.message); setEligErrors(m); }
+      else showToast(err?.response?.data?.message || t('errors.saveFailed'), 'error');
+    } finally { setEligSaving(false); }
+  };
+  const toggleElig = async (row: any) => {
+    try {
+      const path = row.isEnabled ? 'deactivate' : 'activate';
+      await api.post(`/performance/kpi-eligibility/${row.id}/${path}`, {});
+      showToast(t('common.successUpdated'), 'success');
+      if (selected) await selectProfile(selected.id);
+    } catch (err: any) { showToast(err?.response?.data?.message || t('errors.saveFailed'), 'error'); }
+  };
+
   const selectProfile = async (id: string) => {
     try {
       const res = await api.get(`/performance/profiles/${id}`) as any;
+      // also load KPI eligibilities for this profile
+      try {
+        const elig = await api.get('/performance/kpi-eligibility', { params: { performanceProfileId: id, page: 1, limit: 200 } }) as any;
+        res.kpiEligibilities = elig.data || [];
+      } catch { res.kpiEligibilities = res.kpiEligibilities || []; }
       setSelected(res);
     } catch (err: any) { showToast(err?.response?.data?.message || t('errors.loadFailed'), 'error'); }
   };
@@ -232,8 +293,57 @@ export default function PerformanceProfilesPage() {
               </tbody>
             </table>
           </div>
+
+          <div className="mt-8 border-t pt-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2"><BarChart3 className="h-5 w-5 text-blue-600" /><h3 className="text-base font-semibold">{t('core.performance.profileKpis')}</h3></div>
+              {canEligCreate && <Button size="sm" onClick={() => openAddElig(selected)}><Plus className="h-4 w-4 mr-1" />{t('core.performance.addKpiEligibility')}</Button>}
+            </div>
+            <div className="overflow-x-auto">
+              <table className="min-w-full text-sm">
+                <thead><tr className="border-b text-left"><th className="py-2 px-2">{t('core.performance.kpiCode')}</th><th className="py-2 px-2">{t('core.performance.kpiName')}</th><th className="py-2 px-2">{t('core.performance.domain')}</th><th className="py-2 px-2">{t('core.performance.isRequired')}</th><th className="py-2 px-2">{t('common.status')}</th><th className="py-2 px-2">{t('common.actions')}</th></tr></thead>
+                <tbody>
+                  {(selected.kpiEligibilities || []).map((row: any) => (
+                    <tr key={row.id} className="border-b">
+                      <td className="py-2 px-2 font-mono">{row.kpiDefinition?.code}</td>
+                      <td className="py-2 px-2">{row.kpiDefinition?.nameAr || row.kpiDefinition?.name}</td>
+                      <td className="py-2 px-2">{t(`core.performance.domain_${row.kpiDefinition?.domain}`) || row.kpiDefinition?.domain}</td>
+                      <td className="py-2 px-2">{row.isRequired ? t('common.yes') : t('common.no')}</td>
+                      <td className="py-2 px-2"><StatusBadge status={row.isEnabled ? 'ACTIVE' : 'INACTIVE'} /></td>
+                      <td className="py-2 px-2">
+                        <div className="flex gap-1">
+                          {canEligUpdate && <Button size="sm" variant="secondary" onClick={() => openEditElig(selected, row)}><Edit className="h-4 w-4" /></Button>}
+                          {canEligDeactivate && <Button size="sm" variant="secondary" onClick={() => toggleElig(row)}>{row.isEnabled ? <PowerOff className="h-4 w-4" /> : <Power className="h-4 w-4" />}</Button>}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                  {(!selected.kpiEligibilities || selected.kpiEligibilities.length === 0) && <tr><td colSpan={6} className="py-4 text-center text-gray-500">{t('core.performance.noEligibleKpis')}</td></tr>}
+                </tbody>
+              </table>
+            </div>
+          </div>
         </Card>
       )}
+
+      <Modal open={eligModalOpen} onClose={() => setEligModalOpen(false)} title={editingEligId ? t('core.performance.eligibility') : t('core.performance.addKpiEligibility')}>
+        <div className="space-y-3">
+          <div>
+            <label className="block text-sm font-medium mb-1">{t('core.performance.kpi')}</label>
+            <select className="w-full border rounded px-3 py-2" value={eligForm.kpiDefinitionId} disabled={!!editingEligId} onChange={(e) => setEligForm({ ...eligForm, kpiDefinitionId: e.target.value })}>
+              <option value="">--</option>
+              {kpiDefs.map((k: any) => <option key={k.id} value={k.id}>{k.code} - {k.nameAr || k.name}</option>)}
+            </select>
+            {eligErrors.kpiDefinitionId && <p className="text-red-600 text-xs mt-1">{eligErrors.kpiDefinitionId}</p>}
+          </div>
+          <label className="flex items-center gap-2"><input type="checkbox" checked={!!eligForm.isRequired} onChange={(e) => setEligForm({ ...eligForm, isRequired: e.target.checked })} />{t('core.performance.isRequired')}</label>
+          <label className="flex items-center gap-2"><input type="checkbox" checked={!!eligForm.isEnabled} onChange={(e) => setEligForm({ ...eligForm, isEnabled: e.target.checked })} />{t('core.performance.isEnabled')}</label>
+          <Input label={t('core.performance.effectiveFrom')} type="date" value={eligForm.effectiveFrom} onChange={(e: any) => setEligForm({ ...eligForm, effectiveFrom: e.target.value })} />
+          <Input label={t('core.performance.effectiveTo')} type="date" value={eligForm.effectiveTo} onChange={(e: any) => setEligForm({ ...eligForm, effectiveTo: e.target.value })} />
+          <Input label={t('core.performance.notes')} value={eligForm.notes} onChange={(e: any) => setEligForm({ ...eligForm, notes: e.target.value })} />
+          <div className="flex justify-end gap-2 pt-2"><Button variant="secondary" onClick={() => setEligModalOpen(false)}>{t('common.cancel')}</Button><Button onClick={saveElig} disabled={eligSaving}>{eligSaving ? t('common.saving') : t('common.save')}</Button></div>
+        </div>
+      </Modal>
 
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editingId ? t('core.performance.editProfile') : t('core.performance.createProfile')}>
         <div className="space-y-3">

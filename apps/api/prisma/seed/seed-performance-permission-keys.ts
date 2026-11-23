@@ -9,4 +9,15 @@ export const PERFORMANCE_PERMISSIONS: { key: string; module: string; action: str
   { key: 'performance-profile-mapping:deactivate', module: 'performance-profile-mapping', action: 'deactivate' },
   { key: 'performance-context:read', module: 'performance-context', action: 'read' },
   { key: 'performance-coverage:read', module: 'performance-coverage', action: 'read' },
+  // Phase 2: central KPI library
+  { key: 'performance-kpi:read', module: 'performance-kpi', action: 'read' },
+  { key: 'performance-kpi:create', module: 'performance-kpi', action: 'create' },
+  { key: 'performance-kpi:update', module: 'performance-kpi', action: 'update' },
+  { key: 'performance-kpi:deactivate', module: 'performance-kpi', action: 'deactivate' },
+  { key: 'performance-kpi-preview:read', module: 'performance-kpi', action: 'read' },
+  { key: 'performance-kpi-coverage:read', module: 'performance-kpi', action: 'read' },
+  { key: 'performance-profile-kpi-eligibility:read', module: 'performance-profile-kpi-eligibility', action: 'read' },
+  { key: 'performance-profile-kpi-eligibility:create', module: 'performance-profile-kpi-eligibility', action: 'create' },
+  { key: 'performance-profile-kpi-eligibility:update', module: 'performance-profile-kpi-eligibility', action: 'update' },
+  { key: 'performance-profile-kpi-eligibility:deactivate', module: 'performance-profile-kpi-eligibility', action: 'deactivate' },
 ];
