@@ -131,10 +131,9 @@ export class PerformanceKpiPreviewService {
         machine: { companyId: ctx.companyId, OR: [{ branchId: ctx.branchId }, { branchId: null }] },
         startTime: { gte: from, lte: to },
         detectedAt: { not: null },
-        responseStartedAt: { not: null },
         execution: { sessions: { some: { technicianUserId: userId } } },
       },
-      select: { id: true, startTime: true, detectedAt: true, responseStartedAt: true, machine: { select: { code: true, name: true } }, requestId: true, executionId: true },
+      select: { id: true, startTime: true, detectedAt: true, responseStartedAt: true, machine: { select: { code: true, name: true } }, requestId: true, executionId: true, execution: { select: { sessions: { select: { technicianUserId: true } } } } },
       orderBy: { startTime: 'asc' },
       take: 500,
     });
@@ -144,10 +143,14 @@ export class PerformanceKpiPreviewService {
     const evidence: Evidence[] = [];
     for (const log of logs) {
       if (!log.detectedAt || !log.responseStartedAt) { excludedReasons['missingTimestamps'] = (excludedReasons['missingTimestamps'] || 0) + 1; continue; }
-      const minutes = (log.responseStartedAt.getTime() - log.detectedAt.getTime()) / 60000;
-      if (minutes <= 0) { excludedReasons['nonPositiveResponseTime'] = (excludedReasons['nonPositiveResponseTime'] || 0) + 1; continue; }
+      const rawMinutes = (log.responseStartedAt.getTime() - log.detectedAt.getTime()) / 60000;
+      if (rawMinutes <= 0) { excludedReasons['nonPositiveResponseTime'] = (excludedReasons['nonPositiveResponseTime'] || 0) + 1; continue; }
+      const techs = new Set(((log as any).execution?.sessions || []).map((s: any) => s.technicianUserId).filter(Boolean));
+      const split = Math.max(1, techs.size);
+      const minutes = rawMinutes / split;
+      if (split > 1) excludedReasons['splitAcrossTechnicians'] = (excludedReasons['splitAcrossTechnicians'] || 0) + 1;
       values.push(minutes);
-      if (evidence.length < evidenceLimit) evidence.push({ sourceType: 'DowntimeLog', sourceId: log.id, occurredAt: log.startTime.toISOString(), contribution: { responseMinutes: this.round(minutes, 2) }, context: { machine: log.machine?.code, requestId: log.requestId, executionId: log.executionId } });
+      if (evidence.length < evidenceLimit) evidence.push({ sourceType: 'DowntimeLog', sourceId: log.id, occurredAt: log.startTime.toISOString(), contribution: { responseMinutes: this.round(minutes, 2), rawResponseMinutes: this.round(rawMinutes, 2), technicianCount: split }, context: { machine: log.machine?.code, requestId: log.requestId, executionId: log.executionId } });
     }
     base.excluded = { count: Object.values(excludedReasons).reduce((a,b)=>a+b,0), reasons: excludedReasons };
     base.evidence = evidence;
@@ -182,10 +185,10 @@ export class PerformanceKpiPreviewService {
         cancelledAt: null, corrections: { none: {} },
         machine: { companyId: ctx.companyId, OR: [{ branchId: ctx.branchId }, { branchId: null }] },
         startTime: { gte: from, lte: to },
-        repairStartedAt: { not: null }, repairCompletedAt: { not: null },
+        OR: [{ repairStartedAt: { not: null } }, { repairCompletedAt: { not: null } }],
         execution: { sessions: { some: { technicianUserId: userId } } },
       },
-      select: { id: true, startTime: true, repairStartedAt: true, repairCompletedAt: true, machine: { select: { code: true, name: true } }, requestId: true, executionId: true },
+      select: { id: true, startTime: true, repairStartedAt: true, repairCompletedAt: true, machine: { select: { code: true, name: true } }, requestId: true, executionId: true, execution: { select: { sessions: { select: { technicianUserId: true } } } } },
       orderBy: { startTime: 'asc' }, take: 500,
     });
     const excludedReasons: Record<string, number> = {};
@@ -193,10 +196,14 @@ export class PerformanceKpiPreviewService {
     const evidence: Evidence[] = [];
     for (const log of logs) {
       if (!log.repairStartedAt || !log.repairCompletedAt) { excludedReasons['missingTimestamps'] = (excludedReasons['missingTimestamps'] || 0) + 1; continue; }
-      const minutes = (log.repairCompletedAt.getTime() - log.repairStartedAt.getTime()) / 60000;
-      if (minutes <= 0) { excludedReasons['nonPositiveRepairTime'] = (excludedReasons['nonPositiveRepairTime'] || 0) + 1; continue; }
+      const rawMinutes = (log.repairCompletedAt.getTime() - log.repairStartedAt.getTime()) / 60000;
+      if (rawMinutes <= 0) { excludedReasons['nonPositiveRepairTime'] = (excludedReasons['nonPositiveRepairTime'] || 0) + 1; continue; }
+      const techs = new Set(((log as any).execution?.sessions || []).map((s: any) => s.technicianUserId).filter(Boolean));
+      const split = Math.max(1, techs.size);
+      const minutes = rawMinutes / split;
+      if (split > 1) excludedReasons['splitAcrossTechnicians'] = (excludedReasons['splitAcrossTechnicians'] || 0) + 1;
       values.push(minutes);
-      if (evidence.length < evidenceLimit) evidence.push({ sourceType: 'DowntimeLog', sourceId: log.id, occurredAt: log.startTime.toISOString(), contribution: { repairMinutes: this.round(minutes, 2) }, context: { machine: log.machine?.code, requestId: log.requestId, executionId: log.executionId } });
+      if (evidence.length < evidenceLimit) evidence.push({ sourceType: 'DowntimeLog', sourceId: log.id, occurredAt: log.startTime.toISOString(), contribution: { repairMinutes: this.round(minutes, 2), rawRepairMinutes: this.round(rawMinutes, 2), technicianCount: split }, context: { machine: log.machine?.code, requestId: log.requestId, executionId: log.executionId } });
     }
     base.excluded = { count: Object.values(excludedReasons).reduce((a,b)=>a+b,0), reasons: excludedReasons };
     base.evidence = evidence;
@@ -321,7 +328,7 @@ export class PerformanceKpiPreviewService {
     }
     const unplannedDowntimeMinutes = new Prisma.Decimal(intersectionMinutes(unplannedIntervals, mergedSessions as any)).toDecimalPlaces(4);
     const operatingMinutes = Prisma.Decimal.max(0, plannedMinutes.minus(unplannedDowntimeMinutes)).toDecimalPlaces(4);
-    const rate = idealRatePerHour(run.standardRate, run.timeBasis);
+    const rate = idealRatePerHour(run.standardRateSnapshot, run.timeBasisSnapshot);
     const idealOutput = rate.mul(operatingMinutes.div(60)).toDecimalPlaces(4);
     const events = (run.outputEvents || []).map((e: any) => ({ id: e.id, occurredAt: e.occurredAt, eventType: e.eventType, classification: e.classification, quantity: e.quantity, goodQuantity: e.goodQuantity, rejectQuantity: e.rejectQuantity, correctsEventId: e.correctsEventId ?? null, measurementPointId: e.measurementPointId, measurementPoint: e.measurementPoint ? { isAuthoritativeFinal: Boolean(e.measurementPoint.isAuthoritativeFinal) } : null }));
     const totals = deriveRunTotals(events as any, window);

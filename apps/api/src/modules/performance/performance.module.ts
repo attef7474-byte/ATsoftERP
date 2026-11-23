@@ -24,10 +24,10 @@ import { PerformanceKpiCoverageController } from './kpi-coverage/performance-kpi
     PerformanceProfileMappingsController,
     PerformanceContextController,
     PerformanceCoverageController,
+    PerformanceKpiCoverageController,
+    PerformanceKpiPreviewController,
     PerformanceKpisController,
     PerformanceKpiEligibilityController,
-    PerformanceKpiPreviewController,
-    PerformanceKpiCoverageController,
   ],
   providers: [
     PerformanceProfilesService,
