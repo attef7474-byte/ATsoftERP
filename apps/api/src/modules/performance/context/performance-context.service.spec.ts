@@ -94,4 +94,46 @@ describe('PerformanceContextService', () => {
     const result = await service.resolve('op1', ctxA); // now/current
     expect(result.performanceProfile).toBeNull();
   });
+
+  it('resolves historical performance profile change over time (Jan-Jun operator, Jul onward supervisor) with boundary', async () => {
+    const janJun = {
+      id: 'm-op', targetType: 'JOB_TITLE', effectiveFrom: new Date('2026-01-01T00:00:00.000Z'), effectiveTo: new Date('2026-07-01T00:00:00.000Z'), priority: 100,
+      performanceProfile: { id: 'pp-op', code: 'PRODUCTION_OPERATOR', name: 'Production Operator', nameAr: null, nameEn: null, category: 'PRODUCTION', isActive: true },
+    };
+    const julOnward = {
+      id: 'm-sup', targetType: 'JOB_TITLE', effectiveFrom: new Date('2026-07-01T00:00:00.000Z'), effectiveTo: null, priority: 100,
+      performanceProfile: { id: 'pp-sup', code: 'LINE_SUPERVISOR', name: 'Line Supervisor', nameAr: null, nameEn: null, category: 'SUPERVISION', isActive: true },
+    };
+    // Resolve by effectiveAt against the repo convention: effectiveFrom <= effectiveAt AND (effectiveTo null OR effectiveTo > effectiveAt)
+    prisma.performanceProfileMapping.findFirst.mockImplementation(async (args: any) => {
+      const at: Date = args?.where?.effectiveFrom?.lte;
+      if (!(at instanceof Date)) return null;
+      const inWindow = (m: any) => m.effectiveFrom <= at && (m.effectiveTo == null || m.effectiveTo > at);
+      if (inWindow(julOnward)) return julOnward;
+      if (inWindow(janJun)) return janJun;
+      return null;
+    });
+
+    const resolveAt = async (at: string) => {
+      prisma.operationalPerson.findFirst.mockResolvedValueOnce({ ...person, category: 'PRODUCTION' });
+      prisma.operationalPersonAssignment.findMany.mockResolvedValueOnce([assignment]);
+      prisma.maintenancePersonnel.findFirst.mockResolvedValueOnce(null);
+      prisma.machineResponsibilityAssignment.findMany.mockResolvedValueOnce([]);
+      prisma.productionShiftAssignment.findFirst.mockResolvedValueOnce(null);
+      return service.resolve('op1', ctxA, at);
+    };
+
+    const may = await resolveAt('2026-05-01T00:00:00.000Z');
+    expect(may.performanceProfile?.code).toBe('PRODUCTION_OPERATOR');
+
+    const aug = await resolveAt('2026-08-01T00:00:00.000Z');
+    expect(aug.performanceProfile?.code).toBe('LINE_SUPERVISOR');
+
+    // Boundary per convention: effectiveTo is exclusive, effectiveFrom is inclusive.
+    const boundary = await resolveAt('2026-07-01T00:00:00.000Z');
+    expect(boundary.performanceProfile?.code).toBe('LINE_SUPERVISOR');
+
+    const beforeBoundary = await resolveAt('2026-06-30T23:59:59.999Z');
+    expect(beforeBoundary.performanceProfile?.code).toBe('PRODUCTION_OPERATOR');
+  });
 });
