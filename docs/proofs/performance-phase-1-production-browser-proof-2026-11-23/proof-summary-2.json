@@ -1,0 +1,67 @@
+{
+  "results": {
+    "checks": [
+      {
+        "name": "EN employee context renders",
+        "pass": true,
+        "detail": "MP-000014"
+      },
+      {
+        "name": "EN context has key fields",
+        "pass": true,
+        "detail": ""
+      },
+      {
+        "name": "EN unassigned state found",
+        "pass": false,
+        "detail": "NO_SAFE_EXISTING_UNASSIGNED_FIXTURE in sampled persons"
+      },
+      {
+        "name": "AR employee context renders Arabic",
+        "pass": true,
+        "detail": "MP-000014"
+      },
+      {
+        "name": "EN coverage has counts/cards",
+        "pass": true,
+        "detail": ""
+      },
+      {
+        "name": "EN coverage has table headers",
+        "pass": true,
+        "detail": ""
+      },
+      {
+        "name": "EN coverage has filter",
+        "pass": true,
+        "detail": ""
+      },
+      {
+        "name": "AR coverage renders Arabic RTL",
+        "pass": true,
+        "detail": ""
+      },
+      {
+        "name": "EN profiles has table headers",
+        "pass": true,
+        "detail": ""
+      }
+    ],
+    "notes": [
+      {
+        "contextPerson": {
+          "id": "cmwjx76j500011095kz38g01u",
+          "code": "MP-000014",
+          "name": "باسل باسل باسل القباطي"
+        },
+        "unassignedPerson": null
+      }
+    ]
+  },
+  "consoleErrors": 0,
+  "pageErrors": 0,
+  "api": 144,
+  "failed5xx": [],
+  "consoleErrorSamples": [],
+  "pageErrorSamples": []
+}

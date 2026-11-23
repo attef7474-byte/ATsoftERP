@@ -1,0 +1,248 @@
+{
+  "status": "FAIL",
+  "deployedSha": "e6b58b20681301a4ecb945bf7f6873177822b580",
+  "startedAt": "2026-11-23T03:24:03.099Z",
+  "checks": [
+    {
+      "name": "EN profiles page loads",
+      "status": "PASS",
+      "detail": "https://dell/admin/performance/profiles"
+    },
+    {
+      "name": "EN profiles has search/filter controls",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "EN profiles no raw translation keys core.performance",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "EN coverage page loads",
+      "status": "PASS",
+      "detail": "https://dell/admin/performance/coverage"
+    },
+    {
+      "name": "EN coverage has summary/table",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "EN employee performance context renders",
+      "status": "FAIL",
+      "detail": "No person link found"
+    },
+    {
+      "name": "AR profiles RTL",
+      "status": "PASS",
+      "detail": "dir=rtl"
+    },
+    {
+      "name": "AR profiles has Arabic labels",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "No score/KPI/ranking/bonus/penalty visible (heuristic)",
+      "status": "PASS",
+      "detail": "heuristic-only"
+    }
+  ],
+  "consoleErrors": [],
+  "pageErrors": [],
+  "failedNetwork": [],
+  "apiResponses": [
+    {
+      "url": "https://dell/api/v1/auth/permissions",
+      "status": 200
+    },
+    {
+      "url": "https://dell/api/v1/auth/me",
+      "status": 200
+    },
+    {
+      "url": "https://dell/api/v1/auth/contexts",
+      "status": 200
+    },
+    {
+      "url": "https://dell/api/v1/auth/context/validate",
+      "status": 201
+    },
+    {
+      "url": "https://dell/api/v1/settings/appearance",
+      "status": 200
+    },
+    {
+      "url": "https://dell/api/v1/notifications/unread-count",
+      "status": 200
+    },
+    {
+      "url": "https://dell/api/v1/performance/profiles?page=1&limit=20",
+      "status": 200
+    },
+    {
+      "url": "https://dell/api/v1/job-titles?page=1&limit=200&isActive=true",
+      "status": 200
+    },
+    {
+      "url": "https://dell/api/v1/auth/contexts/archived",
+      "status": 200
+    },
+    {
+      "url": "https://dell/api/v1/auth/permissions",
+      "status": 200
+    },
+    {
+      "url": "https://dell/api/v1/auth/me",
+      "status": 200
+    },
+    {
+      "url": "https://dell/api/v1/auth/contexts",
+      "status": 200
+    },
+    {
+      "url": "https://dell/api/v1/auth/context/validate",
+      "status": 201
+    },
+    {
+      "url": "https://dell/api/v1/settings/appearance",
+      "status": 200
+    },
+    {
+      "url": "https://dell/api/v1/notifications/unread-count",
+      "status": 200
+    },
+    {
+      "url": "https://dell/api/v1/auth/contexts/archived",
+      "status": 200
+    },
+    {
+      "url": "https://dell/api/v1/performance/coverage/employees?page=1&limit=20",
+      "status": 200
+    },
+    {
+      "url": "https://dell/api/v1/performance/coverage",
+      "status": 200
+    },
+    {
+      "url": "https://dell/api/v1/auth/permissions",
+      "status": 200
+    },
+    {
+      "url": "https://dell/api/v1/auth/me",
+      "status": 200
+    },
+    {
+      "url": "https://dell/api/v1/auth/contexts",
+      "status": 200
+    },
+    {
+      "url": "https://dell/api/v1/auth/context/validate",
+      "status": 201
+    },
+    {
+      "url": "https://dell/api/v1/settings/appearance",
+      "status": 200
+    },
+    {
+      "url": "https://dell/api/v1/notifications/unread-count",
+      "status": 200
+    },
+    {
+      "url": "https://dell/api/v1/person-registrations?page=1&limit=10",
+      "status": 200
+    },
+    {
+      "url": "https://dell/api/v1/auth/contexts/archived",
+      "status": 200
+    },
+    {
+      "url": "https://dell/api/v1/roles?limit=200",
+      "status": 200
+    },
+    {
+      "url": "https://dell/api/v1/auth/permissions",
+      "status": 200
+    },
+    {
+      "url": "https://dell/api/v1/auth/me",
+      "status": 200
+    },
+    {
+      "url": "https://dell/api/v1/auth/contexts",
+      "status": 200
+    },
+    {
+      "url": "https://dell/api/v1/auth/context/validate",
+      "status": 201
+    },
+    {
+      "url": "https://dell/api/v1/settings/appearance",
+      "status": 200
+    },
+    {
+      "url": "https://dell/api/v1/job-titles?page=1&limit=200&isActive=true",
+      "status": 200
+    },
+    {
+      "url": "https://dell/api/v1/performance/profiles?page=1&limit=20",
+      "status": 200
+    },
+    {
+      "url": "https://dell/api/v1/notifications/unread-count",
+      "status": 200
+    },
+    {
+      "url": "https://dell/api/v1/auth/contexts/archived",
+      "status": 200
+    },
+    {
+      "url": "https://dell/api/v1/auth/permissions",
+      "status": 200
+    },
+    {
+      "url": "https://dell/api/v1/auth/me",
+      "status": 200
+    },
+    {
+      "url": "https://dell/api/v1/auth/contexts",
+      "status": 200
+    },
+    {
+      "url": "https://dell/api/v1/auth/context/validate",
+      "status": 201
+    },
+    {
+      "url": "https://dell/api/v1/settings/appearance",
+      "status": 200
+    },
+    {
+      "url": "https://dell/api/v1/notifications/unread-count",
+      "status": 200
+    },
+    {
+      "url": "https://dell/api/v1/auth/contexts/archived",
+      "status": 200
+    },
+    {
+      "url": "https://dell/api/v1/performance/coverage/employees?page=1&limit=20",
+      "status": 200
+    },
+    {
+      "url": "https://dell/api/v1/performance/coverage",
+      "status": 200
+    }
+  ],
+  "screenshots": [
+    "en-profiles.png",
+    "en-coverage.png",
+    "ar-profiles.png",
+    "ar-coverage.png"
+  ],
+  "notes": [
+    "personHref=none"
+  ],
+  "finishedAt": "2026-11-23T03:24:19.729Z",
+  "apiResponseCount": 45
+}
