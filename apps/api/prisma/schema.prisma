@@ -221,88 +221,88 @@ model Company {
   updatedAt                 DateTime                              @updatedAt
   deletedAt                 DateTime?
 
-  branches                         Branch[]
-  departments                      Department[]
-  organizationalUnits              OrganizationalUnit[]
-  maintenanceWorkOrders            MaintenanceWorkOrder[]
-  workOrderAssignments             MaintenanceWorkOrderAssignment[]
-  users                            User[]
-  warehouses                       Warehouse[]
-  machines                         Machine[]
-  machineParts                     MachinePart[]
-  machineComponents                MachineComponent[]
-  machineComponentLinks            MachineComponentMachine[]
-  counts                           InventoryCount[]
-  movements                        InventoryMovement[]
-  adjustments                      InventoryAdjustment[]
-  costCenters                      CostCenter[]
-  productionLines                  ProductionLine[]
-  openingBalances                  InventoryOpeningBalance[]
-  stockAdjustments                 InventoryStockAdjustment[]
-  stockTransfers                   InventoryStockTransfer[]
-  operationalReceipts              InventoryOperationalReceipt[]
-  physicalCounts                   InventoryPhysicalCount[]
-  operationalScopes                UserOperationalScope[]
-  productionUnits                  ProductionUnit[]
-  productionProducts               ProductionProductDefinition[]
-  productionShifts                 ProductionShift[]
-  productionShiftTemplates         ProductionShiftTemplate[]
-  productionShiftCalendars         ProductionShiftCalendar[]
-  productionShiftAssignments       ProductionShiftAssignment[]
-  productionOperationalAssignments ProductionOperationalAssignment[]
-  productionCapacityStandards      ProductionCapacityStandard[]
-  productionOrders                 ProductionOrder[]
-  productionOrderTransitions       ProductionOrderTransition[]
-  productionOrderAttachments       ProductionOrderAttachment[]
-  productionRuns                   ProductionRun[]
-  productionRunSessions            ProductionRunSession[]
-  productionRunTransitions         ProductionRunTransition[]
-  productionMeasurementPoints      ProductionMeasurementPoint[]
-  productionOutputEvents           ProductionOutputEvent[]
-  operationalLossReasons           OperationalLossReason[]
-  downtimeSegments                 DowntimeSegment[]
-  productionLossQuantityEvents     ProductionLossQuantityEvent[]
-  materialDocuments                ProductionMaterialDocument[]
-  finishedGoodsReceipts            ProductionFinishedGoodsReceipt[]
-  materialRequirements             ProductionMaterialRequirement[]
-  materialConsumptions             ProductionMaterialConsumption[]
-  materialDocumentLines            ProductionMaterialDocumentLine[]
-  fgReceiptLines                   ProductionFinishedGoodsReceiptLine[]
-  finishedGoodsIssues              FinishedGoodsIssue[]
-  finishedGoodsIssueLines          FinishedGoodsIssueLine[]
-  requirementLines                 ProductionMaterialRequirementLine[]
-  consumptionCorrections           ProductionMaterialConsumptionCorrection[]
-  qualityPlans                     ProductionQualityPlan[]
-  qualityCharacteristics           QualityCharacteristic[]
-  qualitySamplingPoints            QualitySamplingPoint[]
-  inspections                      ProductionInspection[]
-  inspectionResults                ProductionInspectionResult[]
-  qualityDispositions              ProductionQualityDisposition[]
-  nonconformances                  ProductionNonconformance[]
-  nonconformanceTransitions        ProductionNonconformanceTransition[]
-  nonconformanceAttachments        ProductionNonconformanceAttachment[]
-  costRates                        OperationalCostRate[]
-  standardCostSnapshots            OperationalStandardCostSnapshot[]
-  costTransactions                 OperationalCostTransaction[]
-  performanceTargets               ProductionPerformanceTarget[]
-  performanceTargetTransitions     ProductionPerformanceTargetTransition[]
-  costCalculations                 OperationalCostCalculation[]
-  sourceChanges                    OperationalSourceChange[]
-  operationalCostCenterAssignments OperationalCostCenterAssignment[]
-  inventoryLocks                   InventoryLock[]
-  jobTitles                        JobTitle[]
-  personAssignments                OperationalPersonAssignment[]
-  supervisorAssignments            SupervisorAssignment[]
-  performanceProfiles              PerformanceProfile[]
-  performanceProfileMappings       PerformanceProfileMapping[]
-  performanceKpiDefinitions        PerformanceKpiDefinition[]
+  branches                           Branch[]
+  departments                        Department[]
+  organizationalUnits                OrganizationalUnit[]
+  maintenanceWorkOrders              MaintenanceWorkOrder[]
+  workOrderAssignments               MaintenanceWorkOrderAssignment[]
+  users                              User[]
+  warehouses                         Warehouse[]
+  machines                           Machine[]
+  machineParts                       MachinePart[]
+  machineComponents                  MachineComponent[]
+  machineComponentLinks              MachineComponentMachine[]
+  counts                             InventoryCount[]
+  movements                          InventoryMovement[]
+  adjustments                        InventoryAdjustment[]
+  costCenters                        CostCenter[]
+  productionLines                    ProductionLine[]
+  openingBalances                    InventoryOpeningBalance[]
+  stockAdjustments                   InventoryStockAdjustment[]
+  stockTransfers                     InventoryStockTransfer[]
+  operationalReceipts                InventoryOperationalReceipt[]
+  physicalCounts                     InventoryPhysicalCount[]
+  operationalScopes                  UserOperationalScope[]
+  productionUnits                    ProductionUnit[]
+  productionProducts                 ProductionProductDefinition[]
+  productionShifts                   ProductionShift[]
+  productionShiftTemplates           ProductionShiftTemplate[]
+  productionShiftCalendars           ProductionShiftCalendar[]
+  productionShiftAssignments         ProductionShiftAssignment[]
+  productionOperationalAssignments   ProductionOperationalAssignment[]
+  productionCapacityStandards        ProductionCapacityStandard[]
+  productionOrders                   ProductionOrder[]
+  productionOrderTransitions         ProductionOrderTransition[]
+  productionOrderAttachments         ProductionOrderAttachment[]
+  productionRuns                     ProductionRun[]
+  productionRunSessions              ProductionRunSession[]
+  productionRunTransitions           ProductionRunTransition[]
+  productionMeasurementPoints        ProductionMeasurementPoint[]
+  productionOutputEvents             ProductionOutputEvent[]
+  operationalLossReasons             OperationalLossReason[]
+  downtimeSegments                   DowntimeSegment[]
+  productionLossQuantityEvents       ProductionLossQuantityEvent[]
+  materialDocuments                  ProductionMaterialDocument[]
+  finishedGoodsReceipts              ProductionFinishedGoodsReceipt[]
+  materialRequirements               ProductionMaterialRequirement[]
+  materialConsumptions               ProductionMaterialConsumption[]
+  materialDocumentLines              ProductionMaterialDocumentLine[]
+  fgReceiptLines                     ProductionFinishedGoodsReceiptLine[]
+  finishedGoodsIssues                FinishedGoodsIssue[]
+  finishedGoodsIssueLines            FinishedGoodsIssueLine[]
+  requirementLines                   ProductionMaterialRequirementLine[]
+  consumptionCorrections             ProductionMaterialConsumptionCorrection[]
+  qualityPlans                       ProductionQualityPlan[]
+  qualityCharacteristics             QualityCharacteristic[]
+  qualitySamplingPoints              QualitySamplingPoint[]
+  inspections                        ProductionInspection[]
+  inspectionResults                  ProductionInspectionResult[]
+  qualityDispositions                ProductionQualityDisposition[]
+  nonconformances                    ProductionNonconformance[]
+  nonconformanceTransitions          ProductionNonconformanceTransition[]
+  nonconformanceAttachments          ProductionNonconformanceAttachment[]
+  costRates                          OperationalCostRate[]
+  standardCostSnapshots              OperationalStandardCostSnapshot[]
+  costTransactions                   OperationalCostTransaction[]
+  performanceTargets                 ProductionPerformanceTarget[]
+  performanceTargetTransitions       ProductionPerformanceTargetTransition[]
+  costCalculations                   OperationalCostCalculation[]
+  sourceChanges                      OperationalSourceChange[]
+  operationalCostCenterAssignments   OperationalCostCenterAssignment[]
+  inventoryLocks                     InventoryLock[]
+  jobTitles                          JobTitle[]
+  personAssignments                  OperationalPersonAssignment[]
+  supervisorAssignments              SupervisorAssignment[]
+  performanceProfiles                PerformanceProfile[]
+  performanceProfileMappings         PerformanceProfileMapping[]
+  performanceKpiDefinitions          PerformanceKpiDefinition[]
   performanceProfileKpiEligibilities PerformanceProfileKpiEligibility[]
-  shiftHandovers                   ShiftHandover[]
-  shiftHandoverItems               ShiftHandoverItem[]
-  valuationPolicies                InventoryValuationPolicy[]
-  valuationBalances                InventoryValuationBalance[]
-  valuationInitializations         InventoryValuationInitialization[]
-  productionRunCostSnapshots       ProductionRunCostSnapshot[]
+  shiftHandovers                     ShiftHandover[]
+  shiftHandoverItems                 ShiftHandoverItem[]
+  valuationPolicies                  InventoryValuationPolicy[]
+  valuationBalances                  InventoryValuationBalance[]
+  valuationInitializations           InventoryValuationInitialization[]
+  productionRunCostSnapshots         ProductionRunCostSnapshot[]
 
   maintenanceExecutions      MaintenanceTask[]
   sparePartIssues            SparePartIssue[]
@@ -6405,7 +6405,7 @@ model JobTitle {
   updatedAt   DateTime  @updatedAt
   deletedAt   DateTime?
 
-  assignments OperationalPersonAssignment[]
+  assignments                OperationalPersonAssignment[]
   performanceProfileMappings PerformanceProfileMapping[]
 
   @@unique([companyId, code])
@@ -6479,24 +6479,24 @@ model SupervisorAssignment {
 // PERFORMANCE-P1: canonical performance profile foundation. Additive only.
 // Profiles define measurement strategy by job/role; they do not store scores.
 model PerformanceProfile {
-  id          String   @id @default(cuid())
+  id          String    @id @default(cuid())
   companyId   String
-  company     Company  @relation(fields: [companyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  code        String   @db.NVarChar(100)
-  name        String   @db.NVarChar(200)
-  nameAr      String?  @db.NVarChar(200)
-  nameEn      String?  @db.NVarChar(200)
-  description String?  @db.NVarChar(1000)
-  category    String   @default("GENERAL") @db.NVarChar(30)
-  isActive    Boolean  @default(true)
-  status      String   @default("ACTIVE") @db.NVarChar(20)
+  company     Company   @relation(fields: [companyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  code        String    @db.NVarChar(100)
+  name        String    @db.NVarChar(200)
+  nameAr      String?   @db.NVarChar(200)
+  nameEn      String?   @db.NVarChar(200)
+  description String?   @db.NVarChar(1000)
+  category    String    @default("GENERAL") @db.NVarChar(30)
+  isActive    Boolean   @default(true)
+  status      String    @default("ACTIVE") @db.NVarChar(20)
   createdById String?
   updatedById String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
   deletedAt   DateTime?
 
-  mappings        PerformanceProfileMapping[]
+  mappings         PerformanceProfileMapping[]
   kpiEligibilities PerformanceProfileKpiEligibility[]
 
   @@unique([companyId, code])
@@ -6542,33 +6542,33 @@ model PerformanceProfileMapping {
 
 // PERFORMANCE-P2: central KPI authority. One definition for all domains; no weights/scores.
 model PerformanceKpiDefinition {
-  id                   String   @id @default(cuid())
-  companyId            String
-  company              Company  @relation(fields: [companyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  code                 String   @db.NVarChar(100)
-  name                 String   @db.NVarChar(200)
-  nameAr               String?  @db.NVarChar(200)
-  nameEn               String?  @db.NVarChar(200)
-  description          String?  @db.NVarChar(2000)
-  descriptionAr        String?  @db.NVarChar(2000)
-  descriptionEn        String?  @db.NVarChar(2000)
-  domain               String   @db.NVarChar(50)
-  measurementUnit      String   @db.NVarChar(30)
-  direction            String   @db.NVarChar(30)
-  aggregationType      String   @db.NVarChar(30)
-  calculationMode      String   @db.NVarChar(50)
-  sourceContractKey    String   @db.NVarChar(100)
-  calculationVersion   Int      @default(1)
-  status               String   @default("DRAFT") @db.NVarChar(20)
-  isActive             Boolean  @default(false)
-  effectiveFrom        DateTime?
-  effectiveTo          DateTime?
-  notes                String?  @db.NVarChar(2000)
-  createdById          String?
-  updatedById          String?
-  createdAt            DateTime @default(now())
-  updatedAt            DateTime @updatedAt
-  deletedAt            DateTime?
+  id                 String    @id @default(cuid())
+  companyId          String
+  company            Company   @relation(fields: [companyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  code               String    @db.NVarChar(100)
+  name               String    @db.NVarChar(200)
+  nameAr             String?   @db.NVarChar(200)
+  nameEn             String?   @db.NVarChar(200)
+  description        String?   @db.NVarChar(2000)
+  descriptionAr      String?   @db.NVarChar(2000)
+  descriptionEn      String?   @db.NVarChar(2000)
+  domain             String    @db.NVarChar(50)
+  measurementUnit    String    @db.NVarChar(30)
+  direction          String    @db.NVarChar(30)
+  aggregationType    String    @db.NVarChar(30)
+  calculationMode    String    @db.NVarChar(50)
+  sourceContractKey  String    @db.NVarChar(100)
+  calculationVersion Int       @default(1)
+  status             String    @default("DRAFT") @db.NVarChar(20)
+  isActive           Boolean   @default(false)
+  effectiveFrom      DateTime?
+  effectiveTo        DateTime?
+  notes              String?   @db.NVarChar(2000)
+  createdById        String?
+  updatedById        String?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+  deletedAt          DateTime?
 
   profileEligibilities PerformanceProfileKpiEligibility[]
 
@@ -6583,23 +6583,23 @@ model PerformanceKpiDefinition {
 
 // PERFORMANCE-P2: maps eligible KPIs to performance profiles. No weight/score fields.
 model PerformanceProfileKpiEligibility {
-  id                     String                  @id @default(cuid())
-  companyId              String
-  company                Company                 @relation(fields: [companyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  performanceProfileId   String
-  performanceProfile     PerformanceProfile      @relation(fields: [performanceProfileId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  kpiDefinitionId        String
-  kpiDefinition          PerformanceKpiDefinition @relation(fields: [kpiDefinitionId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  isRequired             Boolean                 @default(false)
-  isEnabled              Boolean                 @default(true)
-  effectiveFrom          DateTime?
-  effectiveTo            DateTime?
-  notes                  String?                 @db.NVarChar(1000)
-  createdById            String?
-  updatedById            String?
-  createdAt              DateTime                @default(now())
-  updatedAt              DateTime                @updatedAt
-  deletedAt              DateTime?
+  id                   String                   @id @default(cuid())
+  companyId            String
+  company              Company                  @relation(fields: [companyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  performanceProfileId String
+  performanceProfile   PerformanceProfile       @relation(fields: [performanceProfileId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  kpiDefinitionId      String
+  kpiDefinition        PerformanceKpiDefinition @relation(fields: [kpiDefinitionId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  isRequired           Boolean                  @default(false)
+  isEnabled            Boolean                  @default(true)
+  effectiveFrom        DateTime?
+  effectiveTo          DateTime?
+  notes                String?                  @db.NVarChar(1000)
+  createdById          String?
+  updatedById          String?
+  createdAt            DateTime                 @default(now())
+  updatedAt            DateTime                 @updatedAt
+  deletedAt            DateTime?
 
   @@unique([companyId, performanceProfileId, kpiDefinitionId])
   @@index([companyId])
