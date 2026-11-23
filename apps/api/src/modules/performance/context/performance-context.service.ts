@@ -32,7 +32,7 @@ export class PerformanceContextService {
     })[0];
   }
 
-  private async resolveProfile(companyId: string, effectiveAt: Date, jobTitleId: string | null, maintenanceRole: string | null, operationalCategory: string | null): Promise<ResolvedProfile> {
+  private async resolveProfile(companyId: string, effectiveAt: Date, jobTitleId: string | null, maintenanceRole: string | null, operationalCategory: string | null, isCurrentRequest = false): Promise<ResolvedProfile> {
     const window = this.effectiveWindow(effectiveAt);
     const baseWhere: any = { companyId, deletedAt: null, isActive: true, status: 'ACTIVE', ...window, performanceProfile: { deletedAt: null } };
     const pick = async (where: any) => {
@@ -45,8 +45,7 @@ export class PerformanceContextService {
       // Historical context may resolve a profile that is currently inactive if it was valid at effectiveAt.
       // Current/new resolution must not resolve an inactive profile.
       const profileIsInactive = !mapping.performanceProfile.isActive;
-      const now = new Date();
-      if (profileIsInactive && effectiveAt >= now) return null;
+      if (profileIsInactive && isCurrentRequest) return null;
       return {
         id: mapping.performanceProfile.id,
         code: mapping.performanceProfile.code,
@@ -131,7 +130,7 @@ export class PerformanceContextService {
       orderBy: [{ isPrimary: 'desc' }, { effectiveFrom: 'desc' }],
     });
 
-    const profile = await this.resolveProfile(ctx.companyId, effectiveAt, currentAssignment.jobTitleId ?? null, maintenancePersonnel?.role ?? null, person.category ?? null);
+    const profile = await this.resolveProfile(ctx.companyId, effectiveAt, currentAssignment.jobTitleId ?? null, maintenancePersonnel?.role ?? null, person.category ?? null, effectiveAtInput === undefined || effectiveAtInput === null);
 
     return {
       employee: { id: person.id, code: person.code, name: person.name, category: person.category, isActive: person.isActive },

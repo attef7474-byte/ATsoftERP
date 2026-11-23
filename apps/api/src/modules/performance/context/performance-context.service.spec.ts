@@ -95,6 +95,32 @@ describe('PerformanceContextService', () => {
     expect(result.performanceProfile).toBeNull();
   });
 
+  it('does not resolve inactive profile for default current request even when mapping is effective now (regression: isCurrentRequest)', async () => {
+    prisma.operationalPerson.findFirst.mockResolvedValue(person);
+    prisma.operationalPersonAssignment.findMany.mockResolvedValue([assignment]);
+    prisma.maintenancePersonnel.findFirst.mockResolvedValue(null);
+    prisma.machineResponsibilityAssignment.findMany.mockResolvedValue([]);
+    prisma.productionShiftAssignment.findFirst.mockResolvedValue(null);
+    prisma.performanceProfileMapping.findFirst.mockResolvedValue({
+      id: 'm1', targetType: 'JOB_TITLE', effectiveFrom: new Date('2020-01-01'), effectiveTo: null, priority: 100,
+      performanceProfile: { id: 'pp1', code: 'OLD', name: 'Old', nameAr: null, nameEn: null, category: 'GENERAL', isActive: false },
+    });
+    const noArg = await service.resolve('op1', ctxA);
+    expect(noArg.performanceProfile).toBeNull();
+    // explicit undefined/null also treated as current request
+    prisma.operationalPerson.findFirst.mockResolvedValue(person);
+    prisma.operationalPersonAssignment.findMany.mockResolvedValue([assignment]);
+    prisma.maintenancePersonnel.findFirst.mockResolvedValue(null);
+    prisma.machineResponsibilityAssignment.findMany.mockResolvedValue([]);
+    prisma.productionShiftAssignment.findFirst.mockResolvedValue(null);
+    prisma.performanceProfileMapping.findFirst.mockResolvedValue({
+      id: 'm1', targetType: 'JOB_TITLE', effectiveFrom: new Date('2020-01-01'), effectiveTo: null, priority: 100,
+      performanceProfile: { id: 'pp1', code: 'OLD', name: 'Old', nameAr: null, nameEn: null, category: 'GENERAL', isActive: false },
+    });
+    const undefinedArg = await service.resolve('op1', ctxA, undefined);
+    expect(undefinedArg.performanceProfile).toBeNull();
+  });
+
   it('resolves historical performance profile change over time (Jan-Jun operator, Jul onward supervisor) with boundary', async () => {
     const janJun = {
       id: 'm-op', targetType: 'JOB_TITLE', effectiveFrom: new Date('2026-01-01T00:00:00.000Z'), effectiveTo: new Date('2026-07-01T00:00:00.000Z'), priority: 100,
