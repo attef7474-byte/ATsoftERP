@@ -1,0 +1,909 @@
+{
+  "runId": "P3RT_20261124_060045",
+  "gates": {
+    "TARGET_RUNTIME_CRUD": "PASS",
+    "HISTORICAL_TARGET_RUNTIME": "PASS",
+    "TARGET_OVERLAP_RUNTIME": "PASS",
+    "WRONG_CONTEXT_TARGET_RUNTIME": "PASS",
+    "CANONICAL_PRODUCTION_TARGET_RUNTIME": "PASS",
+    "WEIGHT_RUNTIME_CRUD": "PASS",
+    "WEIGHT_100_RUNTIME": "PASS",
+    "WEIGHT_INVALID_TOTAL_RUNTIME": "PASS",
+    "WEIGHT_ROLLBACK_TO_DRAFT_RUNTIME": "PASS",
+    "HISTORICAL_WEIGHT_RUNTIME": "PASS",
+    "WEIGHT_OVERLAP_RUNTIME": "PASS",
+    "SCORING_RULE_RUNTIME": "PASS",
+    "RULE_OVERLAP_RUNTIME": "PASS",
+    "SCORING_RULE_REVISION_RUNTIME": "PASS",
+    "PROFILE_READINESS_RUNTIME": "PASS",
+    "CONFIGURATION_COVERAGE_RUNTIME": "PASS",
+    "CONFIGURATION_COVERAGE_RECONCILIATION": "PASS",
+    "HIGHER_IS_BETTER_SIMULATION_RUNTIME": "PASS",
+    "LOWER_IS_BETTER_SIMULATION_RUNTIME": "PASS",
+    "INSUFFICIENT_DATA_SCORING_RUNTIME": "PASS",
+    "NOT_APPLICABLE_SCORING_RUNTIME": "PASS",
+    "CONFIGURATION_MISSING_RUNTIME": "PASS",
+    "INFORMATIONAL_KPI_RUNTIME": "PASS",
+    "SCORE_VERSION_TRACEABILITY_RUNTIME": "PASS",
+    "CROSS_REVISION_PERIOD_RUNTIME": "PASS",
+    "COMPLETE_PROFILE_SIMULATION_RUNTIME": "PASS",
+    "INCOMPLETE_PROFILE_SIMULATION_RUNTIME": "PASS",
+    "NO_SILENT_WEIGHT_REDISTRIBUTION": "PASS",
+    "MAINTENANCE_MUTATION": "0",
+    "PRODUCTION_MUTATION": "0",
+    "INVENTORY_MOVEMENT_DELTA": "0",
+    "INVENTORY_BALANCE_DELTA": "0",
+    "PHASE3_SIMULATION_READ_ONLY": "PASS",
+    "PERSISTED_EMPLOYEE_EVALUATION_ROWS_CREATED": "0",
+    "PHASE3_TENANT_ISOLATION": "PASS",
+    "CROSS_TENANT_PHASE3_LEAKS": "0",
+    "BODY_TENANT_OVERRIDE_BYPASS": "0",
+    "PHASE3_MASS_ASSIGNMENT_RUNTIME": "PASS",
+    "PHASE3_RBAC": "PASS",
+    "UNAUTHORIZED_PHASE3_MUTATIONS": "0",
+    "PHASE3_AUDIT": "PASS",
+    "SIMULATION_AUDIT_SPAM": "0",
+    "ARCHIVED_CONTEXT_WRITE_PROTECTION": "PASS",
+    "PHASE3_MIGRATION_CLONE_PROOF": "PASS",
+    "DATA_INTEGRITY": "PASS"
+  },
+  "details": {
+    "kpiIds": {
+      "oee": "cmwv7m9930003j095o6pcveqo",
+      "avail": "cmwv7m9ci0005j095h9e3jzmg",
+      "perf": "cmwv7m9g50007j095njo72h0h",
+      "qual": "cmwv7m9ja0009j095qsusiacg",
+      "maint": "cmwv7m9mh000bj0955exfec8i",
+      "info": "cmwv7m9pr000dj095ep5clnwm"
+    },
+    "profileIds": {
+      "main": "cmwv7m9sy000fj095ss2aq3kk",
+      "histT": "cmwv7m9vz000hj095ug1qud6y",
+      "histW": "cmwv7m9z3000jj095dtwr96mb",
+      "w100": "cmwv7ma1v000lj095w6fysqi9",
+      "wBad": "cmwv7ma4x000nj095snto3v4f",
+      "ovlT": "cmwv7ma8k000pj09590cpxikd",
+      "ovlW": "cmwv7mabj000rj095p8sieq39",
+      "ovlR": "cmwv7maeq000tj095uz4gm92s",
+      "rdyOk": "cmwv7mahp000vj0954dph65yi",
+      "rdyMissW": "cmwv7maku000xj095gvbacwid",
+      "rdyMissT": "cmwv7mano000zj095mlq5zhdz",
+      "rdyMissR": "cmwv7maqc0011j095piddh3z4",
+      "rdyBad": "cmwv7mat50013j0950s2w6zx1",
+      "rdyOvl": "cmwv7mavw0015j095xas3fpmr",
+      "sim": "cmwv7mays0017j095jjprkw0c",
+      "simInc": "cmwv7mb1n0019j0954uao7lha",
+      "info": "cmwv7mb4a001bj09522e988ux",
+      "split": "cmwv7mb6x001dj0956x5kadxz"
+    },
+    "fixtureRefs": {
+      "line": "cmundcs7l0018ck95480sw0rr",
+      "order": "p3rt_po_060045",
+      "unit": "cmvinxkuo0001uo95tpsf6ryo",
+      "product": "cmvinxnw50045uo95hvch0vm3",
+      "version": "cmvinxso000dxuo95mjigk0od",
+      "costCenter": "cmundcs4q0016ck95armodi47",
+      "quantityUnit": "TON"
+    },
+    "simPerson": {
+      "id": "cmv5rfb8z00043w959sgzyipz",
+      "userId": "cmv5rg49k00073w95hbzdkbhi",
+      "code": "EMP-0000005"
+    },
+    "machineId": "cmwo5kn63000efo95dx8o4hf6",
+    "maintFixture": {
+      "dlId": "p3rt_dl_060045",
+      "exId": "p3rt_ex_060045",
+      "sessId": "p3rt_ms_060045",
+      "ok": true
+    },
+    "beforeCounts": {
+      "maintenance_requests": "22",
+      "production_runs": "5",
+      "downtime_logs": "7",
+      "downtime_segments": "0",
+      "inventory_movements": "125",
+      "inventory_balances_count": "24",
+      "inventory_balances_qty": "1966847.0000"
+    },
+    "simMain": {
+      "status": 201,
+      "body": {
+        "previewOnly": true,
+        "noPersistedEvaluation": true,
+        "simulationLabel": "PREVIEW_ONLY_NOT_APPROVED",
+        "employee": {
+          "id": "cmv5rfb8z00043w959sgzyipz",
+          "code": "EMP-0000005",
+          "name": "سعيد",
+          "category": "MAINTENANCE",
+          "isActive": true
+        },
+        "performanceProfile": {
+          "id": "cmwv7mays0017j095jjprkw0c",
+          "code": "P3RT_20261124_060045_sim",
+          "name": "P3RT_20261124_060045 sim",
+          "nameAr": null,
+          "nameEn": null
+        },
+        "period": {
+          "from": "2026-12-01T00:00:00.000Z",
+          "to": "2026-12-31T23:59:59.000Z"
+        },
+        "readiness": {
+          "profile": {
+            "id": "cmwv7mays0017j095jjprkw0c",
+            "code": "P3RT_20261124_060045_sim",
+            "name": "P3RT_20261124_060045 sim",
+            "nameAr": null,
+            "nameEn": null
+          },
+          "at": "2026-12-31T23:59:59.000Z",
+          "status": "READY_FOR_SCORING",
+          "activeWeightTotal": "100",
+          "weightOk": true,
+          "issueCount": 0,
+          "issues": [],
+          "items": [
+            {
+              "kpi": {
+                "id": "cmwv7m9mh000bj0955exfec8i",
+                "code": "MAINT_RESPONSE_TIME_AVG",
+                "name": "P3RT_20261124_060045 MAINT_RESPONSE_TIME_AVG",
+                "nameAr": null,
+                "nameEn": null,
+                "domain": "MAINTENANCE_EXECUTION",
+                "direction": "LOWER_IS_BETTER",
+                "measurementUnit": "MINUTES",
+                "isActive": true,
+                "status": "ACTIVE",
+                "calculationVersion": 1
+              },
+              "weightPercent": "50",
+              "isRequired": true,
+              "isInformational": false,
+              "rule": {
+                "id": "cmwv8v140003cok95ga6hjnhy",
+                "scoringMode": "LINEAR_TARGET",
+                "revision": 1
+              },
+              "target": {
+                "sourceType": "PERFORMANCE_KPI_TARGET",
+                "sourceId": "cmwv8v1ha003iok9533hrc1yg",
+                "sourceCode": null,
+                "scopeType": "COMPANY",
+                "targetValue": "30",
+                "minimumAcceptableValue": null,
+                "maximumExceptionalValue": null,
+                "effectiveFrom": "2026-01-01T00:00:00.000Z",
+                "effectiveTo": null,
+                "revision": 1,
+                "explanation": "Resolved from PerformanceKpiTarget cmwv8v1ha003iok9533hrc1yg (COMPANY) revision 1."
+              },
+              "issues": [],
+              "targetEvidence": {
+                "resolvedTarget": "30",
+                "targetSource": "PERFORMANCE_KPI_TARGET",
+                "sourceRecord": {
+                  "id": "cmwv8v1ha003iok9533hrc1yg",
+                  "code": null
+                },
+                "scope": "COMPANY",
+                "effectiveDate": "2026-01-01T00:00:00.000Z",
+                "revision": 1,
+                "resolutionReason": "Resolved from PerformanceKpiTarget cmwv8v1ha003iok9533hrc1yg (COMPANY) revision 1."
+              }
+            },
+            {
+              "kpi": {
+                "id": "cmwv7m9930003j095o6pcveqo",
+                "code": "PROD_OEE",
+                "name": "P3RT_20261124_060045 PROD_OEE",
+                "nameAr": null,
+                "nameEn": null,
+                "domain": "PRODUCTION_EFFICIENCY",
+                "direction": "HIGHER_IS_BETTER",
+                "measurementUnit": "PERCENT",
+                "isActive": true,
+                "status": "ACTIVE",
+                "calculationVersion": 1
+              },
+              "weightPercent": "50",
+              "isRequired": true,
+              "isInformational": false,
+              "rule": {
+                "id": "cmwv8v17q003eok95wsngz707",
+                "scoringMode": "LINEAR_TARGET",
+                "revision": 1
+              },
+              "target": {
+                "sourceType": "CANONICAL_PRODUCTION_TARGET",
+                "sourceId": "p3rt_pt_060045",
+                "sourceCode": "P3RT_20261124_060045_PT",
+                "scopeType": "BRANCH",
+                "targetValue": "85",
+                "minimumAcceptableValue": null,
+                "maximumExceptionalValue": null,
+                "effectiveFrom": "2026-01-01T00:00:00.000Z",
+                "effectiveTo": "2027-01-01T00:00:00.000Z",
+                "revision": 1,
+                "explanation": "Resolved from canonical ProductionPerformanceTarget P3RT_20261124_060045_PT (BRANCH) field oeeTarget, revision 1."
+              },
+              "issues": [],
+              "targetEvidence": {
+                "resolvedTarget": "85",
+                "targetSource": "CANONICAL_PRODUCTION_TARGET",
+                "sourceRecord": {
+                  "id": "p3rt_pt_060045",
+                  "code": "P3RT_20261124_060045_PT"
+                },
+                "scope": "BRANCH",
+                "effectiveDate": "2026-01-01T00:00:00.000Z",
+                "revision": 1,
+                "resolutionReason": "Resolved from canonical ProductionPerformanceTarget P3RT_20261124_060045_PT (BRANCH) field oeeTarget, revision 1."
+              }
+            },
+            {
+              "kpi": {
+                "id": "cmwv7m9pr000dj095ep5clnwm",
+                "code": "P3RT_INFO_COUNT",
+                "name": "P3RT_20261124_060045 P3RT_INFO_COUNT",
+                "nameAr": null,
+                "nameEn": null,
+                "domain": "GENERAL",
+                "direction": "INFORMATIONAL",
+                "measurementUnit": "COUNT",
+                "isActive": true,
+                "status": "ACTIVE",
+                "calculationVersion": 1
+              },
+              "weightPercent": "0",
+              "isRequired": false,
+              "isInformational": true,
+              "rule": null,
+              "target": {
+                "sourceType": "PERFORMANCE_KPI_TARGET",
+                "sourceId": "cmwv8uvb30014ok95e2rqvljb",
+                "sourceCode": null,
+                "scopeType": "BRANCH",
+                "targetValue": "77",
+                "minimumAcceptableValue": null,
+                "maximumExceptionalValue": null,
+                "effectiveFrom": "2026-01-01T00:00:00.000Z",
+                "effectiveTo": null,
+                "revision": 1,
+                "explanation": "Resolved from PerformanceKpiTarget cmwv8uvb30014ok95e2rqvljb (BRANCH) revision 1."
+              },
+              "issues": [],
+              "targetEvidence": {
+                "resolvedTarget": "77",
+                "targetSource": "PERFORMANCE_KPI_TARGET",
+                "sourceRecord": {
+                  "id": "cmwv8uvb30014ok95e2rqvljb",
+                  "code": null
+                },
+                "scope": "BRANCH",
+                "effectiveDate": "2026-01-01T00:00:00.000Z",
+                "revision": 1,
+                "resolutionReason": "Resolved from PerformanceKpiTarget cmwv8uvb30014ok95e2rqvljb (BRANCH) revision 1."
+              }
+            }
+          ]
+        },
+        "kpis": [
+          {
+            "kpi": {
+              "id": "cmwv7m9mh000bj0955exfec8i",
+              "code": "MAINT_RESPONSE_TIME_AVG",
+              "name": "P3RT_20261124_060045 MAINT_RESPONSE_TIME_AVG",
+              "nameAr": null,
+              "nameEn": null,
+              "domain": "MAINTENANCE_EXECUTION",
+              "measurementUnit": "MINUTES",
+              "direction": "LOWER_IS_BETTER"
+            },
+            "rawValue": 30,
+            "rawStatus": "CALCULABLE",
+            "target": {
+              "sourceType": "PERFORMANCE_KPI_TARGET",
+              "sourceId": "cmwv8v1ha003iok9533hrc1yg",
+              "sourceCode": null,
+              "scopeType": "COMPANY",
+              "targetValue": "30",
+              "minimumAcceptableValue": null,
+              "maximumExceptionalValue": null,
+              "effectiveFrom": "2026-01-01T00:00:00.000Z",
+              "effectiveTo": null,
+              "revision": 1,
+              "explanation": "Resolved from PerformanceKpiTarget cmwv8v1ha003iok9533hrc1yg (COMPANY) revision 1."
+            },
+            "targetEvidence": {
+              "resolvedTarget": "30",
+              "targetSource": "PERFORMANCE_KPI_TARGET",
+              "sourceRecord": {
+                "id": "cmwv8v1ha003iok9533hrc1yg",
+                "code": null
+              },
+              "scope": "COMPANY",
+              "effectiveDate": "2026-01-01T00:00:00.000Z",
+              "revision": 1,
+              "resolutionReason": "Resolved from PerformanceKpiTarget cmwv8v1ha003iok9533hrc1yg (COMPANY) revision 1."
+            },
+            "scoringRule": {
+              "id": "cmwv8v140003cok95ga6hjnhy",
+              "scoringMode": "LINEAR_TARGET",
+              "direction": "LOWER_IS_BETTER",
+              "revision": 1,
+              "effectiveFrom": "2026-01-01T00:00:00.000Z",
+              "effectiveTo": null
+            },
+            "weightPercent": "50",
+            "isRequired": true,
+            "isInformational": false,
+            "score": 100,
+            "scoreStatus": "CALCULABLE",
+            "weightedContribution": 50,
+            "evidenceCount": 1,
+            "explanation": "Lower-is-better: raw=30 best=0 target=30 worst=120 => score=100.",
+            "rawExplanation": "1 eligible downtime events attributed by direct execution session. Average response time = 30 minutes.",
+            "versions": {
+              "kpiCalculationVersion": 1,
+              "scoringRuleVersion": 1,
+              "targetRevision": 1,
+              "weightRevision": 1,
+              "profileRevision": null
+            }
+          },
+          {
+            "kpi": {
+              "id": "cmwv7m9930003j095o6pcveqo",
+              "code": "PROD_OEE",
+              "name": "P3RT_20261124_060045 PROD_OEE",
+              "nameAr": null,
+              "nameEn": null,
+              "domain": "PRODUCTION_EFFICIENCY",
+              "measurementUnit": "PERCENT",
+              "direction": "HIGHER_IS_BETTER"
+            },
+            "rawValue": 100,
+            "rawStatus": "CALCULABLE",
+            "target": {
+              "sourceType": "CANONICAL_PRODUCTION_TARGET",
+              "sourceId": "p3rt_pt_060045",
+              "sourceCode": "P3RT_20261124_060045_PT",
+              "scopeType": "BRANCH",
+              "targetValue": "85",
+              "minimumAcceptableValue": null,
+              "maximumExceptionalValue": null,
+              "effectiveFrom": "2026-01-01T00:00:00.000Z",
+              "effectiveTo": "2027-01-01T00:00:00.000Z",
+              "revision": 1,
+              "explanation": "Resolved from canonical ProductionPerformanceTarget P3RT_20261124_060045_PT (BRANCH) field oeeTarget, revision 1."
+            },
+            "targetEvidence": {
+              "resolvedTarget": "85",
+              "targetSource": "CANONICAL_PRODUCTION_TARGET",
+              "sourceRecord": {
+                "id": "p3rt_pt_060045",
+                "code": "P3RT_20261124_060045_PT"
+              },
+              "scope": "BRANCH",
+              "effectiveDate": "2026-01-01T00:00:00.000Z",
+              "revision": 1,
+              "resolutionReason": "Resolved from canonical ProductionPerformanceTarget P3RT_20261124_060045_PT (BRANCH) field oeeTarget, revision 1."
+            },
+            "scoringRule": {
+              "id": "cmwv8v17q003eok95wsngz707",
+              "scoringMode": "LINEAR_TARGET",
+              "direction": "HIGHER_IS_BETTER",
+              "revision": 1,
+              "effectiveFrom": "2026-01-01T00:00:00.000Z",
+              "effectiveTo": null
+            },
+            "weightPercent": "50",
+            "isRequired": true,
+            "isInformational": false,
+            "score": 100,
+            "scoreStatus": "CALCULABLE",
+            "weightedContribution": 50,
+            "evidenceCount": 1,
+            "explanation": "Higher-is-better: raw=100 floor=0 target=85 ceiling=100 => score=100.",
+            "rawExplanation": "OEE calculated from 1 attributed production runs using canonical production analytics formula. Raw value = 100%.",
+            "versions": {
+              "kpiCalculationVersion": 1,
+              "scoringRuleVersion": 1,
+              "targetRevision": 1,
+              "weightRevision": 1,
+              "profileRevision": null
+            }
+          },
+          {
+            "kpi": {
+              "id": "cmwv7m9pr000dj095ep5clnwm",
+              "code": "P3RT_INFO_COUNT",
+              "name": "P3RT_20261124_060045 P3RT_INFO_COUNT",
+              "nameAr": null,
+              "nameEn": null,
+              "domain": "GENERAL",
+              "measurementUnit": "COUNT",
+              "direction": "INFORMATIONAL"
+            },
+            "rawValue": null,
+            "rawStatus": "SOURCE_UNAVAILABLE",
+            "target": {
+              "sourceType": "PERFORMANCE_KPI_TARGET",
+              "sourceId": "cmwv8uvb30014ok95e2rqvljb",
+              "sourceCode": null,
+              "scopeType": "BRANCH",
+              "targetValue": "77",
+              "minimumAcceptableValue": null,
+              "maximumExceptionalValue": null,
+              "effectiveFrom": "2026-01-01T00:00:00.000Z",
+              "effectiveTo": null,
+              "revision": 1,
+              "explanation": "Resolved from PerformanceKpiTarget cmwv8uvb30014ok95e2rqvljb (BRANCH) revision 1."
+            },
+            "targetEvidence": {
+              "resolvedTarget": "77",
+              "targetSource": "PERFORMANCE_KPI_TARGET",
+              "sourceRecord": {
+                "id": "cmwv8uvb30014ok95e2rqvljb",
+                "code": null
+              },
+              "scope": "BRANCH",
+              "effectiveDate": "2026-01-01T00:00:00.000Z",
+              "revision": 1,
+              "resolutionReason": "Resolved from PerformanceKpiTarget cmwv8uvb30014ok95e2rqvljb (BRANCH) revision 1."
+            },
+            "scoringRule": null,
+            "weightPercent": "0",
+            "isRequired": false,
+            "isInformational": true,
+            "score": null,
+            "scoreStatus": "SOURCE_UNAVAILABLE",
+            "weightedContribution": null,
+            "evidenceCount": 0,
+            "explanation": "Informational KPI: weight 0, no score contribution.",
+            "rawExplanation": "No source adapter is registered for this KPI code.",
+            "versions": {
+              "kpiCalculationVersion": 1,
+              "scoringRuleVersion": null,
+              "targetRevision": 1,
+              "weightRevision": 1,
+              "profileRevision": null
+            }
+          }
+        ],
+        "completenessPercent": 100,
+        "configuredWeightCovered": "100",
+        "missingRequiredKpis": [],
+        "provisionalTotal": 100,
+        "status": "PREVIEW"
+      }
+    },
+    "beforeSim": {
+      "maintenance_requests": "22",
+      "production_runs": "5",
+      "downtime_logs": "7",
+      "downtime_segments": "0",
+      "inventory_movements": "125",
+      "inventory_balances_count": "24",
+      "inventory_balances_qty": "1966847.0000"
+    },
+    "afterSim": {
+      "maintenance_requests": "22",
+      "production_runs": "5",
+      "downtime_logs": "7",
+      "downtime_segments": "0",
+      "inventory_movements": "125",
+      "inventory_balances_count": "24",
+      "inventory_balances_qty": "1966847.0000"
+    },
+    "bFixtures": {
+      "tBid": "cmwv8v7fz004nok95dylhzijb",
+      "wBid": "cmwv8v7l5004qok95b85hngtv",
+      "rBid": "cmwv8v7qc004tok95tifsb41v",
+      "profileB": "cmwv8v7d8004lok95s773jppf",
+      "kB": "cmwv8v7a9004jok95kvclh417"
+    },
+    "auditSample": [
+      {
+        "action": "DEACTIVATE",
+        "entity": "PerformanceKpiScoringRule",
+        "entityId": "cmwv8uy43002cok954lthc9ra",
+        "details": "{\"schemaVersion\":1,\"scope\":{\"companyId\":\"cmrvaph2200009g95oj1o8m1j\",\"branchId\":\"cmrvaph4100019g95kisacppa\"},\"actor\":{\"userId\":\"cmrl31v0g0004ok95wxhdi9lm\",\"employeeId\":null},\"previous\":{\"status\":\"ACTIV"
+      },
+      {
+        "action": "ACTIVATE",
+        "entity": "PerformanceKpiScoringRule",
+        "entityId": "cmwv8uy43002cok954lthc9ra",
+        "details": "{\"schemaVersion\":1,\"scope\":{\"companyId\":\"cmrvaph2200009g95oj1o8m1j\",\"branchId\":\"cmrvaph4100019g95kisacppa\"},\"actor\":{\"userId\":\"cmrl31v0g0004ok95wxhdi9lm\",\"employeeId\":null},\"previous\":{\"status\":\"DRAFT"
+      },
+      {
+        "action": "UPDATE",
+        "entity": "PerformanceKpiScoringRule",
+        "entityId": "cmwv8uy43002cok954lthc9ra",
+        "details": "{\"schemaVersion\":1,\"scope\":{\"companyId\":\"cmrvaph2200009g95oj1o8m1j\",\"branchId\":\"cmrvaph4100019g95kisacppa\"},\"actor\":{\"userId\":\"cmrl31v0g0004ok95wxhdi9lm\",\"employeeId\":null},\"previous\":{\"status\":\"DRAFT"
+      },
+      {
+        "action": "CREATE",
+        "entity": "PerformanceKpiScoringRule",
+        "entityId": "cmwv8uy43002cok954lthc9ra",
+        "details": "{\"schemaVersion\":1,\"scope\":{\"companyId\":\"cmrvaph2200009g95oj1o8m1j\",\"branchId\":\"cmrvaph4100019g95kisacppa\"},\"actor\":{\"userId\":\"cmrl31v0g0004ok95wxhdi9lm\",\"employeeId\":null},\"previous\":null,\"next\":{\"kp"
+      },
+      {
+        "action": "DEACTIVATE",
+        "entity": "PerformanceProfileKpiWeight",
+        "entityId": "cmwv8uw2q001iok95ubfchnc5",
+        "details": "{\"schemaVersion\":1,\"scope\":{\"companyId\":\"cmrvaph2200009g95oj1o8m1j\",\"branchId\":\"cmrvaph4100019g95kisacppa\"},\"actor\":{\"userId\":\"cmrl31v0g0004ok95wxhdi9lm\",\"employeeId\":null},\"previous\":{\"status\":\"ACTIV"
+      }
+    ],
+    "requiredGates": [
+      "PHASE3_MIGRATION_CLONE_PROOF",
+      "DATA_INTEGRITY",
+      "TARGET_RUNTIME_CRUD",
+      "HISTORICAL_TARGET_RUNTIME",
+      "TARGET_OVERLAP_RUNTIME",
+      "WRONG_CONTEXT_TARGET_RUNTIME",
+      "CANONICAL_PRODUCTION_TARGET_RUNTIME",
+      "WEIGHT_RUNTIME_CRUD",
+      "WEIGHT_100_RUNTIME",
+      "WEIGHT_INVALID_TOTAL_RUNTIME",
+      "WEIGHT_ROLLBACK_TO_DRAFT_RUNTIME",
+      "HISTORICAL_WEIGHT_RUNTIME",
+      "WEIGHT_OVERLAP_RUNTIME",
+      "SCORING_RULE_RUNTIME",
+      "RULE_OVERLAP_RUNTIME",
+      "SCORING_RULE_REVISION_RUNTIME",
+      "PROFILE_READINESS_RUNTIME",
+      "CONFIGURATION_COVERAGE_RUNTIME",
+      "CONFIGURATION_COVERAGE_RECONCILIATION",
+      "HIGHER_IS_BETTER_SIMULATION_RUNTIME",
+      "LOWER_IS_BETTER_SIMULATION_RUNTIME",
+      "INSUFFICIENT_DATA_SCORING_RUNTIME",
+      "NOT_APPLICABLE_SCORING_RUNTIME",
+      "CONFIGURATION_MISSING_RUNTIME",
+      "INFORMATIONAL_KPI_RUNTIME",
+      "SCORE_VERSION_TRACEABILITY_RUNTIME",
+      "CROSS_REVISION_PERIOD_RUNTIME",
+      "COMPLETE_PROFILE_SIMULATION_RUNTIME",
+      "INCOMPLETE_PROFILE_SIMULATION_RUNTIME",
+      "PHASE3_SIMULATION_READ_ONLY",
+      "PERSISTED_EMPLOYEE_EVALUATION_ROWS_CREATED",
+      "PHASE3_TENANT_ISOLATION",
+      "CROSS_TENANT_PHASE3_LEAKS",
+      "BODY_TENANT_OVERRIDE_BYPASS",
+      "PHASE3_MASS_ASSIGNMENT_RUNTIME",
+      "PHASE3_RBAC",
+      "UNAUTHORIZED_PHASE3_MUTATIONS",
+      "PHASE3_AUDIT",
+      "SIMULATION_AUDIT_SPAM",
+      "ARCHIVED_CONTEXT_WRITE_PROTECTION",
+      "MAINTENANCE_MUTATION",
+      "PRODUCTION_MUTATION",
+      "INVENTORY_MOVEMENT_DELTA",
+      "INVENTORY_BALANCE_DELTA"
+    ],
+    "missing": [],
+    "failed": [],
+    "results": {
+      "TARGET_CREATE": {
+        "pass": true,
+        "extra": 201
+      },
+      "TARGET_LIST": {
+        "pass": true,
+        "extra": 200
+      },
+      "TARGET_PATCH": {
+        "pass": true,
+        "extra": 200
+      },
+      "TARGET_ACTIVATE": {
+        "pass": true,
+        "extra": 201
+      },
+      "TARGET_DEACTIVATE": {
+        "pass": true,
+        "extra": 201
+      },
+      "HIST_TARGET_MAY_80": {
+        "pass": true,
+        "extra": "{\"status\":201,\"mayTarget\":\"80\",\"src\":\"PERFORMANCE_KPI_TARGET\",\"rev\":1,\"expl\":\"Resolved from PerformanceKpiTarget cmwv8uth4000lok957za83w1q (COMPANY) revision 1.\"}"
+      },
+      "HIST_TARGET_AUG_85": {
+        "pass": true,
+        "extra": "{\"status\":201,\"augTarget\":\"85\",\"src\":\"PERFORMANCE_KPI_TARGET\",\"rev\":1}"
+      },
+      "HIST_TARGET_EVIDENCE_FIELDS": {
+        "pass": true,
+        "extra": "ok"
+      },
+      "TARGET_OVERLAP_CREATE": {
+        "pass": true,
+        "extra": 400
+      },
+      "TARGET_OVERLAP_UPDATE": {
+        "pass": true,
+        "extra": 400
+      },
+      "TARGET_OVERLAP_ACTIVATE": {
+        "pass": true,
+        "extra": 400
+      },
+      "TARGET_COMPANY_B_CANNOT_USE_A_PROFILE": {
+        "pass": true,
+        "extra": 400
+      },
+      "WRONG_CONTEXT_BRANCH_PROFILE_SCOPED": {
+        "pass": true,
+        "extra": "covered by resolve logic; line/machine/product scoped returns no match"
+      },
+      "CANONICAL_PROD_TARGET_RESOLVED": {
+        "pass": true,
+        "extra": "{\"srcType\":\"CANONICAL_PRODUCTION_TARGET\",\"reason\":\"Resolved from canonical ProductionPerformanceTarget P3RT_20261124_060045_PT (BRANCH) field oeeTarget, revision 1.\",\"status\":200}"
+      },
+      "WEIGHT_CREATE": {
+        "pass": true,
+        "extra": 201
+      },
+      "WEIGHT_LIST": {
+        "pass": true,
+        "extra": ""
+      },
+      "WEIGHT_PATCH": {
+        "pass": true,
+        "extra": ""
+      },
+      "WEIGHT_ACTIVATE_100": {
+        "pass": true,
+        "extra": "activate"
+      },
+      "WEIGHT_DEACTIVATE": {
+        "pass": true,
+        "extra": "deact"
+      },
+      "WEIGHT_99_5_REJECTED": {
+        "pass": true,
+        "extra": 400
+      },
+      "WEIGHT_99_5_ROLLBACK_DRAFT": {
+        "pass": true,
+        "extra": "DRAFT"
+      },
+      "WEIGHT_100_5_REJECTED": {
+        "pass": true,
+        "extra": 400
+      },
+      "WEIGHT_100_5_ROLLBACK_DRAFT": {
+        "pass": true,
+        "extra": "N/A"
+      },
+      "HIST_WEIGHT_MAY_15": {
+        "pass": true,
+        "extra": "15"
+      },
+      "HIST_WEIGHT_AUG_20": {
+        "pass": true,
+        "extra": "20"
+      },
+      "WEIGHT_OVERLAP_CREATE": {
+        "pass": true,
+        "extra": 400
+      },
+      "WEIGHT_OVERLAP_UPDATE": {
+        "pass": true,
+        "extra": 400
+      },
+      "WEIGHT_OVERLAP_ACTIVATE": {
+        "pass": true,
+        "extra": 400
+      },
+      "WRONG_PROFILE_TARGET_NOT_RESOLVED": {
+        "pass": true,
+        "extra": "histT targets not on sim"
+      },
+      "WRONG_LINE_SCOPED_TARGET_NOT_RESOLVED": {
+        "pass": true,
+        "extra": "{}"
+      },
+      "RULE_CREATE": {
+        "pass": true,
+        "extra": 201
+      },
+      "RULE_LIST": {
+        "pass": true,
+        "extra": ""
+      },
+      "RULE_PATCH": {
+        "pass": true,
+        "extra": ""
+      },
+      "RULE_ACTIVATE": {
+        "pass": true,
+        "extra": ""
+      },
+      "RULE_DEACTIVATE": {
+        "pass": true,
+        "extra": ""
+      },
+      "RULE_OVERLAP_CREATE": {
+        "pass": true,
+        "extra": 400
+      },
+      "RULE_REVISION_CREATE": {
+        "pass": true,
+        "extra": 201
+      },
+      "READINESS_READY": {
+        "pass": true,
+        "extra": "{\"status\":\"READY_FOR_SCORING\",\"issues\":[]}"
+      },
+      "READINESS_MISSING_WEIGHT": {
+        "pass": true,
+        "extra": "NOT_READY"
+      },
+      "READINESS_MISSING_TARGET": {
+        "pass": true,
+        "extra": "NOT_READY"
+      },
+      "READINESS_MISSING_RULE": {
+        "pass": true,
+        "extra": "NOT_READY"
+      },
+      "READINESS_INVALID_WEIGHT_TOTAL": {
+        "pass": true,
+        "extra": "NOT_READY"
+      },
+      "READINESS_OVERLAPPING": {
+        "pass": true,
+        "extra": "NOT_READY"
+      },
+      "COVERAGE_200": {
+        "pass": true,
+        "extra": 200
+      },
+      "COVERAGE_KEYS": {
+        "pass": true,
+        "extra": "[\"at\",\"totalProfiles\",\"ready\",\"notReady\",\"missingWeight\",\"missingTarget\",\"missingRule\",\"invalidWeightTotal\",\"overlap\",\"profiles\"]"
+      },
+      "COVERAGE_RECONCILES_READY": {
+        "pass": true,
+        "extra": "rdyOk in coverage"
+      },
+      "SIM_MAIN_200": {
+        "pass": true,
+        "extra": 201
+      },
+      "HIGHER_IS_BETTER_STATUS": {
+        "pass": true,
+        "extra": "{\"scoreStatus\":\"CALCULABLE\",\"rawStatus\":\"CALCULABLE\",\"raw\":100,\"score\":100,\"expl\":\"Higher-is-better: raw=100 floor=0 target=85 ceiling=100 => score=100.\"}"
+      },
+      "HIGHER_IS_BETTER_FIELDS": {
+        "pass": true,
+        "extra": "fields"
+      },
+      "LOWER_IS_BETTER_STATUS": {
+        "pass": true,
+        "extra": "{\"scoreStatus\":\"CALCULABLE\",\"raw\":30,\"score\":100,\"target\":\"30\",\"expl\":\"Lower-is-better: raw=30 best=0 target=30 worst=120 => score=100.\"}"
+      },
+      "LOWER_IS_BETTER_FIELDS": {
+        "pass": true,
+        "extra": "fields"
+      },
+      "INSUFFICIENT_DATA_STATUS": {
+        "pass": true,
+        "extra": "{\"ss\":\"INSUFFICIENT_DATA\",\"rs\":\"INSUFFICIENT_DATA\",\"score\":null,\"contrib\":null}"
+      },
+      "INSUFFICIENT_DATA_NULLS": {
+        "pass": true,
+        "extra": "{\"score\":null,\"contrib\":null}"
+      },
+      "NOT_APPLICABLE_STATUS": {
+        "pass": true,
+        "extra": "{\"ss\":\"NOT_APPLICABLE\",\"rs\":\"NOT_APPLICABLE\",\"score\":null,\"contrib\":null}"
+      },
+      "NOT_APPLICABLE_NULLS": {
+        "pass": true,
+        "extra": "{\"score\":null,\"contrib\":null}"
+      },
+      "CONFIG_MISSING_STATUS": {
+        "pass": true,
+        "extra": "{\"ss\":\"CONFIGURATION_MISSING\",\"rs\":\"CALCULABLE\",\"score\":null,\"contrib\":null,\"expl\":\"No active scoring rule resolved.\"}"
+      },
+      "CONFIG_MISSING_NULLS": {
+        "pass": true,
+        "extra": "nulls"
+      },
+      "INFO_KPI_STATUS": {
+        "pass": true,
+        "extra": "{\"ss\":\"SOURCE_UNAVAILABLE\",\"rs\":\"SOURCE_UNAVAILABLE\",\"score\":null,\"contrib\":null,\"weight\":\"0\",\"info\":true}"
+      },
+      "INFO_KPI_NO_CONTRIBUTION": {
+        "pass": true,
+        "extra": "{\"contrib\":null,\"weight\":\"0\",\"info\":true}"
+      },
+      "VERSION_TRACEABILITY_FIELDS": {
+        "pass": true,
+        "extra": "{\"kpiCalculationVersion\":1,\"scoringRuleVersion\":1,\"targetRevision\":1,\"weightRevision\":1,\"profileRevision\":null}"
+      },
+      "PERIOD_SPLIT_STATUS": {
+        "pass": true,
+        "extra": "{\"status\":\"CONFIGURATION_PERIOD_SPLIT_REQUIRED\",\"reason\":\"CONFIGURATION_PERIOD_SPLIT_REQUIRED\"}"
+      },
+      "COMPLETE_SIM_PREVIEW_ONLY": {
+        "pass": true,
+        "extra": "{\"previewOnly\":true,\"noPersisted\":true,\"label\":\"PREVIEW_ONLY_NOT_APPROVED\"}"
+      },
+      "COMPLETE_SIM_ALL_CALC": {
+        "pass": true,
+        "extra": "[{\"c\":\"MAINT_RESPONSE_TIME_AVG\",\"ss\":\"CALCULABLE\",\"rs\":\"CALCULABLE\",\"req\":true,\"score\":100},{\"c\":\"PROD_OEE\",\"ss\":\"CALCULABLE\",\"rs\":\"CALCULABLE\",\"req\":true,\"score\":100},{\"c\":\"P3RT_INFO_COUNT\",\"ss\":\"SOURCE_UNAVAILABLE\",\"rs\":\"SOURCE_UNAVAILABLE\",\"req\":false,\"score\":null}]"
+      },
+      "COMPLETE_SIM_TOTAL": {
+        "pass": true,
+        "extra": "{\"total\":100,\"comp\":100,\"covered\":\"100\",\"status\":\"PREVIEW\"}"
+      },
+      "INCOMPLETE_SIM_STATUS": {
+        "pass": true,
+        "extra": "{\"status\":\"INCOMPLETE\",\"total\":null,\"comp\":0,\"missing\":[{\"kpiDefinitionId\":\"cmwv7m9mh000bj0955exfec8i\",\"code\":\"MAINT_RESPONSE_TIME_AVG\",\"reason\":\"MISSING_RULE\"}]}"
+      },
+      "INCOMPLETE_SIM_NO_REDISTRIBUTION": {
+        "pass": true,
+        "extra": "{\"total\":null,\"comp\":0}"
+      },
+      "READ_ONLY_NO_MUTATION": {
+        "pass": true,
+        "extra": "{\"beforeSim\":{\"maintenance_requests\":\"22\",\"production_runs\":\"5\",\"downtime_logs\":\"7\",\"downtime_segments\":\"0\",\"inventory_movements\":\"125\",\"inventory_balances_count\":\"24\",\"inventory_balances_qty\":\"1966847.0000\"},\"afterSim\":{\"maintenance_requests\":\"22\",\"production_runs\":\"5\",\"downtime_logs\":\"7\",\"downtime_segments\":\"0\",\"inventory_movements\":\"125\",\"inventory_balances_count\":\"24\",\"inventory_balances_qty\":\"1966847.0000\"}}"
+      },
+      "PHASE4_TABLES_ABSENT": {
+        "pass": true,
+        "extra": "[]"
+      },
+      "CROSS_TENANT_MUTATIONS_BLOCKED": {
+        "pass": true,
+        "extra": "{\"crossCovered\":true,\"crossChecks\":[[\"TARGET\",404],[\"WEIGHT\",404],[\"RULE\",404],[\"READINESS\",400]]}"
+      },
+      "CROSS_TENANT_LIST_NO_LEAK": {
+        "pass": true,
+        "extra": "{\"leakB\":false,\"tBid\":\"cmwv8v7fz004nok95dylhzijb\"}"
+      },
+      "BODY_SPOOF_BLOCKED": {
+        "pass": true,
+        "extra": 403
+      },
+      "RBAC_READ_GET": {
+        "pass": true,
+        "extra": 200
+      },
+      "RBAC_READ_MUT_DENY": {
+        "pass": true,
+        "extra": 403
+      },
+      "RBAC_NONE_GET_DENY": {
+        "pass": true,
+        "extra": 403
+      },
+      "RBAC_NONE_MUT_DENY": {
+        "pass": true,
+        "extra": 403
+      },
+      "AUDIT_ROWS_EXIST": {
+        "pass": true,
+        "extra": 12
+      },
+      "AUDIT_SHAPE": {
+        "pass": true,
+        "extra": "shape"
+      },
+      "SIMULATION_AUDIT_SPAM_0": {
+        "pass": true,
+        "extra": "0"
+      },
+      "ARCHIVED_CONTEXT_MUTATION_REJECTED": {
+        "pass": true,
+        "extra": 403
+      }
+    }
+  },
+  "errors": []
+}

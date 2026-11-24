@@ -247,3 +247,16 @@ Applied in Phase 10: P01, P02, P05, P09, P10, P12, P16, P20, P22, P23, P31, P36,
 | PERSONNEL-P10-07 | `nssm restart` stopped both services then returned "Unexpected status SERVICE_STOPPED in response to START control" (exit 1); SCM auto-retry started them later in an inconsistent state (Web briefly Paused). | Do not use `nssm restart` for cutover. Do an explicit `nssm stop` then `nssm start` per service, wait, and assert State=Running with listeners on 3000/4000 before declaring the cutover complete. | ACTIVE CHECK |
 
 Applied in production cutover: PERSONNEL-P10-05–07 in addition to P10-01–04. Production migration used a Windows-integrated sysadmin login; runtime DML login retained `db_datareader`/`db_datawriter`. Deployed manifest pinned to `89f7b5dbf942e24b32a30264a894319e0ec28fec`.
+
+
+## Performance Phase 3 browser-proof and regression checks — 2026-11-25
+
+| ID | Problem / symptom | Preventive check | Status |
+| --- | --- | --- | --- |
+| P52 | Port `4000` was occupied by a production-like API process; a browser proof cannot bind a same-port proxy there. | Never stop an unrecognized production-like PID. Build the web proof artifact with `NEXT_PUBLIC_API_URL=http://localhost:<proof-api>/api/v1`, start the proof API with `CORS_ORIGINS=http://localhost:<proof-web>`, and verify preflight and actual response `Access-Control-Allow-Origin` before browser proof. | ACTIVE CHECK |
+| P53 | Repeated login attempts in browser-proof reruns produced `auth.tooManyAttempts` / HTTP 429 and invalidated fresh-token refresh. | Reuse cached proof tokens when valid; restart only the disposable proof API to clear its in-memory attempt counter; accept all documented 2xx login/simulation codes instead of hard-coding `200`. | ACTIVE CHECK |
+| P54 | A browser-created target with `effectiveFrom` after an existing open-ended target was rejected as `validation.overlap`, leaving the modal open. | Deactivate prior proof-created rows first and create finite non-overlapping effective windows (`effectiveFrom`/`effectiveTo`) for repeated browser-proof runs. Do not weaken overlap validation. | ACTIVE CHECK |
+| P55 | Readiness UI displayed `Active weight total: 100`, while a gate expected the API decimal string `100.0000`. | Assert the semantic readiness state and a numeric 100 total with optional trailing zeros; never require a specific display precision that the UI does not promise. | ACTIVE CHECK |
+| P56 | Simulation proof read the page too early because the static banner already contained "Preview only", before the asynchronous result label appeared. | Wait for a result-only token (`Label: <stable preview label>`) and then assert preview/no-persisted flags, evidence columns, and version/revision. Use the fixture period that actually contains source evidence (`2026-12`). | ACTIVE CHECK |
+
+Applied: P01, P05, P09, P10, P11, P12, P16, P20, P26, P52, P53, P54, P55, P56 during Performance Phase 3 closeout. Full API regression 285 suites / 5487 tests passed; full web logic regression 141 suites / 2615 tests passed; route contract retained only the known pre-existing inventory-panel baseline (3 malformed / 3 unresolved). No production writes, migrations, commits, pushes, deployments, or service restarts outside the disposable proof clone and proof ports.

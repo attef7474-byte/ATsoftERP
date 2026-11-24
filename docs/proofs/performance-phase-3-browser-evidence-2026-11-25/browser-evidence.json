@@ -1,0 +1,57 @@
+{
+  "browser": {},
+  "gates": {
+    "ADMIN_CONTEXTS_AVAILABLE": "PASS",
+    "PRIOR_BROWSER_TARGETS_DEACTIVATED": "PASS",
+    "EN_LTR_DIRECTION": "PASS",
+    "EN_PAGE_TITLE": "PASS",
+    "en_TARGETS_TAB": "PASS",
+    "en_CREATE_DIALOG": "PASS",
+    "en_CREATE_SAME_RECORD": "PASS",
+    "en_EDIT_SAME_RECORD_OPENED": "PASS",
+    "en_EDITED_SAME_ID": "PASS",
+    "en_ACTIVATE_CLICKED": "PASS",
+    "en_ACTIVATED_SAME_ID": "PASS",
+    "en_READINESS_RUN": "PASS",
+    "en_READINESS_READY_100": "PASS",
+    "en_COVERAGE_RUN": "PASS",
+    "en_COVERAGE_RESULTS": "PASS",
+    "en_SIMULATION_RUN": "PASS",
+    "en_SIMULATION_PREVIEW_ONLY": "PASS",
+    "AR_RTL_DIRECTION": "PASS",
+    "AR_PAGE_TITLE": "PASS",
+    "ar_TARGETS_TAB": "PASS",
+    "ar_CREATE_DIALOG": "PASS",
+    "ar_CREATE_SAME_RECORD": "PASS",
+    "ar_EDIT_SAME_RECORD_OPENED": "PASS",
+    "ar_EDITED_SAME_ID": "PASS",
+    "ar_ACTIVATE_CLICKED": "PASS",
+    "ar_ACTIVATED_SAME_ID": "PASS",
+    "ar_READINESS_RUN": "PASS",
+    "ar_READINESS_READY_100": "PASS",
+    "ar_COVERAGE_RUN": "PASS",
+    "ar_COVERAGE_RESULTS": "PASS",
+    "ar_SIMULATION_RUN": "PASS",
+    "ar_SIMULATION_PREVIEW_ONLY": "PASS",
+    "READ_ONLY_TABS_VISIBLE": "PASS",
+    "READ_ONLY_CREATE_HIDDEN": "PASS",
+    "READ_ONLY_MUTATION_DENIED": "PASS",
+    "NO_PERMISSION_NOTICE": "PASS",
+    "NO_PERMISSION_NO_TABS": "PASS",
+    "TENANT_B_LIST_NO_A_RECORD": "PASS",
+    "TENANT_B_CANNOT_PATCH_A": "PASS",
+    "SIMULATION_NO_PERSISTED_FLAG": "PASS"
+  },
+  "details": {
+    "createdTargetIds": {
+      "en": "cmwva404s000wq495tv5b89ny",
+      "ar": "cmwva45nb0010q495o7kv7g4o"
+    },
+    "targetListCount": 20,
+    "localeLabels": {
+      "enTitle": "Performance Scoring Configuration",
+      "arTitle": "إعدادات تقييم الأداء"
+    }
+  },
+  "errors": []
+}
