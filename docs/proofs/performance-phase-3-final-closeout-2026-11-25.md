@@ -48,7 +48,7 @@ Worktree paths (relative to the worktree root):
 - `apps/web/src/app/admin/performance/scoring/page.tsx`
 - `apps/web/tests/performance-scoring-configuration.test.ts`
 - `docs/proofs/performance-phase-3-backend-runtime-gate-2026-11-25.md`
-- `docs/proofs/performance-phase-3-browser-evidence-2026-11-25/` (browser-evidence.json, browser-proof.log, five locale/role/tenant screenshots)
+- `docs/proofs/performance-phase-3-browser-evidence-2026-11-25/browser-evidence.json` and five locale/role/tenant screenshots; raw `browser-proof.log` remains untracked locally per repository `.gitignore`
 - `docs/proofs/performance-phase-3-final-validation-2026-11-25/runtime-gate-evidence.json` and `final-integrity.txt`; raw `*.log` files remain untracked locally per repository `.gitignore` and are summarized in this closeout
 - `docs/proofs/performance-phase-3-final-closeout-2026-11-25.md` (this document)
 
