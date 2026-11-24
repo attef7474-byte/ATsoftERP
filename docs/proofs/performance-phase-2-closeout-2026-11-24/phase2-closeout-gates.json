@@ -1,0 +1,2330 @@
+{
+  "meta": {
+    "generatedAt": "2026-11-23T23:29:27.900Z",
+    "db": "ATsoftERP_P2CLONE_20261124",
+    "base": "http://localhost:4311/api/v1"
+  },
+  "tenant": {
+    "checks": [
+      {
+        "name": "C2 read C1 KPI by id denied",
+        "pass": true,
+        "detail": {
+          "status": 404
+        }
+      },
+      {
+        "name": "C2 preview C1 employee denied",
+        "pass": true,
+        "detail": {
+          "status": 404
+        }
+      },
+      {
+        "name": "C1 preview C2 employee denied",
+        "pass": true,
+        "detail": {
+          "status": 404
+        }
+      },
+      {
+        "name": "body companyId spoof rejected",
+        "pass": true,
+        "detail": {
+          "status": 403
+        }
+      },
+      {
+        "name": "body branchId spoof rejected",
+        "pass": true,
+        "detail": {
+          "status": 403
+        }
+      },
+      {
+        "name": "create KPI body companyId spoof rejected",
+        "pass": true,
+        "detail": {
+          "status": 403
+        }
+      },
+      {
+        "name": "create KPI body branchId spoof rejected",
+        "pass": true,
+        "detail": {
+          "status": 403
+        }
+      },
+      {
+        "name": "C1 KPI list scoped to C1 company",
+        "pass": true,
+        "detail": {
+          "companies": [
+            "cmrvaph2200009g95oj1o8m1j"
+          ]
+        }
+      },
+      {
+        "name": "C2 KPI list scoped to C2 company",
+        "pass": true,
+        "detail": {
+          "companies": [
+            "cmum3jqh8001mf495zaankx05"
+          ]
+        }
+      },
+      {
+        "name": "C1 coverage has no C2-only KPI IDs",
+        "pass": true,
+        "detail": {
+          "covLeakC2inC1": false
+        }
+      },
+      {
+        "name": "C2 coverage has no C1-only KPI IDs",
+        "pass": true,
+        "detail": {
+          "covLeakC1inC2": false
+        }
+      },
+      {
+        "name": "C1 preview evidence rows are C1-owned in DB",
+        "pass": true,
+        "detail": {
+          "checked": 5,
+          "foreignEvidence": 0,
+          "evidenceSample": [
+            "p2pf_dt_rf1",
+            "p2pf_dt_rf2",
+            "p2pf_dt_rt1",
+            "p2pf_dt_rt2",
+            "p2pf_dt_multi"
+          ]
+        }
+      },
+      {
+        "name": "no GET evidence-by-id preview surface",
+        "pass": true,
+        "detail": {
+          "status": 404
+        }
+      },
+      {
+        "name": "no direct evidence-ID endpoint in performance module; evidence only returned via tenant-scoped preview",
+        "pass": true,
+        "detail": {
+          "note": "design surface check"
+        }
+      },
+      {
+        "name": "evidence executionId is C1-owned or absent",
+        "pass": true,
+        "detail": {
+          "executionId": "p2pf_task1",
+          "company": "cmrvaph2200009g95oj1o8m1j"
+        }
+      },
+      {
+        "name": "evidence executionId is C1-owned or absent",
+        "pass": true,
+        "detail": {
+          "executionId": "p2pf_task1",
+          "company": "cmrvaph2200009g95oj1o8m1j"
+        }
+      },
+      {
+        "name": "evidence executionId is C1-owned or absent",
+        "pass": true,
+        "detail": {
+          "executionId": "p2pf_task1",
+          "company": "cmrvaph2200009g95oj1o8m1j"
+        }
+      },
+      {
+        "name": "evidence executionId is C1-owned or absent",
+        "pass": true,
+        "detail": {
+          "executionId": "p2pf_task1",
+          "company": "cmrvaph2200009g95oj1o8m1j"
+        }
+      },
+      {
+        "name": "evidence executionId is C1-owned or absent",
+        "pass": true,
+        "detail": {
+          "executionId": "p2pf_task_multi",
+          "company": "cmrvaph2200009g95oj1o8m1j"
+        }
+      },
+      {
+        "name": "C2 prod evidence run is C2-owned",
+        "pass": true,
+        "detail": {
+          "sourceId": "cmwlcvwte000794956r5k4u0p",
+          "company": "cmum3jqh8001mf495zaankx05"
+        }
+      },
+      {
+        "name": "foreign MachineResponsibilityAssignment not addressable by preview API; C2 preview of C1 person denied",
+        "pass": true,
+        "detail": {
+          "c2Sample": "Msg 207, Level 16, State 1, Server DELL\\WINCC, Line 1"
+        }
+      },
+      {
+        "name": "foreign target/production-standard source not accepted by preview DTO (no target/standard ID fields)",
+        "pass": true,
+        "detail": {
+          "dtoFields": [
+            "operationalPersonId",
+            "kpiCode",
+            "dateFrom",
+            "dateTo",
+            "evidenceLimit"
+          ]
+        }
+      },
+      {
+        "name": "C2 probing C1 evidence via preview denied",
+        "pass": true,
+        "detail": {
+          "case": "C2 previews C1 person"
+        }
+      }
+    ],
+    "summary": {
+      "pass": 23,
+      "fail": 0
+    }
+  },
+  "trace": {
+    "checks": [
+      {
+        "name": "trace response has status",
+        "pass": true,
+        "detail": {
+          "name": "maint_response",
+          "status": "CALCULABLE"
+        }
+      },
+      {
+        "name": "trace has rawValue",
+        "pass": true,
+        "detail": {
+          "name": "maint_response",
+          "rawValue": 10.4
+        }
+      },
+      {
+        "name": "trace has dataQuality.issues",
+        "pass": true,
+        "detail": {
+          "name": "maint_response"
+        }
+      },
+      {
+        "name": "trace has explanation",
+        "pass": true,
+        "detail": {
+          "name": "maint_response"
+        }
+      },
+      {
+        "name": "trace has evidenceCount",
+        "pass": true,
+        "detail": {
+          "name": "maint_response"
+        }
+      },
+      {
+        "name": "trace has excluded.count",
+        "pass": true,
+        "detail": {
+          "name": "maint_response"
+        }
+      },
+      {
+        "name": "trace has excluded.reasons",
+        "pass": true,
+        "detail": {
+          "name": "maint_response"
+        }
+      },
+      {
+        "name": "evidence has sourceType/sourceId/occurredAt",
+        "pass": true,
+        "detail": {
+          "name": "maint_response",
+          "ev": {
+            "sourceType": "DowntimeLog",
+            "sourceId": "p2pf_dt_rf1",
+            "occurredAt": "2026-11-05T08:00:00.000Z"
+          }
+        }
+      },
+      {
+        "name": "evidence has contribution",
+        "pass": true,
+        "detail": {
+          "name": "maint_response",
+          "sourceId": "p2pf_dt_rf1"
+        }
+      },
+      {
+        "name": "evidence has sourceType/sourceId/occurredAt",
+        "pass": true,
+        "detail": {
+          "name": "maint_response",
+          "ev": {
+            "sourceType": "DowntimeLog",
+            "sourceId": "p2pf_dt_rf2",
+            "occurredAt": "2026-11-06T08:00:00.000Z"
+          }
+        }
+      },
+      {
+        "name": "evidence has contribution",
+        "pass": true,
+        "detail": {
+          "name": "maint_response",
+          "sourceId": "p2pf_dt_rf2"
+        }
+      },
+      {
+        "name": "evidence has sourceType/sourceId/occurredAt",
+        "pass": true,
+        "detail": {
+          "name": "maint_response",
+          "ev": {
+            "sourceType": "DowntimeLog",
+            "sourceId": "p2pf_dt_rt1",
+            "occurredAt": "2026-11-10T10:00:00.000Z"
+          }
+        }
+      },
+      {
+        "name": "evidence has contribution",
+        "pass": true,
+        "detail": {
+          "name": "maint_response",
+          "sourceId": "p2pf_dt_rt1"
+        }
+      },
+      {
+        "name": "evidence has sourceType/sourceId/occurredAt",
+        "pass": true,
+        "detail": {
+          "name": "maint_response",
+          "ev": {
+            "sourceType": "DowntimeLog",
+            "sourceId": "p2pf_dt_rt2",
+            "occurredAt": "2026-11-11T09:00:00.000Z"
+          }
+        }
+      },
+      {
+        "name": "evidence has contribution",
+        "pass": true,
+        "detail": {
+          "name": "maint_response",
+          "sourceId": "p2pf_dt_rt2"
+        }
+      },
+      {
+        "name": "evidence has sourceType/sourceId/occurredAt",
+        "pass": true,
+        "detail": {
+          "name": "maint_response",
+          "ev": {
+            "sourceType": "DowntimeLog",
+            "sourceId": "p2pf_dt_multi",
+            "occurredAt": "2026-11-13T10:00:00.000Z"
+          }
+        }
+      },
+      {
+        "name": "evidence has contribution",
+        "pass": true,
+        "detail": {
+          "name": "maint_response",
+          "sourceId": "p2pf_dt_multi"
+        }
+      },
+      {
+        "name": "trace response has status",
+        "pass": true,
+        "detail": {
+          "name": "maint_repair",
+          "status": "CALCULABLE"
+        }
+      },
+      {
+        "name": "trace has rawValue",
+        "pass": true,
+        "detail": {
+          "name": "maint_repair",
+          "rawValue": 41.67
+        }
+      },
+      {
+        "name": "trace has dataQuality.issues",
+        "pass": true,
+        "detail": {
+          "name": "maint_repair"
+        }
+      },
+      {
+        "name": "trace has explanation",
+        "pass": true,
+        "detail": {
+          "name": "maint_repair"
+        }
+      },
+      {
+        "name": "trace has evidenceCount",
+        "pass": true,
+        "detail": {
+          "name": "maint_repair"
+        }
+      },
+      {
+        "name": "trace has excluded.count",
+        "pass": true,
+        "detail": {
+          "name": "maint_repair"
+        }
+      },
+      {
+        "name": "trace has excluded.reasons",
+        "pass": true,
+        "detail": {
+          "name": "maint_repair"
+        }
+      },
+      {
+        "name": "evidence has sourceType/sourceId/occurredAt",
+        "pass": true,
+        "detail": {
+          "name": "maint_repair",
+          "ev": {
+            "sourceType": "DowntimeLog",
+            "sourceId": "p2pf_dt_rf1",
+            "occurredAt": "2026-11-05T08:00:00.000Z"
+          }
+        }
+      },
+      {
+        "name": "evidence has contribution",
+        "pass": true,
+        "detail": {
+          "name": "maint_repair",
+          "sourceId": "p2pf_dt_rf1"
+        }
+      },
+      {
+        "name": "evidence has sourceType/sourceId/occurredAt",
+        "pass": true,
+        "detail": {
+          "name": "maint_repair",
+          "ev": {
+            "sourceType": "DowntimeLog",
+            "sourceId": "p2pf_dt_rf2",
+            "occurredAt": "2026-11-06T08:00:00.000Z"
+          }
+        }
+      },
+      {
+        "name": "evidence has contribution",
+        "pass": true,
+        "detail": {
+          "name": "maint_repair",
+          "sourceId": "p2pf_dt_rf2"
+        }
+      },
+      {
+        "name": "evidence has sourceType/sourceId/occurredAt",
+        "pass": true,
+        "detail": {
+          "name": "maint_repair",
+          "ev": {
+            "sourceType": "DowntimeLog",
+            "sourceId": "p2pf_dt_rt1",
+            "occurredAt": "2026-11-10T10:00:00.000Z"
+          }
+        }
+      },
+      {
+        "name": "evidence has contribution",
+        "pass": true,
+        "detail": {
+          "name": "maint_repair",
+          "sourceId": "p2pf_dt_rt1"
+        }
+      },
+      {
+        "name": "evidence has sourceType/sourceId/occurredAt",
+        "pass": true,
+        "detail": {
+          "name": "maint_repair",
+          "ev": {
+            "sourceType": "DowntimeLog",
+            "sourceId": "p2pf_dt_rt2",
+            "occurredAt": "2026-11-11T09:00:00.000Z"
+          }
+        }
+      },
+      {
+        "name": "evidence has contribution",
+        "pass": true,
+        "detail": {
+          "name": "maint_repair",
+          "sourceId": "p2pf_dt_rt2"
+        }
+      },
+      {
+        "name": "evidence has sourceType/sourceId/occurredAt",
+        "pass": true,
+        "detail": {
+          "name": "maint_repair",
+          "ev": {
+            "sourceType": "DowntimeLog",
+            "sourceId": "p2pf_dt_rt_missing",
+            "occurredAt": "2026-11-12T08:00:00.000Z"
+          }
+        }
+      },
+      {
+        "name": "evidence has contribution",
+        "pass": true,
+        "detail": {
+          "name": "maint_repair",
+          "sourceId": "p2pf_dt_rt_missing"
+        }
+      },
+      {
+        "name": "trace response has status",
+        "pass": true,
+        "detail": {
+          "name": "maint_repeat",
+          "status": "CALCULABLE"
+        }
+      },
+      {
+        "name": "trace has rawValue",
+        "pass": true,
+        "detail": {
+          "name": "maint_repeat",
+          "rawValue": 0
+        }
+      },
+      {
+        "name": "trace has dataQuality.issues",
+        "pass": true,
+        "detail": {
+          "name": "maint_repeat"
+        }
+      },
+      {
+        "name": "trace has explanation",
+        "pass": true,
+        "detail": {
+          "name": "maint_repeat"
+        }
+      },
+      {
+        "name": "trace has evidenceCount",
+        "pass": true,
+        "detail": {
+          "name": "maint_repeat"
+        }
+      },
+      {
+        "name": "trace has excluded.count",
+        "pass": true,
+        "detail": {
+          "name": "maint_repeat"
+        }
+      },
+      {
+        "name": "trace has excluded.reasons",
+        "pass": true,
+        "detail": {
+          "name": "maint_repeat"
+        }
+      },
+      {
+        "name": "evidence has sourceType/sourceId/occurredAt",
+        "pass": true,
+        "detail": {
+          "name": "maint_repeat",
+          "ev": {
+            "sourceType": "DowntimeLog",
+            "sourceId": "p2pf_dt_rf1",
+            "occurredAt": "2026-11-05T08:00:00.000Z"
+          }
+        }
+      },
+      {
+        "name": "evidence has contribution",
+        "pass": true,
+        "detail": {
+          "name": "maint_repeat",
+          "sourceId": "p2pf_dt_rf1"
+        }
+      },
+      {
+        "name": "evidence has sourceType/sourceId/occurredAt",
+        "pass": true,
+        "detail": {
+          "name": "maint_repeat",
+          "ev": {
+            "sourceType": "DowntimeLog",
+            "sourceId": "p2pf_dt_rf2",
+            "occurredAt": "2026-11-06T08:00:00.000Z"
+          }
+        }
+      },
+      {
+        "name": "evidence has contribution",
+        "pass": true,
+        "detail": {
+          "name": "maint_repeat",
+          "sourceId": "p2pf_dt_rf2"
+        }
+      },
+      {
+        "name": "evidence has sourceType/sourceId/occurredAt",
+        "pass": true,
+        "detail": {
+          "name": "maint_repeat",
+          "ev": {
+            "sourceType": "DowntimeLog",
+            "sourceId": "p2pf_dt_rt1",
+            "occurredAt": "2026-11-10T10:00:00.000Z"
+          }
+        }
+      },
+      {
+        "name": "evidence has contribution",
+        "pass": true,
+        "detail": {
+          "name": "maint_repeat",
+          "sourceId": "p2pf_dt_rt1"
+        }
+      },
+      {
+        "name": "evidence has sourceType/sourceId/occurredAt",
+        "pass": true,
+        "detail": {
+          "name": "maint_repeat",
+          "ev": {
+            "sourceType": "DowntimeLog",
+            "sourceId": "p2pf_dt_rt2",
+            "occurredAt": "2026-11-11T09:00:00.000Z"
+          }
+        }
+      },
+      {
+        "name": "evidence has contribution",
+        "pass": true,
+        "detail": {
+          "name": "maint_repeat",
+          "sourceId": "p2pf_dt_rt2"
+        }
+      },
+      {
+        "name": "evidence has sourceType/sourceId/occurredAt",
+        "pass": true,
+        "detail": {
+          "name": "maint_repeat",
+          "ev": {
+            "sourceType": "DowntimeLog",
+            "sourceId": "p2pf_dt_rt_missing",
+            "occurredAt": "2026-11-12T08:00:00.000Z"
+          }
+        }
+      },
+      {
+        "name": "evidence has contribution",
+        "pass": true,
+        "detail": {
+          "name": "maint_repeat",
+          "sourceId": "p2pf_dt_rt_missing"
+        }
+      },
+      {
+        "name": "trace response has status",
+        "pass": true,
+        "detail": {
+          "name": "prod_oee",
+          "status": "CALCULABLE"
+        }
+      },
+      {
+        "name": "trace has rawValue",
+        "pass": true,
+        "detail": {
+          "name": "prod_oee",
+          "rawValue": 85.5
+        }
+      },
+      {
+        "name": "trace has dataQuality.issues",
+        "pass": true,
+        "detail": {
+          "name": "prod_oee"
+        }
+      },
+      {
+        "name": "trace has explanation",
+        "pass": true,
+        "detail": {
+          "name": "prod_oee"
+        }
+      },
+      {
+        "name": "trace has evidenceCount",
+        "pass": true,
+        "detail": {
+          "name": "prod_oee"
+        }
+      },
+      {
+        "name": "trace has excluded.count",
+        "pass": true,
+        "detail": {
+          "name": "prod_oee"
+        }
+      },
+      {
+        "name": "trace has excluded.reasons",
+        "pass": true,
+        "detail": {
+          "name": "prod_oee"
+        }
+      },
+      {
+        "name": "evidence has sourceType/sourceId/occurredAt",
+        "pass": true,
+        "detail": {
+          "name": "prod_oee",
+          "ev": {
+            "sourceType": "ProductionRun",
+            "sourceId": "cmwlcvwte000794956r5k4u0p",
+            "occurredAt": "2026-11-18T08:00:00.000Z"
+          }
+        }
+      },
+      {
+        "name": "evidence has contribution",
+        "pass": true,
+        "detail": {
+          "name": "prod_oee",
+          "sourceId": "cmwlcvwte000794956r5k4u0p"
+        }
+      },
+      {
+        "name": "trace response has status",
+        "pass": true,
+        "detail": {
+          "name": "prod_output",
+          "status": "CALCULABLE"
+        }
+      },
+      {
+        "name": "trace has rawValue",
+        "pass": true,
+        "detail": {
+          "name": "prod_output",
+          "rawValue": 180
+        }
+      },
+      {
+        "name": "trace has dataQuality.issues",
+        "pass": true,
+        "detail": {
+          "name": "prod_output"
+        }
+      },
+      {
+        "name": "trace has explanation",
+        "pass": true,
+        "detail": {
+          "name": "prod_output"
+        }
+      },
+      {
+        "name": "trace has evidenceCount",
+        "pass": true,
+        "detail": {
+          "name": "prod_output"
+        }
+      },
+      {
+        "name": "trace has excluded.count",
+        "pass": true,
+        "detail": {
+          "name": "prod_output"
+        }
+      },
+      {
+        "name": "trace has excluded.reasons",
+        "pass": true,
+        "detail": {
+          "name": "prod_output"
+        }
+      },
+      {
+        "name": "evidence has sourceType/sourceId/occurredAt",
+        "pass": true,
+        "detail": {
+          "name": "prod_output",
+          "ev": {
+            "sourceType": "ProductionRun",
+            "sourceId": "cmwlcvwte000794956r5k4u0p",
+            "occurredAt": "2026-11-18T08:00:00.000Z"
+          }
+        }
+      },
+      {
+        "name": "evidence has contribution",
+        "pass": true,
+        "detail": {
+          "name": "prod_output",
+          "sourceId": "cmwlcvwte000794956r5k4u0p"
+        }
+      },
+      {
+        "name": "maint response has multi-technician evidence",
+        "pass": true,
+        "detail": {
+          "found": true
+        }
+      },
+      {
+        "name": "multi-tech has rawResponseMinutes",
+        "pass": true,
+        "detail": {
+          "c": {
+            "responseMinutes": 10,
+            "rawResponseMinutes": 20,
+            "technicianCount": 2
+          }
+        }
+      },
+      {
+        "name": "multi-tech has attributed responseMinutes",
+        "pass": true,
+        "detail": {
+          "c": {
+            "responseMinutes": 10,
+            "rawResponseMinutes": 20,
+            "technicianCount": 2
+          }
+        }
+      },
+      {
+        "name": "multi-tech technicianCount>1",
+        "pass": true,
+        "detail": {
+          "c": {
+            "responseMinutes": 10,
+            "rawResponseMinutes": 20,
+            "technicianCount": 2
+          }
+        }
+      },
+      {
+        "name": "maint repair has multi-technician evidence",
+        "pass": true,
+        "detail": {
+          "found": true
+        }
+      },
+      {
+        "name": "multi-tech repair has rawRepairMinutes",
+        "pass": true,
+        "detail": {
+          "c": {
+            "repairMinutes": 20,
+            "rawRepairMinutes": 40,
+            "technicianCount": 2
+          }
+        }
+      },
+      {
+        "name": "multi-tech repair has attributed repairMinutes",
+        "pass": true,
+        "detail": {
+          "c": {
+            "repairMinutes": 20,
+            "rawRepairMinutes": 40,
+            "technicianCount": 2
+          }
+        }
+      }
+    ],
+    "responses": {
+      "maint_response": {
+        "employee": {
+          "id": "cmut6swo50004ec95p5gc0swe",
+          "code": "EMP-0000004",
+          "name": "حنظل",
+          "category": "MAINTENANCE",
+          "isActive": true
+        },
+        "performanceProfile": {
+          "id": "cmwtu6v6o0006js95hveh0veq",
+          "code": "P2_MAINT_TECH",
+          "name": "Maintenance Technician",
+          "nameAr": null,
+          "nameEn": null,
+          "category": "MAINTENANCE",
+          "isActive": true,
+          "source": {
+            "targetType": "OPERATIONAL_CATEGORY",
+            "mappingId": "cmwtuhmvq001vjs95j4ffpp2g",
+            "effectiveFrom": "2026-01-01T00:00:00.000Z",
+            "effectiveTo": null,
+            "priority": 100
+          }
+        },
+        "kpi": {
+          "id": "cmwtu7y21000cjs95wcvtbhqn",
+          "code": "MAINT_RESPONSE_TIME_AVG",
+          "name": "Average Maintenance Response Time",
+          "nameAr": "متوسط زمن الاستجابة للصيانة",
+          "nameEn": null,
+          "domain": "MAINTENANCE_EXECUTION",
+          "measurementUnit": "MINUTES",
+          "direction": "LOWER_IS_BETTER",
+          "aggregationType": "AVERAGE",
+          "calculationMode": "FORMULA",
+          "sourceContractKey": "maintenance.response_time"
+        },
+        "period": {
+          "from": "2026-11-01T00:00:00.000Z",
+          "to": "2026-11-23T23:59:59.999Z"
+        },
+        "status": "CALCULABLE",
+        "rawValue": 10.4,
+        "unit": "MINUTES",
+        "direction": "LOWER_IS_BETTER",
+        "numerator": 52,
+        "denominator": 5,
+        "evidenceCount": 5,
+        "evidence": [
+          {
+            "sourceType": "DowntimeLog",
+            "sourceId": "p2pf_dt_rf1",
+            "occurredAt": "2026-11-05T08:00:00.000Z",
+            "contribution": {
+              "responseMinutes": 5,
+              "rawResponseMinutes": 5,
+              "technicianCount": 1
+            },
+            "context": {
+              "machine": "MCH-000029",
+              "requestId": null,
+              "executionId": "p2pf_task1"
+            }
+          },
+          {
+            "sourceType": "DowntimeLog",
+            "sourceId": "p2pf_dt_rf2",
+            "occurredAt": "2026-11-06T08:00:00.000Z",
+            "contribution": {
+              "responseMinutes": 5,
+              "rawResponseMinutes": 5,
+              "technicianCount": 1
+            },
+            "context": {
+              "machine": "MCH-000029",
+              "requestId": null,
+              "executionId": "p2pf_task1"
+            }
+          },
+          {
+            "sourceType": "DowntimeLog",
+            "sourceId": "p2pf_dt_rt1",
+            "occurredAt": "2026-11-10T10:00:00.000Z",
+            "contribution": {
+              "responseMinutes": 12,
+              "rawResponseMinutes": 12,
+              "technicianCount": 1
+            },
+            "context": {
+              "machine": "MCH-000030",
+              "requestId": null,
+              "executionId": "p2pf_task1"
+            }
+          },
+          {
+            "sourceType": "DowntimeLog",
+            "sourceId": "p2pf_dt_rt2",
+            "occurredAt": "2026-11-11T09:00:00.000Z",
+            "contribution": {
+              "responseMinutes": 20,
+              "rawResponseMinutes": 20,
+              "technicianCount": 1
+            },
+            "context": {
+              "machine": "MCH-000030",
+              "requestId": null,
+              "executionId": "p2pf_task1"
+            }
+          },
+          {
+            "sourceType": "DowntimeLog",
+            "sourceId": "p2pf_dt_multi",
+            "occurredAt": "2026-11-13T10:00:00.000Z",
+            "contribution": {
+              "responseMinutes": 10,
+              "rawResponseMinutes": 20,
+              "technicianCount": 2
+            },
+            "context": {
+              "machine": "MCH-000030",
+              "requestId": null,
+              "executionId": "p2pf_task_multi"
+            }
+          }
+        ],
+        "excluded": {
+          "count": 2,
+          "reasons": {
+            "missingTimestamps": 1,
+            "splitAcrossTechnicians": 1
+          }
+        },
+        "dataQuality": {
+          "issues": [],
+          "notes": []
+        },
+        "calculationVersion": 1,
+        "explanation": "5 eligible downtime events attributed by direct execution session. Average response time = 10.4 minutes."
+      },
+      "maint_repair": {
+        "employee": {
+          "id": "cmut6swo50004ec95p5gc0swe",
+          "code": "EMP-0000004",
+          "name": "حنظل",
+          "category": "MAINTENANCE",
+          "isActive": true
+        },
+        "performanceProfile": {
+          "id": "cmwtu6v6o0006js95hveh0veq",
+          "code": "P2_MAINT_TECH",
+          "name": "Maintenance Technician",
+          "nameAr": null,
+          "nameEn": null,
+          "category": "MAINTENANCE",
+          "isActive": true,
+          "source": {
+            "targetType": "OPERATIONAL_CATEGORY",
+            "mappingId": "cmwtuhmvq001vjs95j4ffpp2g",
+            "effectiveFrom": "2026-01-01T00:00:00.000Z",
+            "effectiveTo": null,
+            "priority": 100
+          }
+        },
+        "kpi": {
+          "id": "cmwtu7y6l000ejs95gx0qyucv",
+          "code": "MAINT_REPAIR_TIME_AVG",
+          "name": "Average Repair Time",
+          "nameAr": "متوسط زمن الإصلاح",
+          "nameEn": null,
+          "domain": "MAINTENANCE_EXECUTION",
+          "measurementUnit": "MINUTES",
+          "direction": "LOWER_IS_BETTER",
+          "aggregationType": "AVERAGE",
+          "calculationMode": "FORMULA",
+          "sourceContractKey": "maintenance.repair_time"
+        },
+        "period": {
+          "from": "2026-11-01T00:00:00.000Z",
+          "to": "2026-11-23T23:59:59.999Z"
+        },
+        "status": "CALCULABLE",
+        "rawValue": 41.67,
+        "unit": "MINUTES",
+        "direction": "LOWER_IS_BETTER",
+        "numerator": 250,
+        "denominator": 6,
+        "evidenceCount": 6,
+        "evidence": [
+          {
+            "sourceType": "DowntimeLog",
+            "sourceId": "p2pf_dt_rf1",
+            "occurredAt": "2026-11-05T08:00:00.000Z",
+            "contribution": {
+              "repairMinutes": 50,
+              "rawRepairMinutes": 50,
+              "technicianCount": 1
+            },
+            "context": {
+              "machine": "MCH-000029",
+              "requestId": null,
+              "executionId": "p2pf_task1"
+            }
+          },
+          {
+            "sourceType": "DowntimeLog",
+            "sourceId": "p2pf_dt_rf2",
+            "occurredAt": "2026-11-06T08:00:00.000Z",
+            "contribution": {
+              "repairMinutes": 50,
+              "rawRepairMinutes": 50,
+              "technicianCount": 1
+            },
+            "context": {
+              "machine": "MCH-000029",
+              "requestId": null,
+              "executionId": "p2pf_task1"
+            }
+          },
+          {
+            "sourceType": "DowntimeLog",
+            "sourceId": "p2pf_dt_rt1",
+            "occurredAt": "2026-11-10T10:00:00.000Z",
+            "contribution": {
+              "repairMinutes": 45,
+              "rawRepairMinutes": 45,
+              "technicianCount": 1
+            },
+            "context": {
+              "machine": "MCH-000030",
+              "requestId": null,
+              "executionId": "p2pf_task1"
+            }
+          },
+          {
+            "sourceType": "DowntimeLog",
+            "sourceId": "p2pf_dt_rt2",
+            "occurredAt": "2026-11-11T09:00:00.000Z",
+            "contribution": {
+              "repairMinutes": 35,
+              "rawRepairMinutes": 35,
+              "technicianCount": 1
+            },
+            "context": {
+              "machine": "MCH-000030",
+              "requestId": null,
+              "executionId": "p2pf_task1"
+            }
+          },
+          {
+            "sourceType": "DowntimeLog",
+            "sourceId": "p2pf_dt_rt_missing",
+            "occurredAt": "2026-11-12T08:00:00.000Z",
+            "contribution": {
+              "repairMinutes": 50,
+              "rawRepairMinutes": 50,
+              "technicianCount": 1
+            },
+            "context": {
+              "machine": "MCH-000030",
+              "requestId": null,
+              "executionId": "p2pf_task1"
+            }
+          },
+          {
+            "sourceType": "DowntimeLog",
+            "sourceId": "p2pf_dt_multi",
+            "occurredAt": "2026-11-13T10:00:00.000Z",
+            "contribution": {
+              "repairMinutes": 20,
+              "rawRepairMinutes": 40,
+              "technicianCount": 2
+            },
+            "context": {
+              "machine": "MCH-000030",
+              "requestId": null,
+              "executionId": "p2pf_task_multi"
+            }
+          }
+        ],
+        "excluded": {
+          "count": 1,
+          "reasons": {
+            "splitAcrossTechnicians": 1
+          }
+        },
+        "dataQuality": {
+          "issues": [],
+          "notes": []
+        },
+        "calculationVersion": 1,
+        "explanation": "6 eligible downtime events attributed by direct execution session. Average repair time = 41.67 minutes."
+      },
+      "maint_repeat": {
+        "employee": {
+          "id": "cmut6swo50004ec95p5gc0swe",
+          "code": "EMP-0000004",
+          "name": "حنظل",
+          "category": "MAINTENANCE",
+          "isActive": true
+        },
+        "performanceProfile": {
+          "id": "cmwtu6v6o0006js95hveh0veq",
+          "code": "P2_MAINT_TECH",
+          "name": "Maintenance Technician",
+          "nameAr": null,
+          "nameEn": null,
+          "category": "MAINTENANCE",
+          "isActive": true,
+          "source": {
+            "targetType": "OPERATIONAL_CATEGORY",
+            "mappingId": "cmwtuhmvq001vjs95j4ffpp2g",
+            "effectiveFrom": "2026-01-01T00:00:00.000Z",
+            "effectiveTo": null,
+            "priority": 100
+          }
+        },
+        "kpi": {
+          "id": "cmwtu7yb1000gjs958cs2nzum",
+          "code": "MAINT_REPEAT_FAILURE_RATE",
+          "name": "Repeat Failure Rate",
+          "nameAr": "معدل تكرار الأعطال",
+          "nameEn": null,
+          "domain": "MAINTENANCE_RELIABILITY",
+          "measurementUnit": "PERCENT",
+          "direction": "LOWER_IS_BETTER",
+          "aggregationType": "PERCENTAGE",
+          "calculationMode": "RATIO_QUERY",
+          "sourceContractKey": "maintenance.repeat_failure_rate"
+        },
+        "period": {
+          "from": "2026-11-01T00:00:00.000Z",
+          "to": "2026-11-23T23:59:59.999Z"
+        },
+        "status": "CALCULABLE",
+        "rawValue": 0,
+        "unit": "PERCENT",
+        "direction": "LOWER_IS_BETTER",
+        "numerator": 0,
+        "denominator": 6,
+        "evidenceCount": 6,
+        "evidence": [
+          {
+            "sourceType": "DowntimeLog",
+            "sourceId": "p2pf_dt_rf1",
+            "occurredAt": "2026-11-05T08:00:00.000Z",
+            "contribution": {
+              "isRepeatFailure": false
+            },
+            "context": {
+              "machineId": "cmv5ws0br001hcc95wab6eorf"
+            }
+          },
+          {
+            "sourceType": "DowntimeLog",
+            "sourceId": "p2pf_dt_rf2",
+            "occurredAt": "2026-11-06T08:00:00.000Z",
+            "contribution": {
+              "isRepeatFailure": false
+            },
+            "context": {
+              "machineId": "cmv5ws0br001hcc95wab6eorf"
+            }
+          },
+          {
+            "sourceType": "DowntimeLog",
+            "sourceId": "p2pf_dt_rt1",
+            "occurredAt": "2026-11-10T10:00:00.000Z",
+            "contribution": {
+              "isRepeatFailure": false
+            },
+            "context": {
+              "machineId": "cmwo5kn63000efo95dx8o4hf6"
+            }
+          },
+          {
+            "sourceType": "DowntimeLog",
+            "sourceId": "p2pf_dt_rt2",
+            "occurredAt": "2026-11-11T09:00:00.000Z",
+            "contribution": {
+              "isRepeatFailure": false
+            },
+            "context": {
+              "machineId": "cmwo5kn63000efo95dx8o4hf6"
+            }
+          },
+          {
+            "sourceType": "DowntimeLog",
+            "sourceId": "p2pf_dt_rt_missing",
+            "occurredAt": "2026-11-12T08:00:00.000Z",
+            "contribution": {
+              "isRepeatFailure": false
+            },
+            "context": {
+              "machineId": "cmwo5kn63000efo95dx8o4hf6"
+            }
+          },
+          {
+            "sourceType": "DowntimeLog",
+            "sourceId": "p2pf_dt_multi",
+            "occurredAt": "2026-11-13T10:00:00.000Z",
+            "contribution": {
+              "isRepeatFailure": false
+            },
+            "context": {
+              "machineId": "cmwo5kn63000efo95dx8o4hf6"
+            }
+          }
+        ],
+        "excluded": {
+          "count": 2,
+          "reasons": {
+            "outsideResponsibilityWindow": 2
+          }
+        },
+        "dataQuality": {
+          "issues": [],
+          "notes": [
+            "Responsibility-scope KPI: attributed through active MachineResponsibilityAssignment, not direct repair execution."
+          ]
+        },
+        "calculationVersion": 1,
+        "explanation": "0 repeat-failure events out of 6 eligible responsible-asset downtime events. Repeat failure rate = 0%."
+      },
+      "prod_oee": {
+        "employee": {
+          "id": "p2pf_prod_c2",
+          "code": "P2-PROD-C2",
+          "name": "P2 Prod C2",
+          "category": "PRODUCTION",
+          "isActive": true
+        },
+        "performanceProfile": {
+          "id": "cmwtuwstt00003o950d30s70e",
+          "code": "P2_PROD_OP_C2",
+          "name": "Production Operator C2",
+          "nameAr": null,
+          "nameEn": null,
+          "category": "PRODUCTION",
+          "isActive": true,
+          "source": {
+            "targetType": "OPERATIONAL_CATEGORY",
+            "mappingId": "cmwtuwsys00023o95jpgslm1e",
+            "effectiveFrom": "2026-01-01T00:00:00.000Z",
+            "effectiveTo": null,
+            "priority": 100
+          }
+        },
+        "kpi": {
+          "id": "cmwtuy1m1000o3o956n4n9m0v",
+          "code": "PROD_OEE",
+          "name": "Overall Equipment Effectiveness",
+          "nameAr": "الكفاءة الإجمالية للمعدات",
+          "nameEn": null,
+          "domain": "PRODUCTION_EFFICIENCY",
+          "measurementUnit": "PERCENT",
+          "direction": "HIGHER_IS_BETTER",
+          "aggregationType": "RATIO",
+          "calculationMode": "DERIVED_FROM_CANONICAL_ANALYTICS",
+          "sourceContractKey": "production.oee"
+        },
+        "period": {
+          "from": "2026-11-18T00:00:00.000Z",
+          "to": "2026-11-18T23:59:59.999Z"
+        },
+        "status": "CALCULABLE",
+        "rawValue": 85.5,
+        "unit": "PERCENT",
+        "direction": "HIGHER_IS_BETTER",
+        "numerator": null,
+        "denominator": null,
+        "evidenceCount": 1,
+        "evidence": [
+          {
+            "sourceType": "ProductionRun",
+            "sourceId": "cmwlcvwte000794956r5k4u0p",
+            "sourceNumber": "RUN-000003",
+            "occurredAt": "2026-11-18T08:00:00.000Z",
+            "contribution": {
+              "plannedMinutes": "120",
+              "operatingMinutes": "120",
+              "totalOutput": "180",
+              "goodOutput": "171",
+              "idealOutput": "200"
+            },
+            "context": {
+              "order": "PO-000012",
+              "line": "PL-000015"
+            }
+          }
+        ],
+        "excluded": {
+          "count": 0,
+          "reasons": {}
+        },
+        "dataQuality": {
+          "issues": [],
+          "notes": [
+            "Canonical OEE formula utilities reused from production-analytics (PHASE_1_9_OEE_V1). Attribution: ProductionRun.operationalPersonId.",
+            "A=100%, P=90%, Q=95%"
+          ]
+        },
+        "calculationVersion": 1,
+        "explanation": "OEE calculated from 1 attributed production runs using canonical production analytics formula. Raw value = 85.5%."
+      },
+      "prod_output": {
+        "employee": {
+          "id": "p2pf_prod_c2",
+          "code": "P2-PROD-C2",
+          "name": "P2 Prod C2",
+          "category": "PRODUCTION",
+          "isActive": true
+        },
+        "performanceProfile": {
+          "id": "cmwtuwstt00003o950d30s70e",
+          "code": "P2_PROD_OP_C2",
+          "name": "Production Operator C2",
+          "nameAr": null,
+          "nameEn": null,
+          "category": "PRODUCTION",
+          "isActive": true,
+          "source": {
+            "targetType": "OPERATIONAL_CATEGORY",
+            "mappingId": "cmwtuwsys00023o95jpgslm1e",
+            "effectiveFrom": "2026-01-01T00:00:00.000Z",
+            "effectiveTo": null,
+            "priority": 100
+          }
+        },
+        "kpi": {
+          "id": "cmwtuy0g600043o954408mg6f",
+          "code": "PROD_OUTPUT_TOTAL",
+          "name": "Total Production Output",
+          "nameAr": "إجمالي إنتاج التشغيل",
+          "nameEn": null,
+          "domain": "PRODUCTION_OUTPUT",
+          "measurementUnit": "QUANTITY",
+          "direction": "HIGHER_IS_BETTER",
+          "aggregationType": "SUM",
+          "calculationMode": "DERIVED_FROM_CANONICAL_ANALYTICS",
+          "sourceContractKey": "production.output_total"
+        },
+        "period": {
+          "from": "2026-11-18T00:00:00.000Z",
+          "to": "2026-11-18T23:59:59.999Z"
+        },
+        "status": "CALCULABLE",
+        "rawValue": 180,
+        "unit": "QUANTITY",
+        "direction": "HIGHER_IS_BETTER",
+        "numerator": 180,
+        "denominator": 1,
+        "evidenceCount": 1,
+        "evidence": [
+          {
+            "sourceType": "ProductionRun",
+            "sourceId": "cmwlcvwte000794956r5k4u0p",
+            "sourceNumber": "RUN-000003",
+            "occurredAt": "2026-11-18T08:00:00.000Z",
+            "contribution": {
+              "value": "180"
+            },
+            "context": {
+              "line": "PL-000015"
+            }
+          }
+        ],
+        "excluded": {
+          "count": 0,
+          "reasons": {}
+        },
+        "dataQuality": {
+          "issues": [],
+          "notes": [
+            "Attribution: ProductionRun.operationalPersonId; output derived via canonical deriveRunTotals."
+          ]
+        },
+        "calculationVersion": 1,
+        "explanation": "Total output summed across 1 attributed production runs. Raw value = 180."
+      }
+    },
+    "summary": {
+      "pass": 76,
+      "fail": 0
+    }
+  },
+  "coverage": {
+    "c1": {
+      "period": {
+        "from": "2026-11-01T00:00:00.000Z",
+        "to": "2026-11-23T23:59:59.999Z"
+      },
+      "items": [
+        {
+          "kpi": {
+            "id": "cmwtu7y6l000ejs95gx0qyucv",
+            "code": "MAINT_REPAIR_TIME_AVG",
+            "name": "Average Repair Time",
+            "nameAr": "متوسط زمن الإصلاح",
+            "nameEn": null,
+            "domain": "MAINTENANCE_EXECUTION",
+            "measurementUnit": "MINUTES",
+            "direction": "LOWER_IS_BETTER"
+          },
+          "eligibleProfiles": [
+            {
+              "id": "cmwtu6v6o0006js95hveh0veq",
+              "code": "P2_MAINT_TECH",
+              "name": "Maintenance Technician"
+            }
+          ],
+          "eligibleEmployeesSampled": 13,
+          "calculable": 2,
+          "insufficientData": 8,
+          "notApplicable": 0,
+          "attributionAmbiguous": 3,
+          "sourceUnavailable": 0,
+          "configMissing": 0,
+          "sampleIssues": {
+            "missingUserLink": 3,
+            "noAttributedEvents": 8
+          }
+        },
+        {
+          "kpi": {
+            "id": "cmwtu7y21000cjs95wcvtbhqn",
+            "code": "MAINT_RESPONSE_TIME_AVG",
+            "name": "Average Maintenance Response Time",
+            "nameAr": "متوسط زمن الاستجابة للصيانة",
+            "nameEn": null,
+            "domain": "MAINTENANCE_EXECUTION",
+            "measurementUnit": "MINUTES",
+            "direction": "LOWER_IS_BETTER"
+          },
+          "eligibleProfiles": [
+            {
+              "id": "cmwtu6v6o0006js95hveh0veq",
+              "code": "P2_MAINT_TECH",
+              "name": "Maintenance Technician"
+            }
+          ],
+          "eligibleEmployeesSampled": 13,
+          "calculable": 2,
+          "insufficientData": 8,
+          "notApplicable": 0,
+          "attributionAmbiguous": 3,
+          "sourceUnavailable": 0,
+          "configMissing": 0,
+          "sampleIssues": {
+            "missingUserLink": 3,
+            "noAttributedEvents": 8
+          }
+        },
+        {
+          "kpi": {
+            "id": "cmwtu6b900001js955kj75a0w",
+            "code": "P2_TEST_RT_AVG",
+            "name": "Test Response Time Updated",
+            "nameAr": "اختبار زمن الاستجابة",
+            "nameEn": null,
+            "domain": "MAINTENANCE_EXECUTION",
+            "measurementUnit": "MINUTES",
+            "direction": "LOWER_IS_BETTER"
+          },
+          "eligibleProfiles": [
+            {
+              "id": "cmwtu6v6o0006js95hveh0veq",
+              "code": "P2_MAINT_TECH",
+              "name": "Maintenance Technician"
+            }
+          ],
+          "eligibleEmployeesSampled": 13,
+          "calculable": 0,
+          "insufficientData": 0,
+          "notApplicable": 0,
+          "attributionAmbiguous": 0,
+          "sourceUnavailable": 13,
+          "configMissing": 0,
+          "sampleIssues": {
+            "sourceAdapterMissing": 13
+          }
+        },
+        {
+          "kpi": {
+            "id": "cmwtu7yb1000gjs958cs2nzum",
+            "code": "MAINT_REPEAT_FAILURE_RATE",
+            "name": "Repeat Failure Rate",
+            "nameAr": "معدل تكرار الأعطال",
+            "nameEn": null,
+            "domain": "MAINTENANCE_RELIABILITY",
+            "measurementUnit": "PERCENT",
+            "direction": "LOWER_IS_BETTER"
+          },
+          "eligibleProfiles": [
+            {
+              "id": "cmwtu6v6o0006js95hveh0veq",
+              "code": "P2_MAINT_TECH",
+              "name": "Maintenance Technician"
+            }
+          ],
+          "eligibleEmployeesSampled": 13,
+          "calculable": 1,
+          "insufficientData": 2,
+          "notApplicable": 10,
+          "attributionAmbiguous": 0,
+          "sourceUnavailable": 0,
+          "configMissing": 0,
+          "sampleIssues": {
+            "noMaintenancePersonnel": 10,
+            "noResponsibleMachines": 2
+          }
+        },
+        {
+          "kpi": {
+            "id": "cmwtu7yx2000sjs95xs0hi1xs",
+            "code": "PROD_AVAILABILITY",
+            "name": "Availability",
+            "nameAr": "التوافر",
+            "nameEn": null,
+            "domain": "PRODUCTION_EFFICIENCY",
+            "measurementUnit": "PERCENT",
+            "direction": "HIGHER_IS_BETTER"
+          },
+          "eligibleProfiles": [
+            {
+              "id": "cmwtu6vb90008js95gr5b7f5b",
+              "code": "P2_PROD_OP",
+              "name": "Production Operator"
+            }
+          ],
+          "eligibleEmployeesSampled": 1,
+          "calculable": 0,
+          "insufficientData": 1,
+          "notApplicable": 0,
+          "attributionAmbiguous": 0,
+          "sourceUnavailable": 0,
+          "configMissing": 0,
+          "sampleIssues": {
+            "noAttributedRuns": 1
+          }
+        },
+        {
+          "kpi": {
+            "id": "cmwtu7ytd000qjs95nj6vbdjx",
+            "code": "PROD_OEE",
+            "name": "Overall Equipment Effectiveness",
+            "nameAr": "الكفاءة الإجمالية للمعدات",
+            "nameEn": null,
+            "domain": "PRODUCTION_EFFICIENCY",
+            "measurementUnit": "PERCENT",
+            "direction": "HIGHER_IS_BETTER"
+          },
+          "eligibleProfiles": [
+            {
+              "id": "cmwtu6vb90008js95gr5b7f5b",
+              "code": "P2_PROD_OP",
+              "name": "Production Operator"
+            }
+          ],
+          "eligibleEmployeesSampled": 1,
+          "calculable": 0,
+          "insufficientData": 1,
+          "notApplicable": 0,
+          "attributionAmbiguous": 0,
+          "sourceUnavailable": 0,
+          "configMissing": 0,
+          "sampleIssues": {
+            "noAttributedRuns": 1
+          }
+        },
+        {
+          "kpi": {
+            "id": "cmwtu7z08000ujs95gesxvliu",
+            "code": "PROD_PERFORMANCE",
+            "name": "Performance",
+            "nameAr": "الأداء",
+            "nameEn": null,
+            "domain": "PRODUCTION_EFFICIENCY",
+            "measurementUnit": "PERCENT",
+            "direction": "HIGHER_IS_BETTER"
+          },
+          "eligibleProfiles": [
+            {
+              "id": "cmwtu6vb90008js95gr5b7f5b",
+              "code": "P2_PROD_OP",
+              "name": "Production Operator"
+            }
+          ],
+          "eligibleEmployeesSampled": 1,
+          "calculable": 0,
+          "insufficientData": 1,
+          "notApplicable": 0,
+          "attributionAmbiguous": 0,
+          "sourceUnavailable": 0,
+          "configMissing": 0,
+          "sampleIssues": {
+            "noAttributedRuns": 1
+          }
+        },
+        {
+          "kpi": {
+            "id": "cmwtu7z3g000wjs95zn2u6too",
+            "code": "PROD_QUALITY",
+            "name": "Quality",
+            "nameAr": "الجودة",
+            "nameEn": null,
+            "domain": "PRODUCTION_EFFICIENCY",
+            "measurementUnit": "PERCENT",
+            "direction": "HIGHER_IS_BETTER"
+          },
+          "eligibleProfiles": [
+            {
+              "id": "cmwtu6vb90008js95gr5b7f5b",
+              "code": "P2_PROD_OP",
+              "name": "Production Operator"
+            }
+          ],
+          "eligibleEmployeesSampled": 1,
+          "calculable": 0,
+          "insufficientData": 1,
+          "notApplicable": 0,
+          "attributionAmbiguous": 0,
+          "sourceUnavailable": 0,
+          "configMissing": 0,
+          "sampleIssues": {
+            "noAttributedRuns": 1
+          }
+        },
+        {
+          "kpi": {
+            "id": "cmwtu7yj9000kjs95iteaz3ov",
+            "code": "PROD_GOOD_OUTPUT",
+            "name": "Good Production Output",
+            "nameAr": "الإنتاج الجيد",
+            "nameEn": null,
+            "domain": "PRODUCTION_OUTPUT",
+            "measurementUnit": "QUANTITY",
+            "direction": "HIGHER_IS_BETTER"
+          },
+          "eligibleProfiles": [
+            {
+              "id": "cmwtu6vb90008js95gr5b7f5b",
+              "code": "P2_PROD_OP",
+              "name": "Production Operator"
+            }
+          ],
+          "eligibleEmployeesSampled": 1,
+          "calculable": 0,
+          "insufficientData": 1,
+          "notApplicable": 0,
+          "attributionAmbiguous": 0,
+          "sourceUnavailable": 0,
+          "configMissing": 0,
+          "sampleIssues": {
+            "noAttributedRuns": 1
+          }
+        },
+        {
+          "kpi": {
+            "id": "cmwtu7yfh000ijs95lfzv79ri",
+            "code": "PROD_OUTPUT_TOTAL",
+            "name": "Total Production Output",
+            "nameAr": "إجمالي إنتاج التشغيل",
+            "nameEn": null,
+            "domain": "PRODUCTION_OUTPUT",
+            "measurementUnit": "QUANTITY",
+            "direction": "HIGHER_IS_BETTER"
+          },
+          "eligibleProfiles": [
+            {
+              "id": "cmwtu6vb90008js95gr5b7f5b",
+              "code": "P2_PROD_OP",
+              "name": "Production Operator"
+            }
+          ],
+          "eligibleEmployeesSampled": 1,
+          "calculable": 0,
+          "insufficientData": 1,
+          "notApplicable": 0,
+          "attributionAmbiguous": 0,
+          "sourceUnavailable": 0,
+          "configMissing": 0,
+          "sampleIssues": {
+            "noAttributedRuns": 1
+          }
+        },
+        {
+          "kpi": {
+            "id": "cmwtu7ymj000mjs95ou8sbr9i",
+            "code": "PROD_REJECT_RATE",
+            "name": "Reject Rate",
+            "nameAr": "معدل المرفوض",
+            "nameEn": null,
+            "domain": "PRODUCTION_QUALITY",
+            "measurementUnit": "PERCENT",
+            "direction": "LOWER_IS_BETTER"
+          },
+          "eligibleProfiles": [
+            {
+              "id": "cmwtu6vb90008js95gr5b7f5b",
+              "code": "P2_PROD_OP",
+              "name": "Production Operator"
+            }
+          ],
+          "eligibleEmployeesSampled": 1,
+          "calculable": 0,
+          "insufficientData": 1,
+          "notApplicable": 0,
+          "attributionAmbiguous": 0,
+          "sourceUnavailable": 0,
+          "configMissing": 0,
+          "sampleIssues": {
+            "noAttributedRuns": 1
+          }
+        },
+        {
+          "kpi": {
+            "id": "cmwtu7ypo000ojs95g5k90vhw",
+            "code": "PROD_WASTE_RATE",
+            "name": "Waste Rate",
+            "nameAr": "معدل الهدر",
+            "nameEn": null,
+            "domain": "PRODUCTION_QUALITY",
+            "measurementUnit": "PERCENT",
+            "direction": "LOWER_IS_BETTER"
+          },
+          "eligibleProfiles": [
+            {
+              "id": "cmwtu6vb90008js95gr5b7f5b",
+              "code": "P2_PROD_OP",
+              "name": "Production Operator"
+            }
+          ],
+          "eligibleEmployeesSampled": 1,
+          "calculable": 0,
+          "insufficientData": 1,
+          "notApplicable": 0,
+          "attributionAmbiguous": 0,
+          "sourceUnavailable": 0,
+          "configMissing": 0,
+          "sampleIssues": {
+            "noAttributedRuns": 1
+          }
+        }
+      ]
+    },
+    "c2": {
+      "period": {
+        "from": "2026-11-01T00:00:00.000Z",
+        "to": "2026-11-23T23:59:59.999Z"
+      },
+      "items": [
+        {
+          "kpi": {
+            "id": "cmwtuy1vt000t3o95qjjav7lw",
+            "code": "PROD_AVAILABILITY",
+            "name": "Availability",
+            "nameAr": "التوافر",
+            "nameEn": null,
+            "domain": "PRODUCTION_EFFICIENCY",
+            "measurementUnit": "PERCENT",
+            "direction": "HIGHER_IS_BETTER"
+          },
+          "eligibleProfiles": [
+            {
+              "id": "cmwtuwstt00003o950d30s70e",
+              "code": "P2_PROD_OP_C2",
+              "name": "Production Operator C2"
+            }
+          ],
+          "eligibleEmployeesSampled": 1,
+          "calculable": 1,
+          "insufficientData": 0,
+          "notApplicable": 0,
+          "attributionAmbiguous": 0,
+          "sourceUnavailable": 0,
+          "configMissing": 0,
+          "sampleIssues": {}
+        },
+        {
+          "kpi": {
+            "id": "cmwtuy1m1000o3o956n4n9m0v",
+            "code": "PROD_OEE",
+            "name": "Overall Equipment Effectiveness",
+            "nameAr": "الكفاءة الإجمالية للمعدات",
+            "nameEn": null,
+            "domain": "PRODUCTION_EFFICIENCY",
+            "measurementUnit": "PERCENT",
+            "direction": "HIGHER_IS_BETTER"
+          },
+          "eligibleProfiles": [
+            {
+              "id": "cmwtuwstt00003o950d30s70e",
+              "code": "P2_PROD_OP_C2",
+              "name": "Production Operator C2"
+            }
+          ],
+          "eligibleEmployeesSampled": 1,
+          "calculable": 1,
+          "insufficientData": 0,
+          "notApplicable": 0,
+          "attributionAmbiguous": 0,
+          "sourceUnavailable": 0,
+          "configMissing": 0,
+          "sampleIssues": {}
+        },
+        {
+          "kpi": {
+            "id": "cmwtuy25x000y3o95muqmc35u",
+            "code": "PROD_PERFORMANCE",
+            "name": "Performance",
+            "nameAr": "الأداء",
+            "nameEn": null,
+            "domain": "PRODUCTION_EFFICIENCY",
+            "measurementUnit": "PERCENT",
+            "direction": "HIGHER_IS_BETTER"
+          },
+          "eligibleProfiles": [
+            {
+              "id": "cmwtuwstt00003o950d30s70e",
+              "code": "P2_PROD_OP_C2",
+              "name": "Production Operator C2"
+            }
+          ],
+          "eligibleEmployeesSampled": 1,
+          "calculable": 1,
+          "insufficientData": 0,
+          "notApplicable": 0,
+          "attributionAmbiguous": 0,
+          "sourceUnavailable": 0,
+          "configMissing": 0,
+          "sampleIssues": {}
+        },
+        {
+          "kpi": {
+            "id": "cmwtuy2eq00133o956v29pz44",
+            "code": "PROD_QUALITY",
+            "name": "Quality",
+            "nameAr": "الجودة",
+            "nameEn": null,
+            "domain": "PRODUCTION_EFFICIENCY",
+            "measurementUnit": "PERCENT",
+            "direction": "HIGHER_IS_BETTER"
+          },
+          "eligibleProfiles": [
+            {
+              "id": "cmwtuwstt00003o950d30s70e",
+              "code": "P2_PROD_OP_C2",
+              "name": "Production Operator C2"
+            }
+          ],
+          "eligibleEmployeesSampled": 1,
+          "calculable": 1,
+          "insufficientData": 0,
+          "notApplicable": 0,
+          "attributionAmbiguous": 0,
+          "sourceUnavailable": 0,
+          "configMissing": 0,
+          "sampleIssues": {}
+        },
+        {
+          "kpi": {
+            "id": "cmwtuy0sn00093o95yekpva6k",
+            "code": "PROD_GOOD_OUTPUT",
+            "name": "Good Production Output",
+            "nameAr": "الإنتاج الجيد",
+            "nameEn": null,
+            "domain": "PRODUCTION_OUTPUT",
+            "measurementUnit": "QUANTITY",
+            "direction": "HIGHER_IS_BETTER"
+          },
+          "eligibleProfiles": [
+            {
+              "id": "cmwtuwstt00003o950d30s70e",
+              "code": "P2_PROD_OP_C2",
+              "name": "Production Operator C2"
+            }
+          ],
+          "eligibleEmployeesSampled": 1,
+          "calculable": 1,
+          "insufficientData": 0,
+          "notApplicable": 0,
+          "attributionAmbiguous": 0,
+          "sourceUnavailable": 0,
+          "configMissing": 0,
+          "sampleIssues": {}
+        },
+        {
+          "kpi": {
+            "id": "cmwtuy0g600043o954408mg6f",
+            "code": "PROD_OUTPUT_TOTAL",
+            "name": "Total Production Output",
+            "nameAr": "إجمالي إنتاج التشغيل",
+            "nameEn": null,
+            "domain": "PRODUCTION_OUTPUT",
+            "measurementUnit": "QUANTITY",
+            "direction": "HIGHER_IS_BETTER"
+          },
+          "eligibleProfiles": [
+            {
+              "id": "cmwtuwstt00003o950d30s70e",
+              "code": "P2_PROD_OP_C2",
+              "name": "Production Operator C2"
+            }
+          ],
+          "eligibleEmployeesSampled": 1,
+          "calculable": 1,
+          "insufficientData": 0,
+          "notApplicable": 0,
+          "attributionAmbiguous": 0,
+          "sourceUnavailable": 0,
+          "configMissing": 0,
+          "sampleIssues": {}
+        },
+        {
+          "kpi": {
+            "id": "cmwtuy123000e3o95rwpk4l6m",
+            "code": "PROD_REJECT_RATE",
+            "name": "Reject Rate",
+            "nameAr": "معدل المرفوض",
+            "nameEn": null,
+            "domain": "PRODUCTION_QUALITY",
+            "measurementUnit": "PERCENT",
+            "direction": "LOWER_IS_BETTER"
+          },
+          "eligibleProfiles": [
+            {
+              "id": "cmwtuwstt00003o950d30s70e",
+              "code": "P2_PROD_OP_C2",
+              "name": "Production Operator C2"
+            }
+          ],
+          "eligibleEmployeesSampled": 1,
+          "calculable": 1,
+          "insufficientData": 0,
+          "notApplicable": 0,
+          "attributionAmbiguous": 0,
+          "sourceUnavailable": 0,
+          "configMissing": 0,
+          "sampleIssues": {}
+        },
+        {
+          "kpi": {
+            "id": "cmwtuy1c4000j3o95dqidm057",
+            "code": "PROD_WASTE_RATE",
+            "name": "Waste Rate",
+            "nameAr": "معدل الهدر",
+            "nameEn": null,
+            "domain": "PRODUCTION_QUALITY",
+            "measurementUnit": "PERCENT",
+            "direction": "LOWER_IS_BETTER"
+          },
+          "eligibleProfiles": [
+            {
+              "id": "cmwtuwstt00003o950d30s70e",
+              "code": "P2_PROD_OP_C2",
+              "name": "Production Operator C2"
+            }
+          ],
+          "eligibleEmployeesSampled": 1,
+          "calculable": 1,
+          "insufficientData": 0,
+          "notApplicable": 0,
+          "attributionAmbiguous": 0,
+          "sourceUnavailable": 0,
+          "configMissing": 0,
+          "sampleIssues": {}
+        }
+      ]
+    },
+    "checks": [
+      {
+        "name": "coverage items array",
+        "pass": true,
+        "detail": {
+          "label": "C1"
+        }
+      },
+      {
+        "name": "coverage bucket sum == eligible sampled C1 MAINT_REPAIR_TIME_AVG",
+        "pass": true,
+        "detail": {
+          "sum": 13,
+          "eligible": 13
+        }
+      },
+      {
+        "name": "coverage bucket sum == eligible sampled C1 MAINT_RESPONSE_TIME_AVG",
+        "pass": true,
+        "detail": {
+          "sum": 13,
+          "eligible": 13
+        }
+      },
+      {
+        "name": "coverage bucket sum == eligible sampled C1 P2_TEST_RT_AVG",
+        "pass": true,
+        "detail": {
+          "sum": 13,
+          "eligible": 13
+        }
+      },
+      {
+        "name": "coverage bucket sum == eligible sampled C1 MAINT_REPEAT_FAILURE_RATE",
+        "pass": true,
+        "detail": {
+          "sum": 13,
+          "eligible": 13
+        }
+      },
+      {
+        "name": "coverage bucket sum == eligible sampled C1 PROD_AVAILABILITY",
+        "pass": true,
+        "detail": {
+          "sum": 1,
+          "eligible": 1
+        }
+      },
+      {
+        "name": "coverage bucket sum == eligible sampled C1 PROD_OEE",
+        "pass": true,
+        "detail": {
+          "sum": 1,
+          "eligible": 1
+        }
+      },
+      {
+        "name": "coverage bucket sum == eligible sampled C1 PROD_PERFORMANCE",
+        "pass": true,
+        "detail": {
+          "sum": 1,
+          "eligible": 1
+        }
+      },
+      {
+        "name": "coverage bucket sum == eligible sampled C1 PROD_QUALITY",
+        "pass": true,
+        "detail": {
+          "sum": 1,
+          "eligible": 1
+        }
+      },
+      {
+        "name": "coverage bucket sum == eligible sampled C1 PROD_GOOD_OUTPUT",
+        "pass": true,
+        "detail": {
+          "sum": 1,
+          "eligible": 1
+        }
+      },
+      {
+        "name": "coverage bucket sum == eligible sampled C1 PROD_OUTPUT_TOTAL",
+        "pass": true,
+        "detail": {
+          "sum": 1,
+          "eligible": 1
+        }
+      },
+      {
+        "name": "coverage bucket sum == eligible sampled C1 PROD_REJECT_RATE",
+        "pass": true,
+        "detail": {
+          "sum": 1,
+          "eligible": 1
+        }
+      },
+      {
+        "name": "coverage bucket sum == eligible sampled C1 PROD_WASTE_RATE",
+        "pass": true,
+        "detail": {
+          "sum": 1,
+          "eligible": 1
+        }
+      },
+      {
+        "name": "coverage items array",
+        "pass": true,
+        "detail": {
+          "label": "C2"
+        }
+      },
+      {
+        "name": "coverage bucket sum == eligible sampled C2 PROD_AVAILABILITY",
+        "pass": true,
+        "detail": {
+          "sum": 1,
+          "eligible": 1
+        }
+      },
+      {
+        "name": "coverage bucket sum == eligible sampled C2 PROD_OEE",
+        "pass": true,
+        "detail": {
+          "sum": 1,
+          "eligible": 1
+        }
+      },
+      {
+        "name": "coverage bucket sum == eligible sampled C2 PROD_PERFORMANCE",
+        "pass": true,
+        "detail": {
+          "sum": 1,
+          "eligible": 1
+        }
+      },
+      {
+        "name": "coverage bucket sum == eligible sampled C2 PROD_QUALITY",
+        "pass": true,
+        "detail": {
+          "sum": 1,
+          "eligible": 1
+        }
+      },
+      {
+        "name": "coverage bucket sum == eligible sampled C2 PROD_GOOD_OUTPUT",
+        "pass": true,
+        "detail": {
+          "sum": 1,
+          "eligible": 1
+        }
+      },
+      {
+        "name": "coverage bucket sum == eligible sampled C2 PROD_OUTPUT_TOTAL",
+        "pass": true,
+        "detail": {
+          "sum": 1,
+          "eligible": 1
+        }
+      },
+      {
+        "name": "coverage bucket sum == eligible sampled C2 PROD_REJECT_RATE",
+        "pass": true,
+        "detail": {
+          "sum": 1,
+          "eligible": 1
+        }
+      },
+      {
+        "name": "coverage bucket sum == eligible sampled C2 PROD_WASTE_RATE",
+        "pass": true,
+        "detail": {
+          "sum": 1,
+          "eligible": 1
+        }
+      },
+      {
+        "name": "C2 PROD_OEE calculable>=1 in window",
+        "pass": true,
+        "detail": {
+          "v": {
+            "kpi": {
+              "id": "cmwtuy1m1000o3o956n4n9m0v",
+              "code": "PROD_OEE",
+              "name": "Overall Equipment Effectiveness",
+              "nameAr": "الكفاءة الإجمالية للمعدات",
+              "nameEn": null,
+              "domain": "PRODUCTION_EFFICIENCY",
+              "measurementUnit": "PERCENT",
+              "direction": "HIGHER_IS_BETTER"
+            },
+            "eligibleProfiles": [
+              {
+                "id": "cmwtuwstt00003o950d30s70e",
+                "code": "P2_PROD_OP_C2",
+                "name": "Production Operator C2"
+              }
+            ],
+            "eligibleEmployeesSampled": 1,
+            "calculable": 1,
+            "insufficientData": 0,
+            "notApplicable": 0,
+            "attributionAmbiguous": 0,
+            "sourceUnavailable": 0,
+            "configMissing": 0,
+            "sampleIssues": {}
+          }
+        }
+      },
+      {
+        "name": "C1 MAINT_RESPONSE_TIME_AVG calculable>=1",
+        "pass": true,
+        "detail": {
+          "v": {
+            "kpi": {
+              "id": "cmwtu7y21000cjs95wcvtbhqn",
+              "code": "MAINT_RESPONSE_TIME_AVG",
+              "name": "Average Maintenance Response Time",
+              "nameAr": "متوسط زمن الاستجابة للصيانة",
+              "nameEn": null,
+              "domain": "MAINTENANCE_EXECUTION",
+              "measurementUnit": "MINUTES",
+              "direction": "LOWER_IS_BETTER"
+            },
+            "eligibleProfiles": [
+              {
+                "id": "cmwtu6v6o0006js95hveh0veq",
+                "code": "P2_MAINT_TECH",
+                "name": "Maintenance Technician"
+              }
+            ],
+            "eligibleEmployeesSampled": 13,
+            "calculable": 2,
+            "insufficientData": 8,
+            "notApplicable": 0,
+            "attributionAmbiguous": 3,
+            "sourceUnavailable": 0,
+            "configMissing": 0,
+            "sampleIssues": {
+              "missingUserLink": 3,
+              "noAttributedEvents": 8
+            }
+          }
+        }
+      }
+    ],
+    "summary": {
+      "pass": 24,
+      "fail": 0
+    }
+  },
+  "noScore": {
+    "checks": [
+      {
+        "name": "KPI create rejects weight",
+        "pass": true,
+        "detail": {
+          "status": 400
+        }
+      },
+      {
+        "name": "KPI create rejects score/ranking/grade/bonus/penalty",
+        "pass": true,
+        "detail": {
+          "status": 400
+        }
+      },
+      {
+        "name": "eligibility rejects weight/score",
+        "pass": true,
+        "detail": {
+          "status": 400
+        }
+      }
+    ],
+    "summary": {
+      "pass": 3,
+      "fail": 0
+    }
+  },
+  "sideEffects": {
+    "note": "Read-only preview side effects previously proven PASS on clone; DB count snapshot captured for record.",
+    "counts": {
+      "inventory_movements": "125",
+      "inventory_balances": "24",
+      "maintenance_requests": "22",
+      "production_runs": "4",
+      "downtime_logs": "12"
+    }
+  },
+  "overall": {
+    "pass": 126,
+    "fail": 0
+  }
+}

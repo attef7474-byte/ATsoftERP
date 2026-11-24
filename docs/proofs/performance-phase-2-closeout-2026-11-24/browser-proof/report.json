@@ -1,0 +1,1055 @@
+{
+  "consoleErrors": [],
+  "pageErrors": [],
+  "badResponses": [
+    {
+      "type": "requestfailed",
+      "url": "http://localhost:4313/admin/dashboard?_rsc=utQopaZyVbfSG9h2",
+      "failure": "net::ERR_ABORTED",
+      "urlPage": "http://localhost:4313/login"
+    },
+    {
+      "type": "requestfailed",
+      "url": "http://localhost:4312/api/v1/permissions?limit=1&page=1",
+      "failure": "net::ERR_ABORTED",
+      "urlPage": "http://localhost:4313/admin/dashboard"
+    },
+    {
+      "type": "requestfailed",
+      "url": "http://localhost:4312/api/v1/inventory/warehouses?limit=1&page=1",
+      "failure": "net::ERR_ABORTED",
+      "urlPage": "http://localhost:4313/admin/dashboard"
+    },
+    {
+      "type": "requestfailed",
+      "url": "http://localhost:4312/api/v1/alerts/summary",
+      "failure": "net::ERR_ABORTED",
+      "urlPage": "http://localhost:4313/admin/dashboard"
+    },
+    {
+      "type": "requestfailed",
+      "url": "http://localhost:4312/api/v1/product-categories?limit=1&page=1",
+      "failure": "net::ERR_ABORTED",
+      "urlPage": "http://localhost:4313/admin/dashboard"
+    },
+    {
+      "type": "requestfailed",
+      "url": "http://localhost:4312/api/v1/products?limit=1&page=1",
+      "failure": "net::ERR_ABORTED",
+      "urlPage": "http://localhost:4313/admin/dashboard"
+    },
+    {
+      "type": "requestfailed",
+      "url": "http://localhost:4312/api/v1/settings/appearance",
+      "failure": "net::ERR_ABORTED",
+      "urlPage": "http://localhost:4313/admin/dashboard"
+    },
+    {
+      "type": "requestfailed",
+      "url": "http://localhost:4312/api/v1/maintenance/machine-categories?limit=1&page=1",
+      "failure": "net::ERR_ABORTED",
+      "urlPage": "http://localhost:4313/admin/dashboard"
+    },
+    {
+      "type": "requestfailed",
+      "url": "http://localhost:4312/api/v1/maintenance/machines?limit=1&page=1",
+      "failure": "net::ERR_ABORTED",
+      "urlPage": "http://localhost:4313/admin/dashboard"
+    },
+    {
+      "type": "requestfailed",
+      "url": "http://localhost:4313/admin/profile?_rsc=WTBgaZ45CdL933Qn",
+      "failure": "net::ERR_ABORTED",
+      "urlPage": "http://localhost:4313/admin/performance/kpis"
+    },
+    {
+      "type": "requestfailed",
+      "url": "http://localhost:4313/admin/dashboard?_rsc=WTBgaZ45CdL933Qn",
+      "failure": "net::ERR_ABORTED",
+      "urlPage": "http://localhost:4313/admin/performance/kpis"
+    },
+    {
+      "type": "requestfailed",
+      "url": "http://localhost:4313/admin/performance/coverage?_rsc=WTBgaZ45CdL933Qn",
+      "failure": "net::ERR_ABORTED",
+      "urlPage": "http://localhost:4313/admin/performance/kpis"
+    },
+    {
+      "type": "requestfailed",
+      "url": "http://localhost:4313/admin/performance/kpi-coverage?_rsc=WTBgaZ45CdL933Qn",
+      "failure": "net::ERR_ABORTED",
+      "urlPage": "http://localhost:4313/admin/performance/kpis"
+    },
+    {
+      "type": "requestfailed",
+      "url": "http://localhost:4313/admin/profile?_rsc=BDnXVvyKWSpd41ud",
+      "failure": "net::ERR_ABORTED",
+      "urlPage": "http://localhost:4313/admin/performance/kpi-coverage"
+    },
+    {
+      "type": "requestfailed",
+      "url": "http://localhost:4313/admin/dashboard?_rsc=BDnXVvyKWSpd41ud",
+      "failure": "net::ERR_ABORTED",
+      "urlPage": "http://localhost:4313/admin/performance/kpi-coverage"
+    },
+    {
+      "type": "requestfailed",
+      "url": "http://localhost:4313/admin/performance/profiles?_rsc=BDnXVvyKWSpd41ud",
+      "failure": "net::ERR_ABORTED",
+      "urlPage": "http://localhost:4313/admin/performance/kpi-coverage"
+    },
+    {
+      "type": "requestfailed",
+      "url": "http://localhost:4313/admin/profile?_rsc=dwrAnyGqWh9ZcOs4",
+      "failure": "net::ERR_ABORTED",
+      "urlPage": "http://localhost:4313/admin/performance/profiles"
+    },
+    {
+      "type": "requestfailed",
+      "url": "http://localhost:4313/admin/performance/coverage?_rsc=dwrAnyGqWh9ZcOs4",
+      "failure": "net::ERR_ABORTED",
+      "urlPage": "http://localhost:4313/admin/performance/profiles"
+    },
+    {
+      "type": "requestfailed",
+      "url": "http://localhost:4313/admin/profile?_rsc=WTBgaZ45CdL933Qn",
+      "failure": "net::ERR_ABORTED",
+      "urlPage": "http://localhost:4313/admin/performance/kpis"
+    },
+    {
+      "type": "requestfailed",
+      "url": "http://localhost:4313/admin/dashboard?_rsc=WTBgaZ45CdL933Qn",
+      "failure": "net::ERR_ABORTED",
+      "urlPage": "http://localhost:4313/admin/performance/kpis"
+    },
+    {
+      "type": "requestfailed",
+      "url": "http://localhost:4313/admin/performance/coverage?_rsc=WTBgaZ45CdL933Qn",
+      "failure": "net::ERR_ABORTED",
+      "urlPage": "http://localhost:4313/admin/performance/kpis"
+    },
+    {
+      "type": "requestfailed",
+      "url": "http://localhost:4313/admin/performance/kpi-coverage?_rsc=WTBgaZ45CdL933Qn",
+      "failure": "net::ERR_ABORTED",
+      "urlPage": "http://localhost:4313/admin/performance/kpis"
+    }
+  ],
+  "requests": [
+    {
+      "url": "http://localhost:4313/login",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:4313/_next/static/chunks/webpack-baf7f0abd6af60c2.js",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:4313/_next/static/css/afbdc581cd711761.css",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:4313/_next/static/chunks/main-app-6472abbe66825a3b.js",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:4313/_next/static/chunks/4942-5d9f48aeb45e7545.js",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:4313/_next/static/chunks/3598-60034f255b16d44f.js",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:4313/_next/static/chunks/2459-efa34f1e6a0017fe.js",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:4313/_next/static/chunks/4966-36e7be230dbac295.js",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:4313/_next/static/chunks/app/login/page-b71479fc049ac598.js",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:4313/_next/static/chunks/1376-2ad2e998af01a9da.js",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:4313/_next/static/chunks/fa37b9d7-c2908d5921c7aaee.js",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:4313/_next/static/chunks/6045-b34c495ce79c279d.js",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:4313/_next/static/chunks/app/layout-cea25db34df14437.js",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:4313/_next/static/chunks/6730-382c6b16a7700478.js",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:4312/api/v1/auth/login",
+      "status": 201,
+      "method": "POST"
+    },
+    {
+      "url": "http://localhost:4312/api/v1/auth/permissions",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:4312/api/v1/auth/me",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:4312/api/v1/auth/contexts",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:4312/api/v1/auth/context/validate",
+      "status": 201,
+      "method": "POST"
+    },
+    {
+      "url": "http://localhost:4313/admin/dashboard?_rsc=utQopaZyVbfSG9h2",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:4313/_next/static/chunks/8826-91d5e354fd881149.js",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:4313/_next/static/chunks/350-e0ccba3a861342cd.js",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:4313/_next/static/chunks/9400-846a874ca02f88da.js",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:4313/_next/static/chunks/8316-da76685479a79a4f.js",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:4313/_next/static/chunks/app/admin/dashboard/page-231b52137833d00f.js",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:4313/_next/static/chunks/app/admin/layout-d4cb95b37efe8696.js",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:4312/api/v1/auth/contexts/archived",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:4313/admin/profile?_rsc=YLugu_q_y9pZTHge",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:4313/admin/dashboard?_rsc=YLugu_q_y9pZTHge",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:4312/api/v1/notifications/unread-count",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:4312/api/v1/companies?limit=1&page=1",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:4312/api/v1/departments?limit=1&page=1",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:4312/api/v1/branches?limit=1&page=1",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:4312/api/v1/users?limit=1&page=1",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:4312/api/v1/roles?limit=1&page=1",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:4313/admin/performance/kpis",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:4313/_next/static/css/afbdc581cd711761.css",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:4313/_next/static/chunks/webpack-baf7f0abd6af60c2.js",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:4313/_next/static/chunks/fa37b9d7-c2908d5921c7aaee.js",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:4313/_next/static/chunks/1376-2ad2e998af01a9da.js",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:4313/_next/static/chunks/main-app-6472abbe66825a3b.js",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:4313/_next/static/chunks/8826-91d5e354fd881149.js",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:4313/_next/static/chunks/6730-382c6b16a7700478.js",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:4313/_next/static/chunks/4942-5d9f48aeb45e7545.js",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:4313/_next/static/chunks/3598-60034f255b16d44f.js",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:4313/_next/static/chunks/2459-efa34f1e6a0017fe.js",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:4313/_next/static/chunks/6045-b34c495ce79c279d.js",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:4313/_next/static/chunks/4966-36e7be230dbac295.js",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:4313/_next/static/chunks/350-e0ccba3a861342cd.js",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:4313/_next/static/chunks/9400-846a874ca02f88da.js",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:4313/_next/static/chunks/8316-da76685479a79a4f.js",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:4313/_next/static/chunks/app/admin/layout-d4cb95b37efe8696.js",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:4313/_next/static/chunks/app/layout-cea25db34df14437.js",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:4313/_next/static/chunks/app/admin/performance/kpis/page-6b7a1ba8d825042f.js",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:4312/api/v1/auth/permissions",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:4312/api/v1/auth/me",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:4312/api/v1/auth/contexts",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:4312/api/v1/auth/context/validate",
+      "status": 201,
+      "method": "POST"
+    },
+    {
+      "url": "http://localhost:4313/admin/profile?_rsc=WTBgaZ45CdL933Qn",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:4313/admin/dashboard?_rsc=WTBgaZ45CdL933Qn",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:4313/admin/performance/profiles?_rsc=WTBgaZ45CdL933Qn",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:4313/admin/performance/coverage?_rsc=WTBgaZ45CdL933Qn",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:4313/admin/performance/kpi-coverage?_rsc=WTBgaZ45CdL933Qn",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:4312/api/v1/settings/appearance",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:4312/api/v1/notifications/unread-count",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:4312/api/v1/production/operational-people?page=1&limit=100&isActive=true",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:4312/api/v1/performance/kpis?page=1&limit=20",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:4312/api/v1/auth/contexts/archived",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:4313/admin/performance/kpi-coverage",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:4313/_next/static/css/afbdc581cd711761.css",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:4313/_next/static/chunks/webpack-baf7f0abd6af60c2.js",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:4313/_next/static/chunks/fa37b9d7-c2908d5921c7aaee.js",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:4313/_next/static/chunks/1376-2ad2e998af01a9da.js",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:4313/_next/static/chunks/main-app-6472abbe66825a3b.js",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:4313/_next/static/chunks/8826-91d5e354fd881149.js",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:4313/_next/static/chunks/6730-382c6b16a7700478.js",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:4313/_next/static/chunks/4942-5d9f48aeb45e7545.js",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:4313/_next/static/chunks/3598-60034f255b16d44f.js",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:4313/_next/static/chunks/2459-efa34f1e6a0017fe.js",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:4313/_next/static/chunks/6045-b34c495ce79c279d.js",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:4313/_next/static/chunks/4966-36e7be230dbac295.js",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:4313/_next/static/chunks/350-e0ccba3a861342cd.js",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:4313/_next/static/chunks/9400-846a874ca02f88da.js",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:4313/_next/static/chunks/8316-da76685479a79a4f.js",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:4313/_next/static/chunks/app/admin/layout-d4cb95b37efe8696.js",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:4313/_next/static/chunks/app/layout-cea25db34df14437.js",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:4313/_next/static/chunks/app/admin/performance/kpi-coverage/page-871c57cd0f4755d0.js",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:4312/api/v1/auth/permissions",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:4312/api/v1/auth/me",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:4312/api/v1/auth/contexts",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:4312/api/v1/auth/context/validate",
+      "status": 201,
+      "method": "POST"
+    },
+    {
+      "url": "http://localhost:4313/admin/profile?_rsc=BDnXVvyKWSpd41ud",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:4313/admin/dashboard?_rsc=BDnXVvyKWSpd41ud",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:4313/admin/performance/profiles?_rsc=BDnXVvyKWSpd41ud",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:4313/admin/performance/kpis?_rsc=BDnXVvyKWSpd41ud",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:4313/admin/performance/coverage?_rsc=BDnXVvyKWSpd41ud",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:4312/api/v1/settings/appearance",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:4312/api/v1/notifications/unread-count",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:4312/api/v1/auth/contexts/archived",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:4312/api/v1/performance/kpis/coverage?dateFrom=2026-10-25T00%3A00%3A00.000Z&dateTo=2026-11-24T23%3A59%3A59.999Z",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:4313/admin/performance/profiles",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:4313/_next/static/css/afbdc581cd711761.css",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:4313/_next/static/chunks/webpack-baf7f0abd6af60c2.js",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:4313/_next/static/chunks/fa37b9d7-c2908d5921c7aaee.js",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:4313/_next/static/chunks/1376-2ad2e998af01a9da.js",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:4313/_next/static/chunks/main-app-6472abbe66825a3b.js",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:4313/_next/static/chunks/8826-91d5e354fd881149.js",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:4313/_next/static/chunks/6730-382c6b16a7700478.js",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:4313/_next/static/chunks/4942-5d9f48aeb45e7545.js",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:4313/_next/static/chunks/3598-60034f255b16d44f.js",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:4313/_next/static/chunks/2459-efa34f1e6a0017fe.js",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:4313/_next/static/chunks/6045-b34c495ce79c279d.js",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:4313/_next/static/chunks/4966-36e7be230dbac295.js",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:4313/_next/static/chunks/350-e0ccba3a861342cd.js",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:4313/_next/static/chunks/9400-846a874ca02f88da.js",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:4313/_next/static/chunks/8316-da76685479a79a4f.js",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:4313/_next/static/chunks/app/admin/layout-d4cb95b37efe8696.js",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:4313/_next/static/chunks/app/layout-cea25db34df14437.js",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:4313/_next/static/chunks/app/admin/performance/profiles/page-b4310681f489dc34.js",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:4312/api/v1/auth/permissions",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:4312/api/v1/auth/me",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:4312/api/v1/auth/contexts",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:4312/api/v1/auth/context/validate",
+      "status": 201,
+      "method": "POST"
+    },
+    {
+      "url": "http://localhost:4313/admin/profile?_rsc=dwrAnyGqWh9ZcOs4",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:4313/admin/dashboard?_rsc=dwrAnyGqWh9ZcOs4",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:4313/admin/performance/kpis?_rsc=dwrAnyGqWh9ZcOs4",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:4313/admin/performance/coverage?_rsc=dwrAnyGqWh9ZcOs4",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:4313/admin/performance/kpi-coverage?_rsc=dwrAnyGqWh9ZcOs4",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:4312/api/v1/settings/appearance",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:4312/api/v1/notifications/unread-count",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:4312/api/v1/performance/kpis?page=1&limit=200",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:4312/api/v1/performance/profiles?page=1&limit=20",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:4312/api/v1/job-titles?page=1&limit=200&isActive=true",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:4312/api/v1/auth/contexts/archived",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:4313/admin/performance/kpis",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:4313/_next/static/css/afbdc581cd711761.css",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:4313/_next/static/chunks/webpack-baf7f0abd6af60c2.js",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:4313/_next/static/chunks/fa37b9d7-c2908d5921c7aaee.js",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:4313/_next/static/chunks/1376-2ad2e998af01a9da.js",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:4313/_next/static/chunks/main-app-6472abbe66825a3b.js",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:4313/_next/static/chunks/8826-91d5e354fd881149.js",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:4313/_next/static/chunks/6730-382c6b16a7700478.js",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:4313/_next/static/chunks/4942-5d9f48aeb45e7545.js",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:4313/_next/static/chunks/3598-60034f255b16d44f.js",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:4313/_next/static/chunks/2459-efa34f1e6a0017fe.js",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:4313/_next/static/chunks/6045-b34c495ce79c279d.js",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:4313/_next/static/chunks/4966-36e7be230dbac295.js",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:4313/_next/static/chunks/350-e0ccba3a861342cd.js",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:4313/_next/static/chunks/9400-846a874ca02f88da.js",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:4313/_next/static/chunks/8316-da76685479a79a4f.js",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:4313/_next/static/chunks/app/admin/layout-d4cb95b37efe8696.js",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:4313/_next/static/chunks/app/admin/performance/kpis/page-6b7a1ba8d825042f.js",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:4313/_next/static/chunks/app/layout-cea25db34df14437.js",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:4312/api/v1/auth/permissions",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:4312/api/v1/auth/me",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:4312/api/v1/auth/contexts",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:4312/api/v1/auth/context/validate",
+      "status": 201,
+      "method": "POST"
+    },
+    {
+      "url": "http://localhost:4313/admin/profile?_rsc=WTBgaZ45CdL933Qn",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:4313/admin/dashboard?_rsc=WTBgaZ45CdL933Qn",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:4313/admin/performance/profiles?_rsc=WTBgaZ45CdL933Qn",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:4313/admin/performance/coverage?_rsc=WTBgaZ45CdL933Qn",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:4313/admin/performance/kpi-coverage?_rsc=WTBgaZ45CdL933Qn",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:4312/api/v1/settings/appearance",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:4312/api/v1/performance/kpis?page=1&limit=20",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:4312/api/v1/notifications/unread-count",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:4312/api/v1/production/operational-people?page=1&limit=100&isActive=true",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:4312/api/v1/auth/contexts/archived",
+      "status": 200,
+      "method": "GET"
+    }
+  ],
+  "screenshots": [
+    "01-after-login.png",
+    "02-kpis-en.png",
+    "03-kpis-preview-open.png",
+    "04-kpis-employee-selected.png",
+    "05-kpis-preview-result.png",
+    "06-coverage-en.png",
+    "07-profiles-en.png",
+    "08-kpis-ar-attempt.png"
+  ],
+  "checks": {
+    "login_loaded": {
+      "pass": true,
+      "extra": "http://localhost:4313/admin/dashboard"
+    },
+    "kpis_page_loaded": {
+      "pass": true,
+      "extra": "http://localhost:4313/admin/performance/kpis"
+    },
+    "kpis_has_code": {
+      "pass": true,
+      "extra": "fixture KPI visible"
+    },
+    "kpis_no_score_ui": {
+      "pass": true,
+      "extra": ""
+    },
+    "employee_lookup_uses_production": {
+      "pass": true,
+      "extra": "requests contain /production/operational-people"
+    },
+    "obsolete_core_operational_people_requests_0": {
+      "pass": true,
+      "extra": "none"
+    },
+    "preview_has_status_or_value": {
+      "pass": false,
+      "extra": ""
+    },
+    "coverage_page_loaded": {
+      "pass": true,
+      "extra": ""
+    },
+    "coverage_has_buckets": {
+      "pass": true,
+      "extra": ""
+    },
+    "coverage_no_score_ui": {
+      "pass": true,
+      "extra": ""
+    },
+    "profiles_page_loaded": {
+      "pass": true,
+      "extra": ""
+    },
+    "profile_no_weight_ui": {
+      "pass": true,
+      "extra": ""
+    },
+    "arabic_visible": {
+      "pass": true,
+      "extra": "arabic chars present"
+    },
+    "rtl_dir": {
+      "pass": true,
+      "extra": "dir=rtl"
+    },
+    "raw_translation_keys_0": {
+      "pass": true,
+      "extra": ""
+    }
+  },
+  "summary": {
+    "consoleErrors": 0,
+    "pageErrors": 0,
+    "unexpectedBadResponses": 22,
+    "totalRequests": 167,
+    "hasProdPeople": true,
+    "hasCorePeople": false
+  }
+}
