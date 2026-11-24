@@ -400,6 +400,7 @@ export const sidebarGroups: SidebarGroup[] = [
           { id: 'perf-kpis', labelKey: 'navigation.performanceKpis', route: '/admin/performance/kpis', permission: 'performance-kpi:read' },
           { id: 'perf-coverage', labelKey: 'navigation.performanceCoverage', route: '/admin/performance/coverage', permission: 'performance-coverage:read' },
           { id: 'perf-kpi-coverage', labelKey: 'navigation.performanceKpiCoverage', route: '/admin/performance/kpi-coverage', permission: 'performance-kpi-coverage:read' },
+          { id: 'perf-scoring', labelKey: 'navigation.performanceScoring', route: '/admin/performance/scoring', permission: 'performance-weight:read' },
         ],
       },
     ],

@@ -128,6 +128,7 @@ const navigation: Pick<LocaleTranslations, 'navigation' | 'f9' | 'workspace' | '
         performanceKpis: 'Performance KPIs',
         performanceCoverage: 'Employee Coverage',
         performanceKpiCoverage: 'KPI Data Quality',
+        performanceScoring: 'Performance Scoring',
         operationsReport: 'Cross-domain Operations',
         maintenanceReports: 'Maintenance Reports',
         inventoryReports: 'Inventory Reports',

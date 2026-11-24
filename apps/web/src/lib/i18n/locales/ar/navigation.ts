@@ -128,6 +128,7 @@ const navigation: Pick<LocaleTranslations, 'navigation' | 'f9' | 'workspace' | '
         performanceKpis: 'مؤشرات الأداء',
         performanceCoverage: 'تغطية الموظفين',
         performanceKpiCoverage: 'جودة بيانات مؤشرات الأداء',
+        performanceScoring: 'تقييم الأداء',
         operationsReport: 'العمليات عابرة المجالات',
         maintenanceReports: 'تقارير الصيانة',
         inventoryReports: 'تقارير المخزون',
