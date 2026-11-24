@@ -159,6 +159,7 @@ PASS=3 FAIL=0
 - `KPI_COVERAGE_RECONCILIATION=PASS` for controlled fixture set; `PAGINATION_COUNTS=NOT_SUPPORTED_BY_CURRENT_CONTRACT` (supported filters PASS).
 - `PRODUCTION_BACKUP=PASS`, `PRODUCTION_PHASE2_MIGRATION=PASS`, data integrity counts unchanged.
 - `DEPLOYED_RUNTIME_CODE_SHA == PERFORMANCE_PHASE_2_MAIN_COMMIT=PASS` (1a74a549).
-- `API_HEALTH=PASS`, `WEB_HEALTH=PASS`, `DATABASE_CONNECTIVITY=PASS`, `PROXY_HEALTH=PARTIAL` (Caddy running/443 listening; localhost HTTPS handshake proof from PS5.1 failed; no config change).
+- `API_HEALTH=PASS`, `WEB_HEALTH=PASS`, `DATABASE_CONNECTIVITY=PASS`, `PROXY_HEALTH=PASS` (configured hostname DELL, tls internal; Caddy service running, 443 LISTEN pid 8608; curl --ssl-no-revoke https://DELL/api/v1/health=200, /login=200; HTTPS browser proof through https://dell loaded KPI/coverage, proxy API 200, console/page errors 0, unexpected 5xx 0, failed required network 0, failed chunks 0, /production/operational-people seen, /core/operational-people 0; localhost PS5.1 TLS revocation error = NON_BLOCKING_PROOF_CLIENT/HOSTNAME_LIMITATION).
 - `PRODUCTION_BROWSER_PROOF=PASS` (read-only), `PRODUCTION_OBSOLETE_CORE_OPERATIONAL_PEOPLE_REQUESTS=0`.
 - Inspection pitfalls register checks applied: P05, P07, P08, P09, P12, P16, P17 (and route-contract baseline/secret handling awareness). No new register entries added.
+- PERFORMANCE PHASE 2 CLOSED - COMPLETE (all required gates PASS including PROXY_HEALTH). PERFORMANCE_PHASE_3_READY=YES. POST_DEPLOY_RUNTIME_CODE_CHANGES=0, POST_DEPLOY_DOCS_ONLY=YES.

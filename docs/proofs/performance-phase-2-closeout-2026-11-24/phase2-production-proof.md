@@ -3,7 +3,7 @@
 ## Deployment
 - Main SHA: `1a74a54986535f474eb2ddaafbae087574192604` (origin/main == HEAD).
 - Release dir: `C:\ATsoftERP\App\perf-phase2-1a74a549`.
-- NSSM: `ATsoftERP_API` AppDirectory -> `...\perf-phase2-1a74a549\api`, `ATsoftERP_Web` -> `...\perf-phase2-1a74a549\web`; both restarted successfully.
+- NSSM: `ATsoftERP_API` AppDirectory -> `...\perf-phase2-1a74a549pi`, `ATsoftERP_Web` -> `...\perf-phase2-1a74a549\web`; both restarted successfully.
 - `current` symlink repointed to `C:\ATsoftERP\App\perf-phase2-1a74a549`.
 - `DEPLOYED_RUNTIME_CODE_SHA == PERFORMANCE_PHASE_2_MAIN_COMMIT`: PASS (release-manifest + NSSM paths + restarted services).
 
@@ -11,7 +11,7 @@
 - `API_HEALTH=PASS` (`http://localhost:4000/api/v1/health` status ok).
 - `WEB_HEALTH=PASS` (`http://localhost:3000/login` 200).
 - `DATABASE_CONNECTIVITY=PASS` (API health ok; read-only SQL Server checks succeeded).
-- `PROXY_HEALTH=PARTIAL` (ATsoftERP_Caddy service Running; port 443 Listen pid 8608 observed; direct https://localhost handshake from PS5.1 proof client failed with SSL/TLS establishment error; no Caddy config change made).
+- `PROXY_HEALTH=PASS` (configured hostname `DELL` verified from `C:\ATsoftERP\Config\Caddyfile`: `tls internal`, `/api/* -> localhost:4000`, fallback `-> localhost:3000`; `ATsoftERP_Caddy` Running; 443 LISTEN pid 8608 caddy.exe; cert SAN DNS Name=dell, issuer Caddy Local Authority - ECC Intermediate. `curl.exe --ssl-no-revoke https://DELL/api/v1/health`=200, `https://DELL/login`=200. Browser proof through `https://dell/...` (not localhost:3000): `/admin/performance/kpis` and `/admin/performance/kpi-coverage` loaded, `/api/v1/health` via proxy 200, console errors 0, page errors 0, unexpected 5xx 0, failed required network calls 0, failed chunks 0, `/production/operational-people` seen, `/core/operational-people` requests 0. Previous `https://localhost` PS5.1 schannel revocation/TLS error classified as `NON_BLOCKING_PROOF_CLIENT/HOSTNAME_LIMITATION`; no proxy/service fault).
 
 ## Production DB migration
 - Backup: `C:\ATsoftERP\Backups\ATsoftERP_DB_pre_phase2_20261124_034358.bak` COPY_ONLY+CHECKSUM PASS; RESTORE VERIFYONLY PASS.

@@ -2,70 +2,59 @@
   "summary": {
     "consoleErrors": 0,
     "pageErrors": 0,
-    "badUnexpected": 0,
+    "badHttp": 0,
+    "failedChunks": 0,
     "hasProdPeople": true,
-    "hasCorePeople": false
+    "hasCorePeople": false,
+    "apiHealth": {
+      "status": 200,
+      "ok": true
+    }
   },
   "checks": {
-    "prod_kpis_loaded": {
-      "pass": true,
-      "extra": "http://localhost:3000/admin/performance/kpis"
+    "https_browser_nav_kpis": {
+      "pass": false,
+      "extra": "https://dell/admin/performance/kpis"
     },
-    "prod_kpis_no_score_ui": {
-      "pass": true,
-      "extra": ""
-    },
-    "prod_coverage_loaded": {
-      "pass": true,
-      "extra": "http://localhost:3000/admin/performance/kpi-coverage"
-    },
-    "prod_coverage_no_score_ui": {
+    "kpis_loaded": {
       "pass": true,
       "extra": ""
     },
-    "prod_profiles_loaded": {
-      "pass": true,
-      "extra": "http://localhost:3000/admin/performance/profiles"
+    "https_browser_nav_coverage": {
+      "pass": false,
+      "extra": "https://dell/admin/performance/kpi-coverage"
     },
-    "prod_profiles_no_score_ui": {
+    "https_api_through_proxy": {
       "pass": true,
-      "extra": ""
+      "extra": "{\"status\":200,\"ok\":true}"
     },
-    "prod_arabic_visible": {
-      "pass": true,
-      "extra": ""
-    },
-    "prod_rtl_dir": {
-      "pass": true,
-      "extra": "dir=rtl"
-    },
-    "prod_no_raw_keys": {
-      "pass": true,
-      "extra": ""
-    },
-    "prod_operational_people_route": {
+    "prod_operational_people_seen": {
       "pass": true,
       "extra": "seen"
     },
-    "prod_obsolete_core_operational_people_requests_0": {
+    "obsolete_core_operational_people_0": {
       "pass": true,
       "extra": "none"
     },
-    "prod_console_errors_0": {
+    "console_errors_0": {
       "pass": true,
       "extra": "0"
     },
-    "prod_page_errors_0": {
+    "page_errors_0": {
       "pass": true,
       "extra": "0"
     },
-    "prod_unexpected_http_4xx5xx_0": {
+    "unexpected_5xx_0": {
       "pass": true,
       "extra": "0"
     },
-    "prod_failed_chunks_0": {
+    "failed_required_network_calls_0": {
       "pass": true,
-      "extra": "ok"
+      "extra": "0"
+    },
+    "failed_chunks_0": {
+      "pass": true,
+      "extra": "0"
     }
   },
   "consoleErrors": [],
@@ -73,184 +62,175 @@
   "bad": [],
   "requests": [
     {
-      "url": "http://localhost:3000/api/v1/auth/permissions",
+      "url": "https://dell/admin/performance/kpis",
       "status": 200,
       "method": "GET"
     },
     {
-      "url": "http://localhost:3000/api/v1/auth/me",
+      "url": "https://dell/_next/static/chunks/app/admin/performance/kpis/page-32877d88228418ee.js",
       "status": 200,
       "method": "GET"
     },
     {
-      "url": "http://localhost:3000/api/v1/auth/contexts",
+      "url": "https://dell/_next/static/chunks/app/admin/layout-5daf5c83230ab8e2.js",
       "status": 200,
       "method": "GET"
     },
     {
-      "url": "http://localhost:3000/api/v1/auth/context/validate",
+      "url": "https://dell/api/v1/auth/permissions",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "https://dell/api/v1/auth/me",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "https://dell/api/v1/auth/contexts",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "https://dell/api/v1/auth/context/validate",
       "status": 201,
       "method": "POST"
     },
     {
-      "url": "http://localhost:3000/api/v1/settings/appearance",
+      "url": "https://dell/api/v1/settings/appearance",
       "status": 200,
       "method": "GET"
     },
     {
-      "url": "http://localhost:3000/api/v1/notifications/unread-count",
+      "url": "https://dell/api/v1/notifications/unread-count",
       "status": 200,
       "method": "GET"
     },
     {
-      "url": "http://localhost:3000/api/v1/production/operational-people?page=1&limit=100&isActive=true",
+      "url": "https://dell/api/v1/production/operational-people?page=1&limit=100&isActive=true",
       "status": 200,
       "method": "GET"
     },
     {
-      "url": "http://localhost:3000/api/v1/performance/kpis?page=1&limit=20",
+      "url": "https://dell/api/v1/performance/kpis?page=1&limit=20",
       "status": 200,
       "method": "GET"
     },
     {
-      "url": "http://localhost:3000/api/v1/auth/contexts/archived",
+      "url": "https://dell/api/v1/auth/contexts/archived",
       "status": 200,
       "method": "GET"
     },
     {
-      "url": "http://localhost:3000/api/v1/auth/permissions",
+      "url": "https://dell/admin/profile?_rsc=WTBgaZ45CdL933Qn",
       "status": 200,
       "method": "GET"
     },
     {
-      "url": "http://localhost:3000/api/v1/auth/me",
+      "url": "https://dell/admin/dashboard?_rsc=WTBgaZ45CdL933Qn",
       "status": 200,
       "method": "GET"
     },
     {
-      "url": "http://localhost:3000/api/v1/auth/contexts",
+      "url": "https://dell/admin/performance/profiles?_rsc=WTBgaZ45CdL933Qn",
       "status": 200,
       "method": "GET"
     },
     {
-      "url": "http://localhost:3000/api/v1/auth/context/validate",
+      "url": "https://dell/admin/performance/coverage?_rsc=WTBgaZ45CdL933Qn",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "https://dell/admin/performance/kpi-coverage?_rsc=WTBgaZ45CdL933Qn",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "https://dell/admin/performance/kpi-coverage",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "https://dell/_next/static/chunks/app/admin/layout-5daf5c83230ab8e2.js",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "https://dell/_next/static/chunks/app/admin/performance/kpi-coverage/page-4d94cf8ce9193876.js",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "https://dell/api/v1/auth/permissions",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "https://dell/api/v1/auth/me",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "https://dell/api/v1/auth/contexts",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "https://dell/api/v1/auth/context/validate",
       "status": 201,
       "method": "POST"
     },
     {
-      "url": "http://localhost:3000/api/v1/settings/appearance",
+      "url": "https://dell/admin/dashboard?_rsc=BDnXVvyKWSpd41ud",
       "status": 200,
       "method": "GET"
     },
     {
-      "url": "http://localhost:3000/api/v1/notifications/unread-count",
+      "url": "https://dell/admin/performance/profiles?_rsc=BDnXVvyKWSpd41ud",
       "status": 200,
       "method": "GET"
     },
     {
-      "url": "http://localhost:3000/api/v1/performance/kpis/coverage?dateFrom=2026-10-25T00%3A00%3A00.000Z&dateTo=2026-11-24T23%3A59%3A59.999Z",
+      "url": "https://dell/admin/performance/coverage?_rsc=BDnXVvyKWSpd41ud",
       "status": 200,
       "method": "GET"
     },
     {
-      "url": "http://localhost:3000/api/v1/auth/contexts/archived",
+      "url": "https://dell/admin/profile?_rsc=BDnXVvyKWSpd41ud",
       "status": 200,
       "method": "GET"
     },
     {
-      "url": "http://localhost:3000/api/v1/auth/permissions",
+      "url": "https://dell/admin/performance/kpis?_rsc=BDnXVvyKWSpd41ud",
       "status": 200,
       "method": "GET"
     },
     {
-      "url": "http://localhost:3000/api/v1/auth/me",
+      "url": "https://dell/api/v1/settings/appearance",
       "status": 200,
       "method": "GET"
     },
     {
-      "url": "http://localhost:3000/api/v1/auth/contexts",
+      "url": "https://dell/api/v1/notifications/unread-count",
       "status": 200,
       "method": "GET"
     },
     {
-      "url": "http://localhost:3000/api/v1/auth/context/validate",
-      "status": 201,
-      "method": "POST"
-    },
-    {
-      "url": "http://localhost:3000/api/v1/settings/appearance",
+      "url": "https://dell/api/v1/performance/kpis/coverage?dateFrom=2026-10-25T00%3A00%3A00.000Z&dateTo=2026-11-24T23%3A59%3A59.999Z",
       "status": 200,
       "method": "GET"
     },
     {
-      "url": "http://localhost:3000/api/v1/notifications/unread-count",
+      "url": "https://dell/api/v1/auth/contexts/archived",
       "status": 200,
       "method": "GET"
     },
     {
-      "url": "http://localhost:3000/api/v1/performance/kpis?page=1&limit=200",
-      "status": 200,
-      "method": "GET"
-    },
-    {
-      "url": "http://localhost:3000/api/v1/performance/profiles?page=1&limit=20",
-      "status": 200,
-      "method": "GET"
-    },
-    {
-      "url": "http://localhost:3000/api/v1/job-titles?page=1&limit=200&isActive=true",
-      "status": 200,
-      "method": "GET"
-    },
-    {
-      "url": "http://localhost:3000/api/v1/auth/contexts/archived",
-      "status": 200,
-      "method": "GET"
-    },
-    {
-      "url": "http://localhost:3000/api/v1/auth/permissions",
-      "status": 200,
-      "method": "GET"
-    },
-    {
-      "url": "http://localhost:3000/api/v1/auth/me",
-      "status": 200,
-      "method": "GET"
-    },
-    {
-      "url": "http://localhost:3000/api/v1/auth/contexts",
-      "status": 200,
-      "method": "GET"
-    },
-    {
-      "url": "http://localhost:3000/api/v1/auth/context/validate",
-      "status": 201,
-      "method": "POST"
-    },
-    {
-      "url": "http://localhost:3000/api/v1/settings/appearance",
-      "status": 200,
-      "method": "GET"
-    },
-    {
-      "url": "http://localhost:3000/api/v1/performance/kpis?page=1&limit=20",
-      "status": 200,
-      "method": "GET"
-    },
-    {
-      "url": "http://localhost:3000/api/v1/notifications/unread-count",
-      "status": 200,
-      "method": "GET"
-    },
-    {
-      "url": "http://localhost:3000/api/v1/production/operational-people?page=1&limit=100&isActive=true",
-      "status": 200,
-      "method": "GET"
-    },
-    {
-      "url": "http://localhost:3000/api/v1/auth/contexts/archived",
+      "url": "https://dell/api/v1/health",
       "status": 200,
       "method": "GET"
     }
-  ]
+  ],
+  "fatal": null
 }
