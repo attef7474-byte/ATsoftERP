@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { AuditModule } from '../audit/audit.module';
+import { ProductionAnalyticsModule } from '../factory/production-analytics/production-analytics.module';
 import { PerformanceProfilesService } from './profiles/performance-profiles.service';
 import { PerformanceProfilesController } from './profiles/performance-profiles.controller';
 import { PerformanceProfileMappingsService } from './mappings/performance-profile-mappings.service';
@@ -16,9 +17,11 @@ import { PerformanceKpiPreviewService } from './kpi-preview/performance-kpi-prev
 import { PerformanceKpiPreviewController } from './kpi-preview/performance-kpi-preview.controller';
 import { PerformanceKpiCoverageService } from './kpi-coverage/performance-kpi-coverage.service';
 import { PerformanceKpiCoverageController } from './kpi-coverage/performance-kpi-coverage.controller';
+import { PerformanceScoringService } from './scoring/performance-scoring.service';
+import { PerformanceScoringController } from './scoring/performance-scoring.controller';
 
 @Module({
-  imports: [AuditModule],
+  imports: [AuditModule, ProductionAnalyticsModule],
   controllers: [
     PerformanceProfilesController,
     PerformanceProfileMappingsController,
@@ -28,6 +31,7 @@ import { PerformanceKpiCoverageController } from './kpi-coverage/performance-kpi
     PerformanceKpiPreviewController,
     PerformanceKpisController,
     PerformanceKpiEligibilityController,
+    PerformanceScoringController,
   ],
   providers: [
     PerformanceProfilesService,
@@ -38,7 +42,8 @@ import { PerformanceKpiCoverageController } from './kpi-coverage/performance-kpi
     PerformanceKpiEligibilityService,
     PerformanceKpiPreviewService,
     PerformanceKpiCoverageService,
+    PerformanceScoringService,
   ],
-  exports: [PerformanceContextService, PerformanceKpiPreviewService],
+  exports: [PerformanceContextService, PerformanceKpiPreviewService, PerformanceScoringService],
 })
 export class PerformanceModule {}

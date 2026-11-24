@@ -297,6 +297,9 @@ model Company {
   performanceProfileMappings         PerformanceProfileMapping[]
   performanceKpiDefinitions          PerformanceKpiDefinition[]
   performanceProfileKpiEligibilities PerformanceProfileKpiEligibility[]
+  performanceKpiTargets              PerformanceKpiTarget[]
+  performanceProfileKpiWeights       PerformanceProfileKpiWeight[]
+  performanceKpiScoringRules         PerformanceKpiScoringRule[]
   shiftHandovers                     ShiftHandover[]
   shiftHandoverItems                 ShiftHandoverItem[]
   valuationPolicies                  InventoryValuationPolicy[]
@@ -401,6 +404,7 @@ model Branch {
   costTransactions                 OperationalCostTransaction[]
   performanceTargets               ProductionPerformanceTarget[]
   performanceTargetTransitions     ProductionPerformanceTargetTransition[]
+  performanceKpiTargets            PerformanceKpiTarget[]
   costCalculations                 OperationalCostCalculation[]
   sourceChanges                    OperationalSourceChange[]
   operationalCostCenterAssignments OperationalCostCenterAssignment[]
@@ -478,6 +482,7 @@ model Department {
   machineResponsibilities MachineResponsibilityAssignment[]
   shiftHandovers          ShiftHandover[]
   costTransactions        OperationalCostTransaction[]
+  performanceKpiTargets   PerformanceKpiTarget[]
 
   @@unique([companyId, code])
   @@index([branchId])
@@ -557,6 +562,7 @@ model ProductionLine {
   standardCostSnapshots            OperationalStandardCostSnapshot[]
   costTransactions                 OperationalCostTransaction[]
   performanceTargets               ProductionPerformanceTarget[]
+  performanceKpiTargets            PerformanceKpiTarget[]
   productionRuns                   ProductionRun[]
   machineResponsibilities          MachineResponsibilityAssignment[]
 
@@ -646,6 +652,7 @@ model ProductionProductDefinition {
   qualityPlans          ProductionQualityPlan[]
   standardCostSnapshots OperationalStandardCostSnapshot[]
   performanceTargets    ProductionPerformanceTarget[]
+  performanceKpiTargets PerformanceKpiTarget[]
   productionRuns        ProductionRun[]
 
   @@index([code])
@@ -2582,6 +2589,7 @@ model Machine {
   standardCostSnapshots            OperationalStandardCostSnapshot[]
   costTransactions                 OperationalCostTransaction[]
   performanceTargets               ProductionPerformanceTarget[]
+  performanceKpiTargets            PerformanceKpiTarget[]
   productionRuns                   ProductionRun[]
 
   maintenanceExecutions MaintenanceTask[]
@@ -6407,6 +6415,7 @@ model JobTitle {
 
   assignments                OperationalPersonAssignment[]
   performanceProfileMappings PerformanceProfileMapping[]
+  performanceKpiTargets      PerformanceKpiTarget[]
 
   @@unique([companyId, code])
   @@index([companyId])
@@ -6498,6 +6507,9 @@ model PerformanceProfile {
 
   mappings         PerformanceProfileMapping[]
   kpiEligibilities PerformanceProfileKpiEligibility[]
+  kpiTargets       PerformanceKpiTarget[]
+  kpiWeights       PerformanceProfileKpiWeight[]
+  kpiScoringRules  PerformanceKpiScoringRule[]
 
   @@unique([companyId, code])
   @@index([companyId])
@@ -6571,6 +6583,9 @@ model PerformanceKpiDefinition {
   deletedAt          DateTime?
 
   profileEligibilities PerformanceProfileKpiEligibility[]
+  targets              PerformanceKpiTarget[]
+  profileWeights       PerformanceProfileKpiWeight[]
+  scoringRules         PerformanceKpiScoringRule[]
 
   @@unique([companyId, code])
   @@index([companyId])
@@ -6607,6 +6622,137 @@ model PerformanceProfileKpiEligibility {
   @@index([companyId, kpiDefinitionId])
   @@index([performanceProfileId, isEnabled])
   @@map("performance_profile_kpi_eligibilities")
+}
+
+// PERFORMANCE-P3: contextual employee-performance target authority. Reuse ProductionPerformanceTarget for canonical production OEE/A/P/Q targets; use this for performance-specific/override targets.
+model PerformanceKpiTarget {
+  id                            String                       @id @default(cuid())
+  companyId                     String
+  company                       Company                      @relation(fields: [companyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  performanceProfileId          String?
+  performanceProfile            PerformanceProfile?          @relation(fields: [performanceProfileId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  kpiDefinitionId               String
+  kpiDefinition                 PerformanceKpiDefinition     @relation(fields: [kpiDefinitionId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  branchId                      String?
+  branch                        Branch?                      @relation(fields: [branchId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  productionLineId              String?
+  productionLine                ProductionLine?              @relation(fields: [productionLineId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  machineId                     String?
+  machine                       Machine?                     @relation(fields: [machineId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  productionProductDefinitionId String?
+  productionProductDefinition   ProductionProductDefinition? @relation(fields: [productionProductDefinitionId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  departmentId                  String?
+  department                    Department?                  @relation(fields: [departmentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  jobTitleId                    String?
+  jobTitle                      JobTitle?                    @relation(fields: [jobTitleId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  scopeType                     String                       @db.NVarChar(30)
+  targetValue                   Decimal                      @db.Decimal(19, 6)
+  minimumAcceptableValue        Decimal?                     @db.Decimal(19, 6)
+  maximumExceptionalValue       Decimal?                     @db.Decimal(19, 6)
+  unit                          String?                      @db.NVarChar(30)
+  effectiveFrom                 DateTime
+  effectiveTo                   DateTime?
+  revision                      Int                          @default(1)
+  status                        String                       @default("DRAFT") @db.NVarChar(20)
+  supersedesId                  String?
+  supersedes                    PerformanceKpiTarget?        @relation("PerformanceKpiTargetRevision", fields: [supersedesId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  revisions                     PerformanceKpiTarget[]       @relation("PerformanceKpiTargetRevision")
+  reason                        String?                      @db.NVarChar(1000)
+  notes                         String?                      @db.NVarChar(2000)
+  createdById                   String?
+  updatedById                   String?
+  createdAt                     DateTime                     @default(now())
+  updatedAt                     DateTime                     @updatedAt
+  deletedAt                     DateTime?
+
+  @@index([companyId, kpiDefinitionId, status, effectiveFrom, effectiveTo])
+  @@index([companyId, performanceProfileId, kpiDefinitionId, status])
+  @@index([companyId, branchId, status])
+  @@index([companyId, productionLineId, status])
+  @@index([companyId, machineId, status])
+  @@index([companyId, productionProductDefinitionId, status])
+  @@index([companyId, departmentId, status])
+  @@index([companyId, jobTitleId, status])
+  @@index([supersedesId])
+  @@map("performance_kpi_targets")
+}
+
+// PERFORMANCE-P3: profile-scoped KPI weight. Weight belongs to profile+KPI+effective period, not KPI definition.
+model PerformanceProfileKpiWeight {
+  id                   String                        @id @default(cuid())
+  companyId            String
+  company              Company                       @relation(fields: [companyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  performanceProfileId String
+  performanceProfile   PerformanceProfile            @relation(fields: [performanceProfileId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  kpiDefinitionId      String
+  kpiDefinition        PerformanceKpiDefinition      @relation(fields: [kpiDefinitionId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  weightPercent        Decimal                       @db.Decimal(7, 4)
+  isRequired           Boolean                       @default(false)
+  isInformational      Boolean                       @default(false)
+  effectiveFrom        DateTime
+  effectiveTo          DateTime?
+  revision             Int                           @default(1)
+  status               String                        @default("DRAFT") @db.NVarChar(20)
+  supersedesId         String?
+  supersedes           PerformanceProfileKpiWeight?  @relation("PerformanceProfileKpiWeightRevision", fields: [supersedesId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  revisions            PerformanceProfileKpiWeight[] @relation("PerformanceProfileKpiWeightRevision")
+  reason               String?                       @db.NVarChar(1000)
+  notes                String?                       @db.NVarChar(2000)
+  createdById          String?
+  updatedById          String?
+  createdAt            DateTime                      @default(now())
+  updatedAt            DateTime                      @updatedAt
+  deletedAt            DateTime?
+
+  @@index([companyId, performanceProfileId, status, effectiveFrom, effectiveTo])
+  @@index([companyId, performanceProfileId, kpiDefinitionId, status])
+  @@index([companyId, kpiDefinitionId, status])
+  @@index([supersedesId])
+  @@map("performance_profile_kpi_weights")
+}
+
+// PERFORMANCE-P3: deterministic scoring rule. No arbitrary executable formulas.
+model PerformanceKpiScoringRule {
+  id                   String                      @id @default(cuid())
+  companyId            String
+  company              Company                     @relation(fields: [companyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  performanceProfileId String?
+  performanceProfile   PerformanceProfile?         @relation(fields: [performanceProfileId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  kpiDefinitionId      String
+  kpiDefinition        PerformanceKpiDefinition    @relation(fields: [kpiDefinitionId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  scoringMode          String                      @db.NVarChar(40)
+  direction            String                      @db.NVarChar(30)
+  minScore             Decimal                     @default(0) @db.Decimal(7, 4)
+  maxScore             Decimal                     @default(100) @db.Decimal(7, 4)
+  targetScore          Decimal?                    @db.Decimal(7, 4)
+  floorValue           Decimal?                    @db.Decimal(19, 6)
+  targetValue          Decimal?                    @db.Decimal(19, 6)
+  ceilingValue         Decimal?                    @db.Decimal(19, 6)
+  bandsJson            String?                     @db.NVarChar(Max)
+  missingDataPolicy    String                      @default("INSUFFICIENT_DATA") @db.NVarChar(40)
+  notApplicablePolicy  String                      @default("NOT_APPLICABLE") @db.NVarChar(40)
+  configMissingPolicy  String                      @default("CONFIGURATION_MISSING") @db.NVarChar(40)
+  clampMin             Decimal?                    @db.Decimal(7, 4)
+  clampMax             Decimal?                    @db.Decimal(7, 4)
+  effectiveFrom        DateTime
+  effectiveTo          DateTime?
+  revision             Int                         @default(1)
+  status               String                      @default("DRAFT") @db.NVarChar(20)
+  supersedesId         String?
+  supersedes           PerformanceKpiScoringRule?  @relation("PerformanceKpiScoringRuleRevision", fields: [supersedesId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  revisions            PerformanceKpiScoringRule[] @relation("PerformanceKpiScoringRuleRevision")
+  reason               String?                     @db.NVarChar(1000)
+  notes                String?                     @db.NVarChar(2000)
+  createdById          String?
+  updatedById          String?
+  createdAt            DateTime                    @default(now())
+  updatedAt            DateTime                    @updatedAt
+  deletedAt            DateTime?
+
+  @@index([companyId, kpiDefinitionId, status, effectiveFrom, effectiveTo])
+  @@index([companyId, performanceProfileId, kpiDefinitionId, status])
+  @@index([supersedesId])
+  @@map("performance_kpi_scoring_rules")
 }
 
 // COST-R2D-B1: source and period evidence only. No allocation or ledger posting.
