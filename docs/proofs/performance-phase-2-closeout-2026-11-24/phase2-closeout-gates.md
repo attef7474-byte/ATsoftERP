@@ -149,3 +149,16 @@ PASS=3 FAIL=0
 - PASS: KPI create rejects weight
 - PASS: KPI create rejects score/ranking/grade/bonus/penalty
 - PASS: eligibility rejects weight/score
+
+
+## Final Closeout Addendum (2026-11-24)
+- `ROUTE_FIX_PERSISTED_IN_REMOTE=YES` (feature branch merged to main; `/production/operational-people` used).
+- `PRISMA_FORMAT_DETERMINISTIC=PASS`.
+- `FULL API SUITE PASS` (277 suites, 5415 tests, 0 failed).
+- `FULL WEB SUITE PASS` (140 suites, 2608 tests, 0 failed).
+- `KPI_COVERAGE_RECONCILIATION=PASS` for controlled fixture set; `PAGINATION_COUNTS=NOT_SUPPORTED_BY_CURRENT_CONTRACT` (supported filters PASS).
+- `PRODUCTION_BACKUP=PASS`, `PRODUCTION_PHASE2_MIGRATION=PASS`, data integrity counts unchanged.
+- `DEPLOYED_RUNTIME_CODE_SHA == PERFORMANCE_PHASE_2_MAIN_COMMIT=PASS` (1a74a549).
+- `API_HEALTH=PASS`, `WEB_HEALTH=PASS`, `DATABASE_CONNECTIVITY=PASS`, `PROXY_HEALTH=PARTIAL` (Caddy running/443 listening; localhost HTTPS handshake proof from PS5.1 failed; no config change).
+- `PRODUCTION_BROWSER_PROOF=PASS` (read-only), `PRODUCTION_OBSOLETE_CORE_OPERATIONAL_PEOPLE_REQUESTS=0`.
+- Inspection pitfalls register checks applied: P05, P07, P08, P09, P12, P16, P17 (and route-contract baseline/secret handling awareness). No new register entries added.

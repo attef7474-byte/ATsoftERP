@@ -1,0 +1,256 @@
+{
+  "summary": {
+    "consoleErrors": 0,
+    "pageErrors": 0,
+    "badUnexpected": 0,
+    "hasProdPeople": true,
+    "hasCorePeople": false
+  },
+  "checks": {
+    "prod_kpis_loaded": {
+      "pass": true,
+      "extra": "http://localhost:3000/admin/performance/kpis"
+    },
+    "prod_kpis_no_score_ui": {
+      "pass": true,
+      "extra": ""
+    },
+    "prod_coverage_loaded": {
+      "pass": true,
+      "extra": "http://localhost:3000/admin/performance/kpi-coverage"
+    },
+    "prod_coverage_no_score_ui": {
+      "pass": true,
+      "extra": ""
+    },
+    "prod_profiles_loaded": {
+      "pass": true,
+      "extra": "http://localhost:3000/admin/performance/profiles"
+    },
+    "prod_profiles_no_score_ui": {
+      "pass": true,
+      "extra": ""
+    },
+    "prod_arabic_visible": {
+      "pass": true,
+      "extra": ""
+    },
+    "prod_rtl_dir": {
+      "pass": true,
+      "extra": "dir=rtl"
+    },
+    "prod_no_raw_keys": {
+      "pass": true,
+      "extra": ""
+    },
+    "prod_operational_people_route": {
+      "pass": true,
+      "extra": "seen"
+    },
+    "prod_obsolete_core_operational_people_requests_0": {
+      "pass": true,
+      "extra": "none"
+    },
+    "prod_console_errors_0": {
+      "pass": true,
+      "extra": "0"
+    },
+    "prod_page_errors_0": {
+      "pass": true,
+      "extra": "0"
+    },
+    "prod_unexpected_http_4xx5xx_0": {
+      "pass": true,
+      "extra": "0"
+    },
+    "prod_failed_chunks_0": {
+      "pass": true,
+      "extra": "ok"
+    }
+  },
+  "consoleErrors": [],
+  "pageErrors": [],
+  "bad": [],
+  "requests": [
+    {
+      "url": "http://localhost:3000/api/v1/auth/permissions",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:3000/api/v1/auth/me",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:3000/api/v1/auth/contexts",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:3000/api/v1/auth/context/validate",
+      "status": 201,
+      "method": "POST"
+    },
+    {
+      "url": "http://localhost:3000/api/v1/settings/appearance",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:3000/api/v1/notifications/unread-count",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:3000/api/v1/production/operational-people?page=1&limit=100&isActive=true",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:3000/api/v1/performance/kpis?page=1&limit=20",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:3000/api/v1/auth/contexts/archived",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:3000/api/v1/auth/permissions",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:3000/api/v1/auth/me",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:3000/api/v1/auth/contexts",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:3000/api/v1/auth/context/validate",
+      "status": 201,
+      "method": "POST"
+    },
+    {
+      "url": "http://localhost:3000/api/v1/settings/appearance",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:3000/api/v1/notifications/unread-count",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:3000/api/v1/performance/kpis/coverage?dateFrom=2026-10-25T00%3A00%3A00.000Z&dateTo=2026-11-24T23%3A59%3A59.999Z",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:3000/api/v1/auth/contexts/archived",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:3000/api/v1/auth/permissions",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:3000/api/v1/auth/me",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:3000/api/v1/auth/contexts",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:3000/api/v1/auth/context/validate",
+      "status": 201,
+      "method": "POST"
+    },
+    {
+      "url": "http://localhost:3000/api/v1/settings/appearance",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:3000/api/v1/notifications/unread-count",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:3000/api/v1/performance/kpis?page=1&limit=200",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:3000/api/v1/performance/profiles?page=1&limit=20",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:3000/api/v1/job-titles?page=1&limit=200&isActive=true",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:3000/api/v1/auth/contexts/archived",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:3000/api/v1/auth/permissions",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:3000/api/v1/auth/me",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:3000/api/v1/auth/contexts",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:3000/api/v1/auth/context/validate",
+      "status": 201,
+      "method": "POST"
+    },
+    {
+      "url": "http://localhost:3000/api/v1/settings/appearance",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:3000/api/v1/performance/kpis?page=1&limit=20",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:3000/api/v1/notifications/unread-count",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:3000/api/v1/production/operational-people?page=1&limit=100&isActive=true",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:3000/api/v1/auth/contexts/archived",
+      "status": 200,
+      "method": "GET"
+    }
+  ]
+}
