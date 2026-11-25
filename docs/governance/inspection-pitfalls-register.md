@@ -260,3 +260,12 @@ Applied in production cutover: PERSONNEL-P10-05–07 in addition to P10-01–04.
 | P56 | Simulation proof read the page too early because the static banner already contained "Preview only", before the asynchronous result label appeared. | Wait for a result-only token (`Label: <stable preview label>`) and then assert preview/no-persisted flags, evidence columns, and version/revision. Use the fixture period that actually contains source evidence (`2026-12`). | ACTIVE CHECK |
 
 Applied: P01, P05, P09, P10, P11, P12, P16, P20, P26, P52, P53, P54, P55, P56 during Performance Phase 3 closeout. Full API regression 285 suites / 5487 tests passed; full web logic regression 141 suites / 2615 tests passed; route contract retained only the known pre-existing inventory-panel baseline (3 malformed / 3 unresolved). No production writes, migrations, commits, pushes, deployments, or service restarts outside the disposable proof clone and proof ports.
+
+## Performance Phase 3 final production-proof checks - 2026-11-25
+
+| ID | Problem / symptom | Preventive check | Status |
+| --- | --- | --- | --- |
+| P57 | A deployed runtime threw `MODULE_NOT_FOUND` for a compiled Prisma seed JS file after a successful source build/release. | Verify that the runtime seed directory contains the compiled JS files from the exact release `dist/prisma/seed` tree before declaring deployment healthy. If a packaged-file defect appears, copy only compiled JS from the exact immutable release, restart only the affected API service, and keep release manifest/hash unchanged; never change tracked runtime source as a proof shortcut. | ACTIVE CHECK |
+| P58 | Production had zero performance profiles, so a positive `/performance/profiles/:id/readiness` proof was impossible without creating forbidden fixtures. | Before readiness proof, query production profile count. If zero, document the deterministic invalid-reference boundary, prove configuration coverage and simulation `CONFIGURATION_MISSING`, and never manufacture a profile or score. Classify an existing-entity ID used for the negative probe separately from a valid-profile proof. | ACTIVE CHECK |
+
+Applied during the final production closeout: P01, P05, P09, P10, P11, P12, P16, P17, P20, P26, P52-P58, PERSONNEL-P1-05. New entries P57 and P58 came from the compiled-seed packaging defect and the zero-profile readiness boundary.

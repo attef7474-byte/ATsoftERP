@@ -1,0 +1,219 @@
+{
+  "capturedAt": "2026-11-25T00:25:50.471Z",
+  "apiBase": "https://DELL/api/v1",
+  "deployedCommit": "1a5df8fc6951613818aa88ebaa53ccb688919010",
+  "authMode": "SUPER_ADMIN_ROLE",
+  "authUserId": "cmrl31v0g0004ok95wxhdi9lm",
+  "authExpiresIn": "15m",
+  "activeContext": {
+    "companyId": "cmum3jqh8001mf495zaankx05",
+    "branchId": "cmum5dwmo0000ro95qq4day18",
+    "companyCode": "COM-000042",
+    "branchCode": "BRN-000002"
+  },
+  "otherContext": {
+    "companyId": "cmrvaph2200009g95oj1o8m1j",
+    "branchId": "cmrvaph4100019g95kisacppa"
+  },
+  "meStatus": 200,
+  "meIsSuperAdmin": true,
+  "existingProfileCount": 0,
+  "simulationPerson": {
+    "id": "cms0se09l000mds953usq9a5f",
+    "code": "MP-000006"
+  },
+  "results": [
+    {
+      "name": "targets",
+      "method": "GET",
+      "path": "/performance/targets?page=1&limit=200",
+      "status": 200,
+      "success2xx": true,
+      "is5xx": false,
+      "secretMarkers": [],
+      "body": {
+        "data": [],
+        "meta": {
+          "page": 1,
+          "limit": 200,
+          "total": 0,
+          "totalPages": 0
+        }
+      }
+    },
+    {
+      "name": "weights",
+      "method": "GET",
+      "path": "/performance/weights?page=1&limit=200",
+      "status": 200,
+      "success2xx": true,
+      "is5xx": false,
+      "secretMarkers": [],
+      "body": {
+        "data": [],
+        "meta": {
+          "page": 1,
+          "limit": 200,
+          "total": 0,
+          "totalPages": 0
+        }
+      }
+    },
+    {
+      "name": "scoring-rules",
+      "method": "GET",
+      "path": "/performance/scoring-rules?page=1&limit=200",
+      "status": 200,
+      "success2xx": true,
+      "is5xx": false,
+      "secretMarkers": [],
+      "body": {
+        "data": [],
+        "meta": {
+          "page": 1,
+          "limit": 200,
+          "total": 0,
+          "totalPages": 0
+        }
+      }
+    },
+    {
+      "name": "configuration-coverage",
+      "method": "GET",
+      "path": "/performance/configuration-coverage",
+      "status": 200,
+      "success2xx": true,
+      "is5xx": false,
+      "secretMarkers": [],
+      "body": {
+        "at": "2026-11-25T00:25:50.024Z",
+        "totalProfiles": 0,
+        "ready": 0,
+        "notReady": 0,
+        "missingWeight": 0,
+        "missingTarget": 0,
+        "missingRule": 0,
+        "invalidWeightTotal": 0,
+        "overlap": 0,
+        "profiles": []
+      }
+    },
+    {
+      "name": "profiles-readiness-negative-probe",
+      "method": "GET",
+      "path": "/performance/profiles/cms0se09l000mds953usq9a5f/readiness",
+      "status": 400,
+      "success2xx": false,
+      "is5xx": false,
+      "secretMarkers": [],
+      "body": {
+        "success": false,
+        "statusCode": 400,
+        "message": [
+          "فشل التحقق من صحة البيانات"
+        ],
+        "timestamp": "2026-11-25T00:25:50.135Z",
+        "requestId": "b168caab-6ee1-4176-b564-2ab8be23c67e",
+        "messageKey": "common.validationFailed",
+        "errors": [
+          {
+            "field": "performanceProfileId",
+            "code": "validation.invalidReference",
+            "message": "المرجع المحدد غير صالح أو غير موجود"
+          }
+        ]
+      },
+      "validProfileIdUsed": false,
+      "note": "No performance_profiles row exists in production; an existing operational-person id was used only as an invalid-reference probe. No valid-ID readiness proof is possible without creating production data."
+    },
+    {
+      "name": "simulate",
+      "method": "POST",
+      "path": "/performance/simulate",
+      "status": 201,
+      "success2xx": true,
+      "is5xx": false,
+      "secretMarkers": [],
+      "body": {
+        "previewOnly": true,
+        "noPersistedEvaluation": true,
+        "simulationLabel": "PREVIEW_ONLY_NOT_APPROVED",
+        "status": "CONFIGURATION_MISSING",
+        "reason": "NO_PROFILE",
+        "employee": {
+          "id": "cms0se09l000mds953usq9a5f",
+          "code": "MP-000006",
+          "name": "Debug Dup 584721662",
+          "category": "MAINTENANCE",
+          "isActive": true
+        },
+        "performanceProfile": null,
+        "period": {
+          "from": "2026-10-01T00:00:00.000Z",
+          "to": "2026-10-31T23:59:59.000Z"
+        },
+        "kpis": [],
+        "provisionalTotal": null,
+        "completenessPercent": 0,
+        "configuredWeightCovered": "0",
+        "missingRequiredKpis": []
+      }
+    },
+    {
+      "name": "targets-other-context",
+      "method": "GET",
+      "path": "/performance/targets?page=1&limit=200",
+      "status": 200,
+      "success2xx": true,
+      "is5xx": false,
+      "secretMarkers": [],
+      "body": {
+        "data": [],
+        "meta": {
+          "page": 1,
+          "limit": 200,
+          "total": 0,
+          "totalPages": 0
+        }
+      }
+    }
+  ],
+  "previewFlags": {
+    "previewOnly": true,
+    "noPersistedEvaluation": true,
+    "simulationLabel": "PREVIEW_ONLY_NOT_APPROVED",
+    "status": "CONFIGURATION_MISSING"
+  },
+  "tenantScope": {
+    "foreignCompanyRows": [],
+    "unrestrictedContextOnly": false
+  },
+  "secretLeaks": [],
+  "unexpected5xx": [],
+  "countsBefore": {
+    "operational_people": 86,
+    "maintenance_requests": 22,
+    "production_runs": 4,
+    "downtime_logs": 5,
+    "inventory_movements": 125,
+    "inventory_balances": 24,
+    "performance_kpi_targets": 0,
+    "performance_profile_kpi_weights": 0,
+    "performance_kpi_scoring_rules": 0
+  },
+  "countsAfter": {
+    "operational_people": 86,
+    "maintenance_requests": 22,
+    "production_runs": 4,
+    "downtime_logs": 5,
+    "inventory_movements": 125,
+    "inventory_balances": 24,
+    "performance_kpi_targets": 0,
+    "performance_profile_kpi_weights": 0,
+    "performance_kpi_scoring_rules": 0
+  },
+  "businessMutations": [],
+  "productionPhase3ApiEndpoints": false,
+  "productionSimulationReadOnly": true,
+  "unintendedProductionBusinessWrites": 0
+}

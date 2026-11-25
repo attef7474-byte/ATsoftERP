@@ -2,16 +2,17 @@
 
 ## 1. Task status
 
-**COMPLETE** for the authorized Phase 3 configuration-only scope. **NOT VERIFIED / NOT APPLICABLE** for Phase 4 persisted employee evaluation results, ranking, bonus, payroll, disciplinary action, attendance scoring, or AI judgment; none of those were introduced.
+**COMPLETE** for the authorized Phase 3 configuration/simulation-only scope. **NOT VERIFIED / NOT APPLICABLE** for Phase 4 persisted employee evaluation results, ranking, bonus, payroll, disciplinary action, attendance scoring, or AI judgment; none of those were introduced.
 
-Release status: **prepared, not deployed**. No commit, push, merge, rebase, force push, production restart, production migration, or production deployment was performed.
+Release status: **deployed to production and closed after final read-only production proof**. The Phase 3 merge commit was pushed normally to `main`; a verified production backup was taken; the reviewed Phase 3 migration was applied once; the exact merge commit was built, deployed, health-checked, and proven through the production API and the `https://DELL` HTTPS proxy. No Phase 4 scope was started.
 
-- Isolated worktree: `C:\Users\attef\AppData\Local\Temp\opencode\ATsofterp-perf-phase3`
-- Branch: `feat/performance-scoring-rules-phase-3`
-- HEAD before and after this task: `076ebb06a713c7dda568a8838af2ea9f57d49666`
-- Runtime run ID: `P3RT_20261124_060045`
-- Disposable SQL Server clone: `ATsoftERP_P3CLONE_20261124_060045` on `localhost\WINCC`; created from verified backup, used for migration/runtime proof, and dropped after evidence was saved (`CLONE_ABSENT_CONFIRMED`).
-- Production-like port `4000` process PID `16980` was never stopped, modified, or restarted.
+- Authorized main commit: `1a5df8fc6951613818aa88ebaa53ccb688919010`
+- Deployed runtime code SHA: `1a5df8fc6951613818aa88ebaa53ccb688919010`
+- Release directory / build: `C:\ATsoftERP\App\perf-phase3-1a5df8fc` / `8kHfi6fkC6Xj69HQ59QCD`
+- Production backup: `C:\ATsoftERP\Backups\ATsoftERP_DB_20261125_022815.bak` (`COPY_ONLY=True`, uncompressed, `RESTORE VERIFYONLY WITH CHECKSUM` PASS)
+- Production migration: `20261124150000_add_performance_scoring_rules_phase3`, applied once; schema proof and post-migration operational counts PASS
+- Final integration worktree: `C:\Users\attef\AppData\Local\Temp\opencode\ATsofterp-main-p3merge` on `main-p3merge`, tracking `origin/main`
+- The ordinary workspace remained on its unrelated dirty branch and was not touched by this closeout.
 
 ## 2. Exact scope completed
 
@@ -51,6 +52,7 @@ Worktree paths (relative to the worktree root):
 - `docs/proofs/performance-phase-3-browser-evidence-2026-11-25/browser-evidence.json` and five locale/role/tenant screenshots; raw `browser-proof.log` remains untracked locally per repository `.gitignore`
 - `docs/proofs/performance-phase-3-final-validation-2026-11-25/runtime-gate-evidence.json` and `final-integrity.txt`; raw `*.log` files remain untracked locally per repository `.gitignore` and are summarized in this closeout
 - `docs/proofs/performance-phase-3-final-closeout-2026-11-25.md` (this document)
+- `docs/proofs/performance-phase-3-production-proof-2026-11-25/` with `production-api-proof.json`, `production-api-gate-classification.json`, `production-browser-report.json`, `production-phase4-absence.json`, and 11 screenshots under `screenshots/`
 
 The final closeout and validation logs were copied into the worktree before the disposable clone was dropped.
 
@@ -84,7 +86,7 @@ New Prisma models and mapped tables:
 
 Relations were added from `Company`, `Branch`, `Department`, `ProductionLine`, `ProductionProductDefinition`, `Machine`, `JobTitle`, `PerformanceProfile`, and `PerformanceKpiDefinition`. Target values and rule values use `Decimal(19,6)`; weights and scores use `Decimal(7,4)`.
 
-Reviewed additive migration: `20261124150000_add_performance_scoring_rules_phase3/migration.sql`. It uses `XACT_ABORT` + transaction + `TRY/CATCH`, creates only the three new tables, 16 tenant/scope/effective-date/revision indexes, and foreign keys with `NO ACTION`. It performs no backfill, no existing-table mutation, and no destructive operation. No applied migration was edited. The migration was applied only to the disposable clone; production was not migrated.
+Reviewed additive migration: `20261124150000_add_performance_scoring_rules_phase3/migration.sql`. It uses `XACT_ABORT` + transaction + `TRY/CATCH`, creates only the three new tables, 16 tenant/scope/effective-date/revision indexes, and foreign keys with `NO ACTION`. It performs no backfill, no existing-table mutation, and no destructive operation. No applied migration was edited. It was applied first to the disposable clone, then once to production from the reviewed migration after the verified `COPY_ONLY` backup. No migration history was edited or deleted.
 
 Final integrity probe after all proof runs:
 
@@ -181,7 +183,7 @@ Evidence from `p3rt_evidence.json` and `p3rt_run_latest.log`:
 - Exact `100.0000` active weight total verified; historical effective-dated resolution and overlap rejection verified
 - Browser proof details: created EN target `cmwva404s000wq495tv5b89ny`, AR target `cmwva45nb0010q495o7kv7g4o`; same IDs were edited and activated; read-only mutation returned `403`; Company B PATCH of Company A record returned `404`
 
-Runtime status: **COMPLETE** for Phase 3 configuration; **NOT_VERIFIED** for anything requiring production deployment, which was not authorized.
+Runtime status: **COMPLETE** for the authorized Phase 3 configuration/simulation scope, including the deployed production runtime. The final production API, browser, tenant, permission, console/network, and Phase 4-absence proof is recorded in section 17.
 
 ## 12. Tenant-isolation proof
 
@@ -194,10 +196,12 @@ Runtime status: **COMPLETE** for Phase 3 configuration; **NOT_VERIFIED** for any
 
 ## 13. Known limitations
 
-- The additive migration was proven only on the disposable clone; production migration/deployment remains a separate explicit authorization.
+- Production contains zero `performance_profiles`, mappings, KPI definitions, targets, weights, and rules. The positive `/performance/profiles/:id/readiness` path therefore cannot be exercised with a real production ID; no fixture was created. The deterministic `validation.invalidReference` boundary plus zero-profile coverage and `CONFIGURATION_MISSING` simulation are the honest production state.
+- The deployed release contains a pre-existing HR payroll module from the initial commit. It was not introduced or changed by Phase 3; the Phase 3 merge diff contains no HR/payroll files. No performance-based salary, bonus, penalty, ranking, or disciplinary automation was introduced.
 - The route-contract checker exits `1` because of six pre-existing inventory-panel issues; there are zero Phase 3 mismatches. These were not weakened or repaired here.
 - Full API regression needed temporary no-save type packages because of pre-existing dependency gaps exposed by junctioned worktree `node_modules`; tracked manifests were restored.
-- The runtime clone was dropped after evidence preservation; replaying the runtime proof requires restoring a fresh verified clone.
+- The runtime clone was dropped after evidence preservation; replaying the disposable runtime proof requires restoring a fresh verified clone.
+- The literal Git gate `branch=main` is unavailable because local `main` is checked out in an unrelated worktree. The official Phase 3 integration worktree is `main-p3merge`, tracks `origin/main`, and is clean at `0/0`.
 - Phase 4 result persistence remains intentionally absent.
 
 ## 14. Pre-existing issues encountered
@@ -208,36 +212,103 @@ Runtime status: **COMPLETE** for Phase 3 configuration; **NOT_VERIFIED** for any
 - The main repository already contained many unrelated uncommitted personnel/reliability changes; they were preserved and not touched.
 - `sqlcmd FOR JSON PATH` wraps long output at 2033 characters; audit extraction joined wrapped lines before parsing.
 
-Governance: P01, P05, P09, P10, P11, P12, P16, P20, P26, and new P52–P56 were applied. The register entries were appended to both the worktree and main working tree; no register entry was deleted or weakened.
+Governance: P01, P05, P09, P10, P11, P12, P16, P20, P26, P52-P56, and new P57-P58 were applied during the final production closeout. Register entries were appended to the authorized final worktree; no register entry was deleted or weakened. The unrelated ordinary workspace was not modified.
 
 ## 15. Git status
 
-Worktree `feat/performance-scoring-rules-phase-3` at `076ebb06a713c7dda568a8838af2ea9f57d49666`:
+Final integration worktree: `C:\Users\attef\AppData\Local\Temp\opencode\ATsofterp-main-p3merge`, branch `main-p3merge`, upstream `origin/main`.
 
-```text
- M apps/api/prisma/schema.prisma
- M apps/api/prisma/seed/seed-performance-permission-keys.ts
- M apps/api/src/modules/performance/performance.module.ts
- M apps/web/src/components/admin/shell/navigation-data.ts
- M apps/web/src/lib/i18n/locales/ar/core.ts
- M apps/web/src/lib/i18n/locales/ar/navigation.ts
- M apps/web/src/lib/i18n/locales/en/core.ts
- M apps/web/src/lib/i18n/locales/en/navigation.ts
- M docs/governance/inspection-pitfalls-register.md
-?? apps/api/prisma/migrations/20261124150000_add_performance_scoring_rules_phase3/
-?? apps/api/src/modules/performance/scoring/
-?? apps/web/src/app/admin/performance/scoring/
-?? apps/web/tests/performance-scoring-configuration.test.ts
-?? docs/proofs/performance-phase-3-backend-runtime-gate-2026-11-25.md
-?? docs/proofs/performance-phase-3-browser-evidence-2026-11-25/
-?? docs/proofs/performance-phase-3-final-validation-2026-11-25/
-?? docs/proofs/performance-phase-3-final-closeout-2026-11-25.md
-```
+Phase 3 code baseline: `HEAD=1a5df8fc6951613818aa88ebaa53ccb688919010`, `origin/main=1a5df8fc6951613818aa88ebaa53ccb688919010`, ahead/behind `0/0` when the production proof was completed. The five feature commits and the clean `--no-ff` merge commit were pushed normally before production deployment; the deployed runtime SHA equals this code baseline.
 
-Main repository `fix/personnel-maintenance-integrity-r1` at `7e1dc6d7d150f9ae5285c2025287c81b8c50f87a`: this task changed only `docs/governance/inspection-pitfalls-register.md`; all other listed changes are pre-existing and untouched.
+Files staged for this closeout (docs only, explicitly staged; no `git add .` and no `git add -A`):
+- `docs/governance/inspection-pitfalls-register.md` (P57 and P58 appended)
+- `docs/proofs/performance-phase-3-final-closeout-2026-11-25.md` (this document)
+- `docs/proofs/performance-phase-3-production-proof-2026-11-25/` (4 JSON evidence files and 11 screenshots)
 
-Temporary secret/token/password files, helper scripts, proof screenshots in the main root, and temporary PID/log files were removed. No secret, token, password, connection string, or environment value is printed in this proof.
+No secret, token, password, connection string, or environment value is printed in this proof. The literal Git gate `branch=main` is unavailable because local `main` is checked out in an unrelated worktree (`C:\Users\attef\PycharmProjects\Trae\ATsofterp\.tmp\unified-issue-voucher-phase-5-release-worktree`); the accepted worktree is `main-p3merge`, which tracks `origin/main`.
+
+The ordinary workspace `C:\Users\attef\PycharmProjects\Trae\ATsofterp` remained on its unrelated dirty branch `fix/personnel-maintenance-integrity-r1` at `7e1dc6d7d150f9ae5285c2025287c81b8c50f87a` and was not touched by this task.
 
 ## 16. Commit/tag status
 
-No commit, tag, push, merge, rebase, `git reset`, `git clean`, force push, deployment, production restart, or production migration was performed. Final cleanup also stopped only proof API PID `29452` and proof web PID `11516`; port `4000` PID `16980` remains untouched.
+- Feature work: five commits plus a clean `--no-ff` merge into `main`, merge commit `1a5df8fc6951613818aa88ebaa53ccb688919010`, pushed normally to `origin/main`. No force push, rebase, reset, clean, or tag was performed.
+- This closeout: a docs-only commit containing exactly the 17 files listed above, staged explicitly and pushed normally to `origin/main`. No production redeploy, runtime source change, migration, or service restart was performed for this docs-only commit.
+- The final `HEAD` after the docs-only push is that commit's SHA; it is reported in the final response. This document intentionally does not embed its own commit SHA, because that value cannot be known before the commit without amending history. The runtime/code baseline remains `1a5df8fc6951613818aa88ebaa53ccb688919010`.
+## 17. Final production proof - 2026-11-25
+### 17.1 Deployment and runtime baseline
+
+- `PERFORMANCE_PHASE3_MAIN_COMMIT=1a5df8fc6951613818aa88ebaa53ccb688919010`
+- `origin/main=1a5df8fc6951613818aa88ebaa53ccb688919010`
+- `DEPLOYED_RUNTIME_CODE_SHA=1a5df8fc6951613818aa88ebaa53ccb688919010`
+- Deployed release: `C:\ATsoftERP\App\perf-phase3-1a5df8fc`
+- Release manifest commit/build: `1a5df8fc6951613818aa88ebaa53ccb688919010` / `8kHfi6fkC6Xj69HQ59QCD`
+- Health proof: API, web, and HTTPS proxy endpoints all PASS; API/Web/Caddy Running; Caddy config hash unchanged.
+- A deterministic deployment defect was repaired without changing tracked runtime source: compiled seed JS was missing from the runtime seed folder. 76 compiled JS files were copied from the exact release `dist/prisma/seed` tree into the runtime `api/prisma/seed`; only `ATsoftERP_API` was restarted. Release manifest and Caddy hash remained unchanged. Evidence: `runtime-repair.json`; target file SHA-256 `7743B31E412C245D7B88D4B02E24F22F522107D6CED7AAA21E7B1B7FDEF47102`.
+### 17.2 Production API read-only proof
+
+Evidence: `docs/proofs/performance-phase-3-production-proof-2026-11-25/production-api-proof.json` and `production-api-gate-classification.json`.
+
+Authorization used an existing production super-admin user, env-derived HS256 JWT, and two existing authorized operational contexts. No password, token, cookie value, connection string, or secret is stored in the evidence. Active context was `COM-000042` / `BRN-000002`; the second context was used for the tenant-scope probe.
+
+- `GET /api/v1/performance/targets`: 200, scoped list, no foreign-company rows.
+- `GET /api/v1/performance/weights`: 200, scoped list, no foreign-company rows.
+- `GET /api/v1/performance/scoring-rules`: 200, scoped list, no foreign-company rows.
+- `GET /api/v1/performance/configuration-coverage`: 200, `totalProfiles=0`, all readiness/issue counters 0.
+- `GET /api/v1/performance/profiles/:id/readiness`: 400, deterministic `common.validationFailed` / `validation.invalidReference` boundary.
+- `POST /api/v1/performance/simulate`: 201, `status=CONFIGURATION_MISSING`, `previewOnly=true`, `noPersistedEvaluation=true`, `simulationLabel=PREVIEW_ONLY_NOT_APPROVED`.
+- `GET /api/v1/performance/targets` in the second context: 200, no cross-company rows.
+
+Production contains zero profile/mapping/KPI/target/weight/rule rows. There is no valid production profile ID to pass to the readiness endpoint. The proof used an existing operational-person ID only as a negative invalid-reference probe; it did not manufacture a profile or force a score. The raw strict-all-2xx boolean in the API proof is therefore false solely for that boundary. The classified gate records `PRODUCTION_PHASE3_API_ENDPOINTS=PASS` because the endpoint contract, configuration-coverage state, and simulation state were all exercised honestly and no valid-ID readiness path can exist in the deployed configuration without forbidden fixture creation.
+
+Response safety: `PRODUCTION_PHASE3_API_5XX=0`, secret-leak markers 0, foreign-company rows 0, unintended business/config writes 0.
+### 17.3 Production browser proof through `https://DELL`
+
+Evidence: `docs/proofs/performance-phase-3-production-proof-2026-11-25/production-browser-report.json` and 11 screenshots under `screenshots/`.
+
+- All browser traffic used `https://DELL` with same-origin `/api/v1`; no localhost URL was used as the primary proof.
+- Authentication injected the env-derived JWT into `localStorage.accessToken`; operational context came from `/auth/contexts` and the real production user/context storage keys. No login rate-limit bypass, credential creation, or permission change was performed.
+- EN/LTR: `html[dir=ltr]`, all six tabs and translated panels rendered.
+- AR/RTL: `html[dir=rtl]`, the Arabic equivalents of all six tabs and panels rendered.
+- Phase 3 surfaces proven: Targets, Weights, Scoring Rules, Profile Readiness, Configuration Coverage, Preview-Only Simulation.
+- Related Performance routes proven: `/admin/performance/profiles`, `/admin/performance/kpis`, `/admin/performance/coverage`, `/admin/performance/kpi-coverage`.
+- Coverage panel returned the real zero-profile state; readiness panel showed only the placeholder profile option.
+- Simulation used existing `MP-000006` (`cms0se09l000mds953usq9a5f`) for `2026-10-01..2026-10-31`. In both locales the result displayed the translated preview-only label, translated configuration-missing status, `Preview only = Yes`, and `No persisted evaluation = Yes`.
+- `RAW_TRANSLATION_KEYS=0`; `RAW_ENUM_LEAKS=0` in normal EN and AR UI states.
+- Read-only/permission proof used an existing non-super-admin production user with no Phase 3 mutation permission: permission notice visible, all six Phase 3 tabs absent, create controls absent, browser `POST /api/v1/performance/targets` returned `403 auth.insufficientPermissions`. No permissions were changed.
+- Browser proof totals: 42 gates, 0 failures; before/after business and Phase 3 configuration counts identical.
+
+Screenshots: `en-scoring-tabs.png`, `en-readiness-configuration-missing.png`, `en-configuration-coverage.png`, `en-simulation-preview-banner.png`, `en-simulation-result.png`, the five `ar-*` equivalents, and `denied-readonly-state.png`.
+### 17.4 Console and network collectors
+
+Across EN, AR, related Performance routes, and the denied read-only flow:
+
+- `PRODUCTION_CONSOLE_ERRORS=0` unexpected; 7 intentional denied-user 403 browser resource messages were classified separately.
+- `PRODUCTION_PAGE_ERRORS=0`.
+- `PRODUCTION_HYDRATION_ERRORS=0`.
+- `PRODUCTION_FAILED_CHUNKS=0`.
+- `PRODUCTION_UNEXPECTED_5XX=0`.
+- `PRODUCTION_UNEXPECTED_4XX=0`; 7 intentional denied-user 403 responses were classified separately.
+- `PRODUCTION_FAILED_REQUIRED_NETWORK_CALLS=0`.
+- API response counts: `200=93`, `201=13`, classified `403=7`.
+
+The seven 403s came from the deliberately unauthorized user and are required RBAC evidence, not unexpected failures. No favicon console error was observed in this run.
+
+### 17.5 Phase 4 absence
+
+Evidence: `docs/proofs/performance-phase-3-production-proof-2026-11-25/production-phase4-absence.json`.
+
+- Database tables `EmployeePerformanceResult`, `EmployeePerformancePeriod`, `EmployeePerformanceKpiResult`, `DailyScore`, `MonthlyScore` and their mapped names are absent; broader pattern search for performance-result/ranking/leaderboard/bonus/penalty/payroll/disciplinary/termination tables returned no matches.
+- `PHASE4_PERSISTED_RESULT_TABLES_PRESENT=NO`; `PERSISTED_EMPLOYEE_EVALUATION_ROWS_CREATED=0`.
+- Deployed release scan covered 9,779 source/build files. No Phase 3/Phase 4 production implementation token for daily/monthly result persistence, ranking, leaderboard, bonus automation, penalty automation, performance payroll automation, disciplinary action, or termination recommendation was found.
+- Scheduler-token matches in performance files were zero. Token matches inside spec files are absence-guard tests that assert Phase 4 models do not exist.
+- The deployed release contains a pre-existing HR payroll module from `cf529880 Initial commit - fresh start`; the Phase 3 merge diff contains no HR/payroll files. This is not a Phase 3/Phase 4 performance automation.
+
+### 17.6 Mutation safety
+
+The following production counts were captured before and after all API/browser proof flows and were unchanged: `operational_people`, `maintenance_requests`, `production_runs`, `downtime_logs`, `inventory_movements`, `inventory_balances`, `performance_kpi_targets`, `performance_profile_kpi_weights`, `performance_kpi_scoring_rules`.
+
+`UNINTENDED_PRODUCTION_BUSINESS_WRITES=0`. Authentication/access audit activity is excluded as allowed session activity.
+
+### 17.7 Governance checks applied
+
+Applied register checks: P01, P05, P09, P10, P11, P12, P16, P17, P20, P26, P52 to P56, and PERSONNEL-P1-05, including same-origin HTTPS proof, env-only redacted JWT auth, scoped selectors, expected-403 classification, result-only simulation waiting, and no fabricated production fixtures. New reusable pitfalls discovered in this final closeout were appended as P57 and P58 in the governance register.

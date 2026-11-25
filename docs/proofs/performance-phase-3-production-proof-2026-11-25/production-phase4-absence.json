@@ -1,0 +1,113 @@
+{
+  "capturedAt": "2026-11-25T00:34:31.098Z",
+  "releaseRoot": "C:/ATsoftERP/App/perf-phase3-1a5df8fc",
+  "deployedCommit": "1a5df8fc6951613818aa88ebaa53ccb688919010",
+  "database": {
+    "requestedPhase4Models": [
+      "EmployeePerformanceResult",
+      "EmployeePerformancePeriod",
+      "EmployeePerformanceKpiResult",
+      "DailyScore",
+      "MonthlyScore"
+    ],
+    "requestedMappedTables": [
+      "employee_performance_results",
+      "employee_performance_periods",
+      "employee_performance_kpi_results",
+      "daily_scores",
+      "monthly_scores"
+    ],
+    "exactTableMatches": [],
+    "patternTableMatches": [],
+    "phase4PersistedRowsCreated": 0
+  },
+  "application": {
+    "scannedRoots": [
+      "apps/api/dist/src",
+      "apps/api/src",
+      "apps/api/prisma",
+      "apps/web/.next",
+      "apps/web/src"
+    ],
+    "scannedFiles": 9779,
+    "phase4IntroducedImplementationTokenMatches": [],
+    "absenceGuardTestTokenMatches": [
+      {
+        "file": "apps/api/dist/src/modules/performance/scoring/performance-scoring.gates.spec.js",
+        "token": "employeePerformanceResult"
+      },
+      {
+        "file": "apps/api/dist/src/modules/performance/scoring/performance-scoring.gates.spec.js",
+        "token": "employeePerformancePeriod"
+      },
+      {
+        "file": "apps/api/dist/src/modules/performance/scoring/performance-scoring.gates.spec.js",
+        "token": "employeePerformanceKpiResult"
+      },
+      {
+        "file": "apps/api/dist/src/modules/performance/scoring/performance-scoring.gates.spec.js",
+        "token": "dailyScore"
+      },
+      {
+        "file": "apps/api/dist/src/modules/performance/scoring/performance-scoring.gates.spec.js",
+        "token": "monthlyScore"
+      },
+      {
+        "file": "apps/api/dist/src/modules/performance/scoring/performance-scoring.service.spec.js",
+        "token": "employeePerformanceResult"
+      },
+      {
+        "file": "apps/api/src/modules/performance/scoring/performance-scoring.gates.spec.ts",
+        "token": "employeePerformanceResult"
+      },
+      {
+        "file": "apps/api/src/modules/performance/scoring/performance-scoring.gates.spec.ts",
+        "token": "employeePerformancePeriod"
+      },
+      {
+        "file": "apps/api/src/modules/performance/scoring/performance-scoring.gates.spec.ts",
+        "token": "employeePerformanceKpiResult"
+      },
+      {
+        "file": "apps/api/src/modules/performance/scoring/performance-scoring.gates.spec.ts",
+        "token": "dailyScore"
+      },
+      {
+        "file": "apps/api/src/modules/performance/scoring/performance-scoring.gates.spec.ts",
+        "token": "monthlyScore"
+      },
+      {
+        "file": "apps/api/src/modules/performance/scoring/performance-scoring.service.spec.ts",
+        "token": "employeePerformanceResult"
+      }
+    ],
+    "preExistingHrTokenMatches": [],
+    "preExistingHrNamedFiles": [
+      "apps/api/dist/src/modules/hr/dto/create-payroll.dto.d.ts",
+      "apps/api/dist/src/modules/hr/dto/create-payroll.dto.js",
+      "apps/api/dist/src/modules/hr/dto/create-payroll.dto.js.map",
+      "apps/api/dist/src/modules/hr/payroll/payroll.controller.d.ts",
+      "apps/api/dist/src/modules/hr/payroll/payroll.controller.js",
+      "apps/api/dist/src/modules/hr/payroll/payroll.controller.js.map",
+      "apps/api/dist/src/modules/hr/payroll/payroll.module.d.ts",
+      "apps/api/dist/src/modules/hr/payroll/payroll.module.js",
+      "apps/api/dist/src/modules/hr/payroll/payroll.module.js.map",
+      "apps/api/src/modules/hr/dto/create-payroll.dto.ts",
+      "apps/api/src/modules/hr/payroll/payroll.controller.ts",
+      "apps/api/src/modules/hr/payroll/payroll.module.ts"
+    ],
+    "otherPhase4NamedFiles": [],
+    "schedulerTokenMatchesInPerformanceFiles": [],
+    "preExistingHrProvenance": "Verified at deployed commit: git log for apps/api/src/modules/hr/payroll and create-payroll.dto.ts returns cf529880 Initial commit - fresh start; not introduced by Phase 3."
+  },
+  "gates": {
+    "phase4PersistedResultTablesPresent": "NO",
+    "dailyEvaluationEngineImplemented": "NO",
+    "monthlyResultImplemented": "NO",
+    "rankingImplemented": "NO",
+    "bonusAutomation": "NO",
+    "penaltyAutomation": "NO",
+    "payrollAutomation": "NO",
+    "persistedEmployeeEvaluationRowsCreated": 0
+  }
+}

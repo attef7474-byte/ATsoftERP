@@ -1,0 +1,62 @@
+{
+  "capturedAt": "2026-11-25T00:34:49.803Z",
+  "sourceEvidence": "production-api-proof.json",
+  "deployedCommit": "1a5df8fc6951613818aa88ebaa53ccb688919010",
+  "activeContext": {
+    "companyId": "cmum3jqh8001mf495zaankx05",
+    "branchId": "cmum5dwmo0000ro95qq4day18",
+    "companyCode": "COM-000042",
+    "branchCode": "BRN-000002"
+  },
+  "endpointStatuses": {
+    "targets": 200,
+    "weights": 200,
+    "scoring-rules": 200,
+    "configuration-coverage": 200,
+    "profiles-readiness-negative-probe": 400,
+    "simulate": 201,
+    "targets-other-context": 200
+  },
+  "success2xxEndpoints": [
+    "targets",
+    "weights",
+    "scoring-rules",
+    "configuration-coverage",
+    "simulate",
+    "targets-other-context"
+  ],
+  "readinessBoundary": {
+    "status": 400,
+    "messageKey": "common.validationFailed",
+    "field": "performanceProfileId",
+    "code": "validation.invalidReference",
+    "validProfileIdUsed": false,
+    "note": "No performance_profiles row exists in production; an existing operational-person id was used only as an invalid-reference probe. No valid-ID readiness proof is possible without creating production data."
+  },
+  "configurationMissingEvidence": {
+    "existingProfileCount": 0,
+    "configurationCoverage": {
+      "at": "2026-11-25T00:25:50.024Z",
+      "totalProfiles": 0,
+      "ready": 0,
+      "notReady": 0,
+      "missingWeight": 0,
+      "missingTarget": 0,
+      "missingRule": 0,
+      "invalidWeightTotal": 0,
+      "overlap": 0,
+      "profiles": []
+    },
+    "simulationStatus": "CONFIGURATION_MISSING",
+    "simulationPreviewOnly": true,
+    "simulationNoPersistedEvaluation": true,
+    "simulationLabel": "PREVIEW_ONLY_NOT_APPROVED"
+  },
+  "gates": {
+    "PRODUCTION_PHASE3_API_ENDPOINTS": "PASS",
+    "PRODUCTION_SIMULATION_READ_ONLY": "PASS",
+    "PRODUCTION_PHASE3_API_5XX": 0,
+    "UNINTENDED_PRODUCTION_BUSINESS_WRITES": 0
+  },
+  "classificationBasis": "Five Phase 3 endpoints returned 2xx. The readiness endpoint returned the deterministic validation.invalidReference boundary because production contains zero performance_profiles rows; no valid production profile ID exists and none was manufactured. Configuration coverage and simulation independently prove CONFIGURATION_MISSING with previewOnly=true and noPersistedEvaluation=true. This is accepted as the authorized configuration-missing production state, not a fabricated score."
+}

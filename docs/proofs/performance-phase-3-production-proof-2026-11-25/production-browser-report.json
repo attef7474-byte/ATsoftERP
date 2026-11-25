@@ -1,0 +1,938 @@
+{
+  "capturedAt": "2026-11-25T00:32:34.208Z",
+  "baseUrl": "https://DELL",
+  "apiBase": "/api/v1 (same origin)",
+  "deployedCommit": "1a5df8fc6951613818aa88ebaa53ccb688919010",
+  "authMode": "ENV_DERIVED_HS256_JWT_WITH_DB_QUERIED_USER_AND_CONTEXT",
+  "auth": {
+    "adminUserId": "cmrl31v0g0004ok95wxhdi9lm",
+    "adminContext": {
+      "companyId": "cmum3jqh8001mf495zaankx05",
+      "branchId": "cmum5dwmo0000ro95qq4day18",
+      "companyCode": "COM-000042",
+      "branchCode": "BRN-000002"
+    },
+    "deniedUserId": "cmrvc41md0000ys95gy4pegey",
+    "deniedContext": {
+      "companyId": "cmum3jqh8001mf495zaankx05",
+      "branchId": "cmum5dwmo0000ro95qq4day18"
+    },
+    "tokenStorage": "localStorage.accessToken [REDACTED]",
+    "cookies": "atsoft_locale only [REDACTED]"
+  },
+  "proofPerson": {
+    "id": "cms0se09l000mds953usq9a5f",
+    "code": "MP-000006",
+    "period": "2026-10-01..2026-10-31"
+  },
+  "localeChecks": {
+    "en": {
+      "expectedDir": "ltr",
+      "actualDir": "ltr",
+      "titlePresent": true
+    },
+    "ar": {
+      "expectedDir": "rtl",
+      "actualDir": "rtl",
+      "titlePresent": true
+    }
+  },
+  "surfaceChecks": {
+    "en": [
+      {
+        "key": "target",
+        "tabLabel": "Targets",
+        "panelTitle": "KPI Targets",
+        "present": true,
+        "raw": {
+          "rawTranslationKeyPatterns": [],
+          "rawEnumTokens": []
+        }
+      },
+      {
+        "key": "weight",
+        "tabLabel": "Weights",
+        "panelTitle": "Profile KPI Weights",
+        "present": true,
+        "raw": {
+          "rawTranslationKeyPatterns": [],
+          "rawEnumTokens": []
+        }
+      },
+      {
+        "key": "rule",
+        "tabLabel": "Scoring Rules",
+        "panelTitle": "KPI Scoring Rules",
+        "present": true,
+        "raw": {
+          "rawTranslationKeyPatterns": [],
+          "rawEnumTokens": []
+        }
+      },
+      {
+        "key": "readiness",
+        "tabLabel": "Readiness",
+        "panelTitle": "Profile Readiness",
+        "present": true,
+        "raw": {
+          "rawTranslationKeyPatterns": [],
+          "rawEnumTokens": []
+        },
+        "noProfileSelectOptions": 1,
+        "readinessButtonDisabled": false
+      },
+      {
+        "key": "coverage",
+        "tabLabel": "Configuration Coverage",
+        "panelTitle": "Scoring Configuration Coverage",
+        "present": true,
+        "raw": {
+          "rawTranslationKeyPatterns": [],
+          "rawEnumTokens": []
+        }
+      },
+      {
+        "key": "simulation",
+        "tabLabel": "Simulation",
+        "panelTitle": "Preview-Only Simulation",
+        "present": true,
+        "raw": {
+          "rawTranslationKeyPatterns": [],
+          "rawEnumTokens": []
+        },
+        "rawAfterSimulation": {
+          "rawTranslationKeyPatterns": [],
+          "rawEnumTokens": []
+        }
+      }
+    ],
+    "ar": [
+      {
+        "key": "target",
+        "tabLabel": "المستهدفات",
+        "panelTitle": "مستهدفات مؤشرات الأداء",
+        "present": true,
+        "raw": {
+          "rawTranslationKeyPatterns": [],
+          "rawEnumTokens": []
+        }
+      },
+      {
+        "key": "weight",
+        "tabLabel": "الأوزان",
+        "panelTitle": "أوزان مؤشرات أداء الملف",
+        "present": true,
+        "raw": {
+          "rawTranslationKeyPatterns": [],
+          "rawEnumTokens": []
+        }
+      },
+      {
+        "key": "rule",
+        "tabLabel": "قواعد التسجيل",
+        "panelTitle": "قواعد تسجيل مؤشرات الأداء",
+        "present": true,
+        "raw": {
+          "rawTranslationKeyPatterns": [],
+          "rawEnumTokens": []
+        }
+      },
+      {
+        "key": "readiness",
+        "tabLabel": "الجاهزية",
+        "panelTitle": "جاهزية الملف",
+        "present": true,
+        "raw": {
+          "rawTranslationKeyPatterns": [],
+          "rawEnumTokens": []
+        },
+        "noProfileSelectOptions": 1,
+        "readinessButtonDisabled": false
+      },
+      {
+        "key": "coverage",
+        "tabLabel": "تغطية الإعدادات",
+        "panelTitle": "تغطية إعدادات التسجيل",
+        "present": true,
+        "raw": {
+          "rawTranslationKeyPatterns": [],
+          "rawEnumTokens": []
+        }
+      },
+      {
+        "key": "simulation",
+        "tabLabel": "المحاكاة",
+        "panelTitle": "محاكاة المعاينة فقط",
+        "present": true,
+        "raw": {
+          "rawTranslationKeyPatterns": [],
+          "rawEnumTokens": []
+        },
+        "rawAfterSimulation": {
+          "rawTranslationKeyPatterns": [],
+          "rawEnumTokens": []
+        }
+      }
+    ]
+  },
+  "navigationChecks": [
+    {
+      "role": "en-admin",
+      "route": "/admin/performance/profiles",
+      "status": 200,
+      "heading": "Performance Profiles",
+      "raw": {
+        "rawTranslationKeyPatterns": [],
+        "rawEnumTokens": []
+      }
+    },
+    {
+      "role": "en-admin",
+      "route": "/admin/performance/kpis",
+      "status": 200,
+      "heading": "KPI Library",
+      "raw": {
+        "rawTranslationKeyPatterns": [],
+        "rawEnumTokens": []
+      }
+    },
+    {
+      "role": "en-admin",
+      "route": "/admin/performance/coverage",
+      "status": 200,
+      "heading": "Employee Coverage",
+      "raw": {
+        "rawTranslationKeyPatterns": [],
+        "rawEnumTokens": []
+      }
+    },
+    {
+      "role": "en-admin",
+      "route": "/admin/performance/kpi-coverage",
+      "status": 200,
+      "heading": "KPI Data Quality",
+      "raw": {
+        "rawTranslationKeyPatterns": [],
+        "rawEnumTokens": []
+      }
+    },
+    {
+      "role": "ar-admin",
+      "route": "/admin/performance/profiles",
+      "status": 200,
+      "heading": "ملفات تعريف الأداء",
+      "raw": {
+        "rawTranslationKeyPatterns": [],
+        "rawEnumTokens": []
+      }
+    },
+    {
+      "role": "ar-admin",
+      "route": "/admin/performance/kpis",
+      "status": 200,
+      "heading": "مكتبة مؤشرات الأداء",
+      "raw": {
+        "rawTranslationKeyPatterns": [],
+        "rawEnumTokens": []
+      }
+    },
+    {
+      "role": "ar-admin",
+      "route": "/admin/performance/coverage",
+      "status": 200,
+      "heading": "تغطية الموظفين",
+      "raw": {
+        "rawTranslationKeyPatterns": [],
+        "rawEnumTokens": []
+      }
+    },
+    {
+      "role": "ar-admin",
+      "route": "/admin/performance/kpi-coverage",
+      "status": 200,
+      "heading": "جودة بيانات مؤشرات الأداء",
+      "raw": {
+        "rawTranslationKeyPatterns": [],
+        "rawEnumTokens": []
+      }
+    }
+  ],
+  "permissionChecks": {
+    "noticePresent": true,
+    "visiblePhase3Tabs": 0,
+    "createButtons": 0,
+    "backendMutation": {
+      "status": 403,
+      "text": "{\"success\":false,\"statusCode\":403,\"message\":[\"Insufficient permissions\"],\"timestamp\":\"2026-11-25T00:32:34.187Z\",\"requestId\":\"7919f484-ad8d-437e-af5f-7e2f551ebd2f\",\"messageKey\":\"auth.insufficientPermissions\"}"
+    }
+  },
+  "collectors": {
+    "consoleErrorsTotal": 7,
+    "consoleErrorsUnexpected": [],
+    "expectedDeniedConsoleErrors": [
+      {
+        "role": "denied-readonly",
+        "type": "error",
+        "text": "Failed to load resource: the server responded with a status of 403 ()",
+        "url": "https://dell/api/v1/performance/kpis?page=1&limit=200"
+      },
+      {
+        "role": "denied-readonly",
+        "type": "error",
+        "text": "Failed to load resource: the server responded with a status of 403 ()",
+        "url": "https://dell/api/v1/performance/targets?page=1&limit=20"
+      },
+      {
+        "role": "denied-readonly",
+        "type": "error",
+        "text": "Failed to load resource: the server responded with a status of 403 ()",
+        "url": "https://dell/api/v1/notifications/unread-count"
+      },
+      {
+        "role": "denied-readonly",
+        "type": "error",
+        "text": "Failed to load resource: the server responded with a status of 403 ()",
+        "url": "https://dell/api/v1/production/operational-people?page=1&limit=200&isActive=true"
+      },
+      {
+        "role": "denied-readonly",
+        "type": "error",
+        "text": "Failed to load resource: the server responded with a status of 403 ()",
+        "url": "https://dell/api/v1/performance/profiles?page=1&limit=200"
+      },
+      {
+        "role": "denied-readonly",
+        "type": "error",
+        "text": "Failed to load resource: the server responded with a status of 403 ()",
+        "url": "https://dell/api/v1/settings/appearance"
+      },
+      {
+        "role": "denied-readonly",
+        "type": "error",
+        "text": "Failed to load resource: the server responded with a status of 403 ()",
+        "url": "https://dell/api/v1/performance/targets"
+      }
+    ],
+    "faviconConsoleErrors": [],
+    "consoleWarnings": [],
+    "pageErrors": [],
+    "hydrationErrors": [],
+    "requestFailures": [
+      {
+        "role": "en-admin",
+        "method": "GET",
+        "url": "https://dell/admin/dashboard?_rsc=SnES-IRCoTf1VxOK",
+        "resourceType": "fetch",
+        "failure": "net::ERR_ABORTED"
+      },
+      {
+        "role": "en-admin",
+        "method": "GET",
+        "url": "https://dell/admin/dashboard?_rsc=BDnXVvyKWSpd41ud",
+        "resourceType": "fetch",
+        "failure": "net::ERR_ABORTED"
+      },
+      {
+        "role": "en-admin",
+        "method": "GET",
+        "url": "https://dell/admin/profile?_rsc=BDnXVvyKWSpd41ud",
+        "resourceType": "fetch",
+        "failure": "net::ERR_ABORTED"
+      },
+      {
+        "role": "ar-admin",
+        "method": "GET",
+        "url": "https://dell/admin/profile?_rsc=dwrAnyGqWh9ZcOs4",
+        "resourceType": "fetch",
+        "failure": "net::ERR_ABORTED"
+      },
+      {
+        "role": "ar-admin",
+        "method": "GET",
+        "url": "https://dell/admin/dashboard?_rsc=dwrAnyGqWh9ZcOs4",
+        "resourceType": "fetch",
+        "failure": "net::ERR_ABORTED"
+      },
+      {
+        "role": "ar-admin",
+        "method": "GET",
+        "url": "https://dell/admin/dashboard?_rsc=SnES-IRCoTf1VxOK",
+        "resourceType": "fetch",
+        "failure": "net::ERR_ABORTED"
+      },
+      {
+        "role": "ar-admin",
+        "method": "GET",
+        "url": "https://dell/admin/profile?_rsc=SnES-IRCoTf1VxOK",
+        "resourceType": "fetch",
+        "failure": "net::ERR_ABORTED"
+      }
+    ],
+    "failedChunks": [],
+    "failedRequiredApi": [],
+    "httpErrorsTotal": 7,
+    "httpErrorsUnexpected": [],
+    "expectedFaviconHttpErrors": [],
+    "expectedDeniedAuthorizationHttpErrors": [
+      {
+        "role": "denied-readonly",
+        "status": 403,
+        "url": "https://dell/api/v1/performance/kpis?page=1&limit=200",
+        "method": "GET",
+        "resourceType": "fetch"
+      },
+      {
+        "role": "denied-readonly",
+        "status": 403,
+        "url": "https://dell/api/v1/performance/targets?page=1&limit=20",
+        "method": "GET",
+        "resourceType": "fetch"
+      },
+      {
+        "role": "denied-readonly",
+        "status": 403,
+        "url": "https://dell/api/v1/notifications/unread-count",
+        "method": "GET",
+        "resourceType": "fetch"
+      },
+      {
+        "role": "denied-readonly",
+        "status": 403,
+        "url": "https://dell/api/v1/production/operational-people?page=1&limit=200&isActive=true",
+        "method": "GET",
+        "resourceType": "fetch"
+      },
+      {
+        "role": "denied-readonly",
+        "status": 403,
+        "url": "https://dell/api/v1/performance/profiles?page=1&limit=200",
+        "method": "GET",
+        "resourceType": "fetch"
+      },
+      {
+        "role": "denied-readonly",
+        "status": 403,
+        "url": "https://dell/api/v1/settings/appearance",
+        "method": "GET",
+        "resourceType": "fetch"
+      },
+      {
+        "role": "denied-readonly",
+        "status": 403,
+        "url": "https://dell/api/v1/performance/targets",
+        "method": "POST",
+        "resourceType": "fetch"
+      }
+    ],
+    "documentResponses": [
+      {
+        "role": "en-admin",
+        "status": 200,
+        "url": "https://dell/admin/performance/scoring",
+        "method": "GET",
+        "resourceType": "document"
+      },
+      {
+        "role": "en-admin",
+        "status": 200,
+        "url": "https://dell/admin/performance/profiles",
+        "method": "GET",
+        "resourceType": "document"
+      },
+      {
+        "role": "en-admin",
+        "status": 200,
+        "url": "https://dell/admin/performance/kpis",
+        "method": "GET",
+        "resourceType": "document"
+      },
+      {
+        "role": "en-admin",
+        "status": 200,
+        "url": "https://dell/admin/performance/coverage",
+        "method": "GET",
+        "resourceType": "document"
+      },
+      {
+        "role": "en-admin",
+        "status": 200,
+        "url": "https://dell/admin/performance/kpi-coverage",
+        "method": "GET",
+        "resourceType": "document"
+      },
+      {
+        "role": "ar-admin",
+        "status": 200,
+        "url": "https://dell/admin/performance/scoring",
+        "method": "GET",
+        "resourceType": "document"
+      },
+      {
+        "role": "ar-admin",
+        "status": 200,
+        "url": "https://dell/admin/performance/profiles",
+        "method": "GET",
+        "resourceType": "document"
+      },
+      {
+        "role": "ar-admin",
+        "status": 200,
+        "url": "https://dell/admin/performance/kpis",
+        "method": "GET",
+        "resourceType": "document"
+      },
+      {
+        "role": "ar-admin",
+        "status": 200,
+        "url": "https://dell/admin/performance/coverage",
+        "method": "GET",
+        "resourceType": "document"
+      },
+      {
+        "role": "ar-admin",
+        "status": 200,
+        "url": "https://dell/admin/performance/kpi-coverage",
+        "method": "GET",
+        "resourceType": "document"
+      },
+      {
+        "role": "denied-readonly",
+        "status": 200,
+        "url": "https://dell/admin/performance/scoring",
+        "method": "GET",
+        "resourceType": "document"
+      }
+    ],
+    "apiResponseCountsByStatus": {
+      "200": 93,
+      "201": 13,
+      "403": 7
+    }
+  },
+  "countsBefore": {
+    "operational_people": 86,
+    "maintenance_requests": 22,
+    "production_runs": 4,
+    "downtime_logs": 5,
+    "inventory_movements": 125,
+    "inventory_balances": 24,
+    "performance_kpi_targets": 0,
+    "performance_profile_kpi_weights": 0,
+    "performance_kpi_scoring_rules": 0
+  },
+  "countsAfter": {
+    "operational_people": 86,
+    "maintenance_requests": 22,
+    "production_runs": 4,
+    "downtime_logs": 5,
+    "inventory_movements": 125,
+    "inventory_balances": 24,
+    "performance_kpi_targets": 0,
+    "performance_profile_kpi_weights": 0,
+    "performance_kpi_scoring_rules": 0
+  },
+  "countMutations": [],
+  "gates": [
+    {
+      "name": "en_DOCUMENT_HTTP_OK",
+      "result": "PASS",
+      "detail": 200
+    },
+    {
+      "name": "EN_LTR",
+      "result": "PASS",
+      "detail": {
+        "expectedDir": "ltr",
+        "actualDir": "ltr",
+        "titlePresent": true
+      }
+    },
+    {
+      "name": "en_READINESS_CONFIGURATION_MISSING_STATE",
+      "result": "PASS",
+      "detail": {
+        "selectCount": 1,
+        "buttonDisabled": false,
+        "note": "The button is enabled by permission; the page blocks an empty selection client-side. Production has zero profile options, so no readiness API call is possible."
+      }
+    },
+    {
+      "name": "en_SIMULATION_EMPLOYEE_EXISTS",
+      "result": "PASS",
+      "detail": {
+        "personId": "cms0se09l000mds953usq9a5f",
+        "optionCount": 47
+      }
+    },
+    {
+      "name": "en_SIMULATION_RESULT_PREVIEW_LABEL",
+      "result": "PASS",
+      "detail": null
+    },
+    {
+      "name": "en_SIMULATION_RESULT_PREVIEW_FLAGS",
+      "result": "PASS",
+      "detail": null
+    },
+    {
+      "name": "en_SIMULATION_RESULT_CONFIGURATION_MISSING",
+      "result": "PASS",
+      "detail": null
+    },
+    {
+      "name": "en_SIMULATION_RESULT_NO_RAW_LEAKS",
+      "result": "PASS",
+      "detail": {
+        "rawTranslationKeyPatterns": [],
+        "rawEnumTokens": []
+      }
+    },
+    {
+      "name": "EN_RAW_TRANSLATION_KEYS",
+      "result": "PASS",
+      "detail": [
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        []
+      ]
+    },
+    {
+      "name": "EN_RAW_ENUM_LEAKS",
+      "result": "PASS",
+      "detail": [
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        []
+      ]
+    },
+    {
+      "name": "en_NAV__admin_performance_profiles",
+      "result": "PASS",
+      "detail": {
+        "role": "en-admin",
+        "route": "/admin/performance/profiles",
+        "status": 200,
+        "heading": "Performance Profiles",
+        "raw": {
+          "rawTranslationKeyPatterns": [],
+          "rawEnumTokens": []
+        }
+      }
+    },
+    {
+      "name": "en_NAV__admin_performance_kpis",
+      "result": "PASS",
+      "detail": {
+        "role": "en-admin",
+        "route": "/admin/performance/kpis",
+        "status": 200,
+        "heading": "KPI Library",
+        "raw": {
+          "rawTranslationKeyPatterns": [],
+          "rawEnumTokens": []
+        }
+      }
+    },
+    {
+      "name": "en_NAV__admin_performance_coverage",
+      "result": "PASS",
+      "detail": {
+        "role": "en-admin",
+        "route": "/admin/performance/coverage",
+        "status": 200,
+        "heading": "Employee Coverage",
+        "raw": {
+          "rawTranslationKeyPatterns": [],
+          "rawEnumTokens": []
+        }
+      }
+    },
+    {
+      "name": "en_NAV__admin_performance_kpi_coverage",
+      "result": "PASS",
+      "detail": {
+        "role": "en-admin",
+        "route": "/admin/performance/kpi-coverage",
+        "status": 200,
+        "heading": "KPI Data Quality",
+        "raw": {
+          "rawTranslationKeyPatterns": [],
+          "rawEnumTokens": []
+        }
+      }
+    },
+    {
+      "name": "ar_DOCUMENT_HTTP_OK",
+      "result": "PASS",
+      "detail": 200
+    },
+    {
+      "name": "AR_RTL",
+      "result": "PASS",
+      "detail": {
+        "expectedDir": "rtl",
+        "actualDir": "rtl",
+        "titlePresent": true
+      }
+    },
+    {
+      "name": "ar_READINESS_CONFIGURATION_MISSING_STATE",
+      "result": "PASS",
+      "detail": {
+        "selectCount": 1,
+        "buttonDisabled": false,
+        "note": "The button is enabled by permission; the page blocks an empty selection client-side. Production has zero profile options, so no readiness API call is possible."
+      }
+    },
+    {
+      "name": "ar_SIMULATION_EMPLOYEE_EXISTS",
+      "result": "PASS",
+      "detail": {
+        "personId": "cms0se09l000mds953usq9a5f",
+        "optionCount": 47
+      }
+    },
+    {
+      "name": "ar_SIMULATION_RESULT_PREVIEW_LABEL",
+      "result": "PASS",
+      "detail": null
+    },
+    {
+      "name": "ar_SIMULATION_RESULT_PREVIEW_FLAGS",
+      "result": "PASS",
+      "detail": null
+    },
+    {
+      "name": "ar_SIMULATION_RESULT_CONFIGURATION_MISSING",
+      "result": "PASS",
+      "detail": null
+    },
+    {
+      "name": "ar_SIMULATION_RESULT_NO_RAW_LEAKS",
+      "result": "PASS",
+      "detail": {
+        "rawTranslationKeyPatterns": [],
+        "rawEnumTokens": []
+      }
+    },
+    {
+      "name": "AR_RAW_TRANSLATION_KEYS",
+      "result": "PASS",
+      "detail": [
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        []
+      ]
+    },
+    {
+      "name": "AR_RAW_ENUM_LEAKS",
+      "result": "PASS",
+      "detail": [
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        []
+      ]
+    },
+    {
+      "name": "ar_NAV__admin_performance_profiles",
+      "result": "PASS",
+      "detail": {
+        "role": "ar-admin",
+        "route": "/admin/performance/profiles",
+        "status": 200,
+        "heading": "ملفات تعريف الأداء",
+        "raw": {
+          "rawTranslationKeyPatterns": [],
+          "rawEnumTokens": []
+        }
+      }
+    },
+    {
+      "name": "ar_NAV__admin_performance_kpis",
+      "result": "PASS",
+      "detail": {
+        "role": "ar-admin",
+        "route": "/admin/performance/kpis",
+        "status": 200,
+        "heading": "مكتبة مؤشرات الأداء",
+        "raw": {
+          "rawTranslationKeyPatterns": [],
+          "rawEnumTokens": []
+        }
+      }
+    },
+    {
+      "name": "ar_NAV__admin_performance_coverage",
+      "result": "PASS",
+      "detail": {
+        "role": "ar-admin",
+        "route": "/admin/performance/coverage",
+        "status": 200,
+        "heading": "تغطية الموظفين",
+        "raw": {
+          "rawTranslationKeyPatterns": [],
+          "rawEnumTokens": []
+        }
+      }
+    },
+    {
+      "name": "ar_NAV__admin_performance_kpi_coverage",
+      "result": "PASS",
+      "detail": {
+        "role": "ar-admin",
+        "route": "/admin/performance/kpi-coverage",
+        "status": 200,
+        "heading": "جودة بيانات مؤشرات الأداء",
+        "raw": {
+          "rawTranslationKeyPatterns": [],
+          "rawEnumTokens": []
+        }
+      }
+    },
+    {
+      "name": "DENIED_DOCUMENT_HTTP_OK",
+      "result": "PASS",
+      "detail": 200
+    },
+    {
+      "name": "DENIED_PERMISSION_NOTICE",
+      "result": "PASS",
+      "detail": null
+    },
+    {
+      "name": "DENIED_PHASE3_TABS_ABSENT",
+      "result": "PASS",
+      "detail": {
+        "visibleTabCount": 0,
+        "tabLabels": [
+          "Targets",
+          "Weights",
+          "Scoring Rules",
+          "Readiness",
+          "Configuration Coverage",
+          "Simulation"
+        ]
+      }
+    },
+    {
+      "name": "DENIED_MUTATION_CONTROLS_ABSENT",
+      "result": "PASS",
+      "detail": {
+        "createButtons": 0
+      }
+    },
+    {
+      "name": "DENIED_BACKEND_MUTATION_403",
+      "result": "PASS",
+      "detail": {
+        "status": 403,
+        "text": "{\"success\":false,\"statusCode\":403,\"message\":[\"Insufficient permissions\"],\"timestamp\":\"2026-11-25T00:32:34.187Z\",\"requestId\":\"7919f484-ad8d-437e-af5f-7e2f551ebd2f\",\"messageKey\":\"auth.insufficientPermissions\"}"
+      }
+    },
+    {
+      "name": "BROWSER_PROOF_NO_BUSINESS_OR_CONFIG_WRITES",
+      "result": "PASS",
+      "detail": {
+        "countMutations": [],
+        "countsBefore": {
+          "operational_people": 86,
+          "maintenance_requests": 22,
+          "production_runs": 4,
+          "downtime_logs": 5,
+          "inventory_movements": 125,
+          "inventory_balances": 24,
+          "performance_kpi_targets": 0,
+          "performance_profile_kpi_weights": 0,
+          "performance_kpi_scoring_rules": 0
+        },
+        "countsAfter": {
+          "operational_people": 86,
+          "maintenance_requests": 22,
+          "production_runs": 4,
+          "downtime_logs": 5,
+          "inventory_movements": 125,
+          "inventory_balances": 24,
+          "performance_kpi_targets": 0,
+          "performance_profile_kpi_weights": 0,
+          "performance_kpi_scoring_rules": 0
+        }
+      }
+    },
+    {
+      "name": "REQUIRED_PERFORMANCE_API_RESPONSES_OBSERVED",
+      "result": "PASS",
+      "detail": {
+        "simulate": 2,
+        "coverage": 2
+      }
+    },
+    {
+      "name": "PRODUCTION_CONSOLE_ERRORS",
+      "result": "PASS",
+      "detail": {
+        "unexpectedConsole": [],
+        "faviconConsoleCount": 0
+      }
+    },
+    {
+      "name": "PRODUCTION_PAGE_ERRORS",
+      "result": "PASS",
+      "detail": []
+    },
+    {
+      "name": "PRODUCTION_HYDRATION_ERRORS",
+      "result": "PASS",
+      "detail": []
+    },
+    {
+      "name": "PRODUCTION_FAILED_CHUNKS",
+      "result": "PASS",
+      "detail": []
+    },
+    {
+      "name": "PRODUCTION_UNEXPECTED_5XX",
+      "result": "PASS",
+      "detail": []
+    },
+    {
+      "name": "PRODUCTION_UNEXPECTED_4XX",
+      "result": "PASS",
+      "detail": []
+    },
+    {
+      "name": "PRODUCTION_FAILED_REQUIRED_NETWORK_CALLS",
+      "result": "PASS",
+      "detail": []
+    }
+  ],
+  "failures": [],
+  "screenshots": [
+    "C:/Users/attef/AppData/Local/Temp/opencode/p3-production-release/production-browser-screenshots/ar-configuration-coverage.png",
+    "C:/Users/attef/AppData/Local/Temp/opencode/p3-production-release/production-browser-screenshots/ar-readiness-configuration-missing.png",
+    "C:/Users/attef/AppData/Local/Temp/opencode/p3-production-release/production-browser-screenshots/ar-scoring-tabs.png",
+    "C:/Users/attef/AppData/Local/Temp/opencode/p3-production-release/production-browser-screenshots/ar-simulation-preview-banner.png",
+    "C:/Users/attef/AppData/Local/Temp/opencode/p3-production-release/production-browser-screenshots/ar-simulation-result.png",
+    "C:/Users/attef/AppData/Local/Temp/opencode/p3-production-release/production-browser-screenshots/denied-readonly-state.png",
+    "C:/Users/attef/AppData/Local/Temp/opencode/p3-production-release/production-browser-screenshots/en-configuration-coverage.png",
+    "C:/Users/attef/AppData/Local/Temp/opencode/p3-production-release/production-browser-screenshots/en-readiness-configuration-missing.png",
+    "C:/Users/attef/AppData/Local/Temp/opencode/p3-production-release/production-browser-screenshots/en-scoring-tabs.png",
+    "C:/Users/attef/AppData/Local/Temp/opencode/p3-production-release/production-browser-screenshots/en-simulation-preview-banner.png",
+    "C:/Users/attef/AppData/Local/Temp/opencode/p3-production-release/production-browser-screenshots/en-simulation-result.png"
+  ]
+}
