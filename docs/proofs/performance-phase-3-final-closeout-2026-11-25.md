@@ -12,7 +12,7 @@ Release status: **deployed to production and closed after final read-only produc
 - Production backup: `C:\ATsoftERP\Backups\ATsoftERP_DB_20261125_022815.bak` (`COPY_ONLY=True`, uncompressed, `RESTORE VERIFYONLY WITH CHECKSUM` PASS)
 - Production migration: `20261124150000_add_performance_scoring_rules_phase3`, applied once; schema proof and post-migration operational counts PASS
 - Final integration worktree: `C:\Users\attef\AppData\Local\Temp\opencode\ATsofterp-main-p3merge` on `main-p3merge`, tracking `origin/main`
-- The ordinary workspace remained on its unrelated dirty branch and was not touched by this closeout.
+- The ordinary workspace remained on its unrelated dirty branch and was not touched by this closeout. Phase 4 is ready because every mandatory Phase 3 gate passed, but Phase 4 was not started; see section 18.
 
 ## 2. Exact scope completed
 
@@ -312,3 +312,24 @@ The following production counts were captured before and after all API/browser p
 ### 17.7 Governance checks applied
 
 Applied register checks: P01, P05, P09, P10, P11, P12, P16, P17, P20, P26, P52 to P56, and PERSONNEL-P1-05, including same-origin HTTPS proof, env-only redacted JWT auth, scoped selectors, expected-403 classification, result-only simulation waiting, and no fabricated production fixtures. New reusable pitfalls discovered in this final closeout were appended as P57 and P58 in the governance register.
+
+## 18. Final readiness declaration
+
+`PERFORMANCE_PHASE_4_READY=YES`
+`PERFORMANCE_PHASE_4_STARTED=NO`
+`POST_DEPLOY_RUNTIME_CODE_CHANGES=0`
+`POST_DEPLOY_DOCS_ONLY=YES`
+
+Phase 4 readiness means the original mandatory Phase 3 acceptance gates are satisfied. It does not authorize or start Phase 4 implementation. No Phase 4 model, migration, scheduler, evaluation engine, or persisted result was created.
+
+Verification basis, drawn only from already-recorded evidence (no tests, migrations, deployments, or service restarts were rerun for this correction):
+
+- **Production readiness limitation:** `production-api-gate-classification.json` records `existingProfileCount=0`, `totalProfiles=0`, and the deterministic `400 common.validationFailed / validation.invalidReference` on `performanceProfileId` with `validProfileIdUsed=false`. Configuration coverage returned all zero counters and simulation returned `CONFIGURATION_MISSING`, `previewOnly=true`, `noPersistedEvaluation=true`. The 400 is the expected invalid-reference boundary for an absent profile, not an application defect.
+- **Positive readiness on the disposable clone:** `docs/proofs/performance-phase-3-final-validation-2026-11-25/runtime-gate-evidence.json` records `PROFILE_READINESS_RUNTIME=PASS`, a `READINESS_READY` case with `status=READY_FOR_SCORING` and `issues=[]`, and negative cases for missing weight/target/rule, invalid weight total, and overlap. The backend runtime gate on `ATsoftERP_P3CLONE_20261124_060045` records 45 top-level gates as PASS or 0, 44 required gates with `MISSING=[]` / `FAILED=[]`, and 79 low-level assertions passed. The feature tip `c777d48336be8969e1f0365501bca2337656b0dc` used for that runtime proof and the deployed merge `1a5df8fc6951613818aa88ebaa53ccb688919010` have identical trees (`git diff` empty), so no code change was introduced between clone proof and deployment.
+- **Production API:** `PRODUCTION_PHASE3_API_ENDPOINTS=PASS`, `PRODUCTION_SIMULATION_READ_ONLY=PASS`, `PRODUCTION_PHASE3_API_5XX=0`, `UNINTENDED_PRODUCTION_BUSINESS_WRITES=0`.
+- **Production browser:** 42 gates, 0 failures; zero unexpected console errors, page errors, hydration errors, failed chunks, unexpected 5xx/4xx, and failed required network calls. Seven denied-user 403 console messages and HTTP responses are classified separately as required RBAC evidence.
+- **Tenant and RBAC:** the second authorized production context returned 200 with zero foreign-company rows; the denied production user saw the permission notice, no Phase 3 tabs or create controls, and `403 auth.insufficientPermissions` on mutation. Clone proof recorded `CROSS_TENANT_PHASE3_LEAKS=0`, `BODY_TENANT_OVERRIDE_BYPASS=0`, `UNAUTHORIZED_PHASE3_MUTATIONS=0`.
+- **Migration and integrity:** the reviewed additive migration was applied once after a verified `COPY_ONLY` backup (`RESTORE VERIFYONLY WITH CHECKSUM` PASS); post-migration operational counts were unchanged. Clone proof recorded `DATA_INTEGRITY=PASS`, `PHASE4_TABLES_ABSENT=[]`, `PERSISTED_EMPLOYEE_EVALUATION_ROWS_CREATED=0`.
+- **Health and deployment:** API, web, and HTTPS proxy health PASS; API/Web/Caddy services running; Caddy hash unchanged. Deployed runtime SHA equals `PERFORMANCE_PHASE3_MAIN_COMMIT=1a5df8fc6951613818aa88ebaa53ccb688919010`; release build `8kHfi6fkC6Xj69HQ59QCD`.
+- **Git integration proof:** worktree `main-p3merge` tracks `origin/main`, `HEAD=origin/main`, ahead/behind `0/0`, clean tree; the unrelated dirty workspace was not touched. No force push, rebase, reset, clean, or tag was performed.
+- **Phase 4 absence:** `PHASE4_PERSISTED_RESULT_TABLES_PRESENT=NO`; exact and pattern table matches empty; zero Phase 4 implementation and scheduler token matches across 9,779 deployed files. Pre-existing HR payroll files originate from the initial commit and were not changed by Phase 3.
